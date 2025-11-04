@@ -81,15 +81,26 @@ class CarRepository(private val apiService: KarhebtiApiService = RetrofitClient.
 
     suspend fun getMyCars(): Resource<List<CarResponse>> = withContext(Dispatchers.IO) {
         try {
+            android.util.Log.d("CarRepository", "Fetching my cars...")
             val response = apiService.getMyCars()
 
+            android.util.Log.d("CarRepository", "Get cars response code: ${response.code()}")
+            android.util.Log.d("CarRepository", "Get cars response successful: ${response.isSuccessful}")
+
             if (response.isSuccessful && response.body() != null) {
+                android.util.Log.d("CarRepository", "Successfully fetched ${response.body()!!.size} cars")
                 Resource.Success(response.body()!!)
             } else {
-                Resource.Error("Erreur lors de la récupération des voitures")
+                val errorBody = response.errorBody()?.string()
+                val errorMsg = "Erreur lors de la récupération des voitures: ${response.code()} - $errorBody"
+                android.util.Log.e("CarRepository", errorMsg)
+                Resource.Error(errorMsg)
             }
         } catch (e: Exception) {
-            Resource.Error("Erreur réseau: ${e.localizedMessage}")
+            val errorMsg = "Erreur réseau: ${e.message}"
+            android.util.Log.e("CarRepository", errorMsg, e)
+            e.printStackTrace()
+            Resource.Error(errorMsg)
         }
     }
 
@@ -101,16 +112,29 @@ class CarRepository(private val apiService: KarhebtiApiService = RetrofitClient.
         typeCarburant: String
     ): Resource<CarResponse> = withContext(Dispatchers.IO) {
         try {
+            android.util.Log.d("CarRepository", "Creating car: $marque $modele $annee $immatriculation $typeCarburant")
             val request = CreateCarRequest(marque, modele, annee, immatriculation, typeCarburant)
             val response = apiService.createCar(request)
 
+            android.util.Log.d("CarRepository", "Response code: ${response.code()}")
+            android.util.Log.d("CarRepository", "Response message: ${response.message()}")
+            android.util.Log.d("CarRepository", "Response successful: ${response.isSuccessful}")
+            android.util.Log.d("CarRepository", "Response body: ${response.body()}")
+
             if (response.isSuccessful && response.body() != null) {
+                android.util.Log.d("CarRepository", "Success: Car created - ${response.body()}")
                 Resource.Success(response.body()!!)
             } else {
-                Resource.Error("Erreur lors de la création de la voiture")
+                val errorBody = response.errorBody()?.string()
+                val errorMsg = "Erreur lors de la création: ${response.code()} - $errorBody"
+                android.util.Log.e("CarRepository", errorMsg)
+                Resource.Error(errorMsg)
             }
         } catch (e: Exception) {
-            Resource.Error("Erreur réseau: ${e.localizedMessage}")
+            val errorMsg = "Erreur réseau: ${e.message}"
+            android.util.Log.e("CarRepository", errorMsg, e)
+            e.printStackTrace()
+            Resource.Error(errorMsg)
         }
     }
 

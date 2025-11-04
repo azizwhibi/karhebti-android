@@ -193,4 +193,3 @@ interface KarhebtiApiService {
         @Query("rayon") rayon: Double? = null
     ): Response<List<GarageRecommendation>>
 }
-
