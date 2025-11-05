@@ -336,13 +336,13 @@ fun MaintenanceCardBackendIntegrated(
                         style = MaterialTheme.typography.titleMedium,
                         color = TextPrimary
                     )
-                    maintenance.voiture?.let { car ->
+                /*    maintenance.voiture?.let { car ->
                         Text(
                             text = "${car.marque} ${car.modele}",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary
                         )
-                    }
+                    }*/
                 }
 
                 Row(
@@ -411,25 +411,6 @@ fun MaintenanceCardBackendIntegrated(
                     style = MaterialTheme.typography.titleMedium,
                     color = DeepPurple
                 )
-            }
-
-            maintenance.garage?.let { garage ->
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Store,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = TextSecondary
-                    )
-                    Text(
-                        text = garage.nom,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
-                    )
-                }
             }
         }
     }

@@ -344,13 +344,6 @@ fun DocumentCardBackendIntegrated(
                     style = MaterialTheme.typography.titleMedium,
                     color = TextPrimary
                 )
-                document.voiture?.let { car ->
-                    Text(
-                        text = "${car.marque} ${car.modele}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
-                    )
-                }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically

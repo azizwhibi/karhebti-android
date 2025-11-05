@@ -40,15 +40,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     try {
                         val userData = result.data!!
                         android.util.Log.d("AuthViewModel", "User data received: ${userData.user}")
-                        android.util.Log.d("AuthViewModel", "User ID: ${userData.user.id}")
-                        android.util.Log.d("AuthViewModel", "User email: ${userData.user.email}")
-
-                        // Handle null id by using email as fallback
-                        val userId = userData.user.id ?: userData.user.email
 
                         tokenManager.saveToken(userData.accessToken)
                         tokenManager.saveUser(UserData(
-                            id = userId,
+                            id = userData.user.id,
                             email = userData.user.email,
                             nom = userData.user.nom,
                             prenom = userData.user.prenom,
@@ -76,10 +71,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 _authState.value = result
 
                 if (result is Resource.Success) {
-                    val userId = result.data!!.user.id ?: result.data.user.email
-                    tokenManager.saveToken(result.data.accessToken)
+                    tokenManager.saveToken(result.data!!.accessToken)
                     tokenManager.saveUser(UserData(
-                        id = userId,
+                        id = result.data.user.id,
                         email = result.data.user.email,
                         nom = result.data.user.nom,
                         prenom = result.data.user.prenom,

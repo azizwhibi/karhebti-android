@@ -72,11 +72,10 @@ class TokenManager(context: Context) {
 }
 
 data class UserData(
-    val id: String,
+    val id: String?, // Changed to nullable to match backend response
     val email: String,
     val nom: String,
     val prenom: String,
     val role: String,
     val telephone: String? = null
 )
-

@@ -1,6 +1,7 @@
 package com.example.karhebti_android.data.api
 
 import com.google.gson.annotations.SerializedName
+import com.google.gson.annotations.JsonAdapter
 import java.util.Date
 
 // Auth DTOs
@@ -79,7 +80,8 @@ data class CarResponse(
     val annee: Int,
     val immatriculation: String,
     val typeCarburant: String,
-    val user: UserResponse? = null,
+    @JsonAdapter(FlexibleUserDeserializer::class)
+    val user: String? = null, // Can be either user ID string or user object
     val createdAt: Date,
     val updatedAt: Date
 )
@@ -105,8 +107,9 @@ data class MaintenanceResponse(
     val type: String,
     val date: Date,
     val cout: Double,
-    val garage: GarageResponse? = null,
-    val voiture: CarResponse? = null,
+    val garage: String? = null, // Changed from GarageResponse to String (garage ID)
+    val voiture: String? = null, // Changed from CarResponse to String (car ID)
+    val user: String? = null, // User ID who created the maintenance
     val createdAt: Date,
     val updatedAt: Date
 )
@@ -163,7 +166,8 @@ data class DocumentResponse(
     val dateEmission: Date,
     val dateExpiration: Date,
     val fichier: String,
-    val voiture: CarResponse? = null,
+    @JsonAdapter(FlexibleCarDeserializer::class)
+    val voiture: String? = null, // Can be either car ID string or car object
     val createdAt: Date,
     val updatedAt: Date
 )
@@ -184,7 +188,7 @@ data class PartResponse(
     val type: String,
     val dateInstallation: Date,
     val kilometrageRecommande: Int,
-    val voiture: CarResponse? = null,
+    val voiture: String? = null, // Changed from CarResponse to String (car ID)
     val createdAt: Date,
     val updatedAt: Date
 )
@@ -273,7 +277,8 @@ data class ServiceResponse(
     val type: String,
     val coutMoyen: Double,
     val dureeEstimee: Int,
-    val garage: GarageResponse? = null,
+    @JsonAdapter(FlexibleGarageDeserializer::class)
+    val garage: String? = null, // Can be either garage ID string or garage object
     val createdAt: Date? = null,
     val updatedAt: Date? = null
 )
