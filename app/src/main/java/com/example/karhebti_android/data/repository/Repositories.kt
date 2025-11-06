@@ -143,33 +143,57 @@ class CarRepository(private val apiService: KarhebtiApiService = RetrofitClient.
         marque: String? = null,
         modele: String? = null,
         annee: Int? = null,
-        typeCarburant: String? = null
+        typeCarburant: String? = null,
+        kilometrage: Int? = null,
+        statut: String? = null,
+        prochainEntretien: String? = null,
+        joursProchainEntretien: Int? = null,
+        imageUrl: String? = null
     ): Resource<CarResponse> = withContext(Dispatchers.IO) {
         try {
-            val request = UpdateCarRequest(marque, modele, annee, typeCarburant)
+            android.util.Log.d("CarRepository", "Updating car: $id")
+            val request = UpdateCarRequest(
+                marque, modele, annee, typeCarburant,
+                kilometrage, statut, prochainEntretien, joursProchainEntretien, imageUrl
+            )
             val response = apiService.updateCar(id, request)
 
+            android.util.Log.d("CarRepository", "Update response code: ${response.code()}")
             if (response.isSuccessful && response.body() != null) {
+                android.util.Log.d("CarRepository", "Car updated successfully")
                 Resource.Success(response.body()!!)
             } else {
-                Resource.Error("Erreur lors de la modification")
+                val errorBody = response.errorBody()?.string()
+                val errorMsg = "Erreur lors de la modification: ${response.code()} - $errorBody"
+                android.util.Log.e("CarRepository", errorMsg)
+                Resource.Error(errorMsg)
             }
         } catch (e: Exception) {
-            Resource.Error("Erreur réseau: ${e.localizedMessage}")
+            val errorMsg = "Erreur réseau: ${e.message}"
+            android.util.Log.e("CarRepository", errorMsg, e)
+            Resource.Error(errorMsg)
         }
     }
 
     suspend fun deleteCar(id: String): Resource<MessageResponse> = withContext(Dispatchers.IO) {
         try {
+            android.util.Log.d("CarRepository", "Deleting car: $id")
             val response = apiService.deleteCar(id)
 
+            android.util.Log.d("CarRepository", "Delete response code: ${response.code()}")
             if (response.isSuccessful && response.body() != null) {
+                android.util.Log.d("CarRepository", "Car deleted successfully")
                 Resource.Success(response.body()!!)
             } else {
-                Resource.Error("Erreur lors de la suppression")
+                val errorBody = response.errorBody()?.string()
+                val errorMsg = "Erreur lors de la suppression: ${response.code()} - $errorBody"
+                android.util.Log.e("CarRepository", errorMsg)
+                Resource.Error(errorMsg)
             }
         } catch (e: Exception) {
-            Resource.Error("Erreur réseau: ${e.localizedMessage}")
+            val errorMsg = "Erreur réseau: ${e.message}"
+            android.util.Log.e("CarRepository", errorMsg, e)
+            Resource.Error(errorMsg)
         }
     }
 }

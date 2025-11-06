@@ -1,5 +1,6 @@
 package com.example.karhebti_android.ui.screens
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -41,9 +42,33 @@ fun LoginScreen(
         factory = ViewModelFactory(context.applicationContext as android.app.Application)
     )
 
+    // SharedPreferences for Remember Me
+    val prefs = remember { context.getSharedPreferences("login_prefs", Context.MODE_PRIVATE) }
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var rememberMe by remember { mutableStateOf(false) }
+
+    // Load saved credentials on launch
+    LaunchedEffect(Unit) {
+        val savedEmail = prefs.getString("email", "") ?: ""
+        val savedPassword = prefs.getString("password", "") ?: ""
+        val savedRemember = prefs.getBoolean("remember_me", false)
+
+        if (savedRemember && savedEmail.isNotEmpty()) {
+            email = savedEmail
+            // Decode password (simple Base64 for demo - use proper encryption in production)
+            if (savedPassword.isNotEmpty()) {
+                try {
+                    password = String(android.util.Base64.decode(savedPassword, android.util.Base64.DEFAULT))
+                } catch (e: Exception) {
+                    password = ""
+                }
+            }
+            rememberMe = savedRemember
+        }
+    }
 
     // Validation states
     var emailError by remember { mutableStateOf<String?>(null) }
@@ -58,6 +83,24 @@ fun LoginScreen(
         when (val state = authState) {
             is Resource.Success -> {
                 android.util.Log.d("LoginScreen", "Login Success - User: ${state.data?.user?.email}")
+
+                // Save credentials if Remember Me is checked
+                with(prefs.edit()) {
+                    if (rememberMe) {
+                        putString("email", email)
+                        // Encode password (simple Base64 for demo - use proper encryption in production)
+                        val encodedPassword = android.util.Base64.encodeToString(
+                            password.toByteArray(),
+                            android.util.Base64.DEFAULT
+                        )
+                        putString("password", encodedPassword)
+                        putBoolean("remember_me", true)
+                    } else {
+                        clear()
+                    }
+                    apply()
+                }
+
                 try {
                     onLoginSuccess()
                     android.util.Log.d("LoginScreen", "Navigation triggered successfully")
@@ -226,6 +269,30 @@ fun LoginScreen(
                     singleLine = true,
                     enabled = authState !is Resource.Loading
                 )
+
+                // Remember Me Checkbox
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { rememberMe = !rememberMe },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    Checkbox(
+                        checked = rememberMe,
+                        onCheckedChange = { rememberMe = it },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = DeepPurple,
+                            uncheckedColor = TextSecondary
+                        )
+                    )
+                    Text(
+                        text = "Se souvenir de moi",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextPrimary,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
 
                 // Login Button
                 Button(

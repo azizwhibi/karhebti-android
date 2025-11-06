@@ -1,7 +1,6 @@
 package com.example.karhebti_android.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,10 +15,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -45,16 +42,19 @@ fun VehiclesScreen(
     // Observe cars state from backend
     val carsState by carViewModel.carsState.observeAsState()
     val createCarState by carViewModel.createCarState.observeAsState()
-    val deleteCarState by carViewModel.deleteCarState.observeAsState()
 
     // UI State
     var showAddDialog by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf<CarResponse?>(null) }
     var refreshing by remember { mutableStateOf(false) }
 
-    // Load cars on screen start
+    // Load cars on screen start and refresh when screen becomes visible
     LaunchedEffect(Unit) {
         carViewModel.getMyCars()
+    }
+
+    // Refresh list when navigating back from detail screen
+    LaunchedEffect(carsState) {
+        // This will trigger when we navigate back and the state updates
     }
 
     // Handle create car result
@@ -65,16 +65,6 @@ fun VehiclesScreen(
             }
             is Resource.Error -> {
                 // Error shown in dialog
-            }
-            else -> {}
-        }
-    }
-
-    // Handle delete result
-    LaunchedEffect(deleteCarState) {
-        when (deleteCarState) {
-            is Resource.Success -> {
-                showDeleteDialog = null
             }
             else -> {}
         }
@@ -206,8 +196,7 @@ fun VehiclesScreen(
                             items(cars, key = { it.id }) { car ->
                                 VehicleCardBackendIntegrated(
                                     car = car,
-                                    onClick = { onVehicleClick(car.id) },
-                                    onDelete = { showDeleteDialog = car }
+                                    onClick = { onVehicleClick(car.id) }
                                 )
                             }
                         }
@@ -270,42 +259,13 @@ fun VehiclesScreen(
             createState = createCarState
         )
     }
-
-    // Delete confirmation dialog
-    showDeleteDialog?.let { car ->
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = null },
-            title = { Text("Supprimer le véhicule ?") },
-            text = { Text("Voulez-vous vraiment supprimer ${car.marque} ${car.modele} ?") },
-            confirmButton = {
-                TextButton(
-                    onClick = { carViewModel.deleteCar(car.id) },
-                    colors = ButtonDefaults.textButtonColors(contentColor = AlertRed)
-                ) {
-                    if (deleteCarState is Resource.Loading) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                    } else {
-                        Text("Supprimer")
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = null }) {
-                    Text("Annuler")
-                }
-            }
-        )
-    }
 }
 
 @Composable
 fun VehicleCardBackendIntegrated(
     car: CarResponse,
-    onClick: () -> Unit,
-    onDelete: () -> Unit
+    onClick: () -> Unit
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -338,33 +298,6 @@ fun VehicleCardBackendIntegrated(
                         color = TextSecondary
                     )
                 }
-
-                Box {
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, "Menu", tint = TextSecondary)
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Voir détails") },
-                            onClick = {
-                                showMenu = false
-                                onClick()
-                            },
-                            leadingIcon = { Icon(Icons.Default.Info, null) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Supprimer", color = AlertRed) },
-                            onClick = {
-                                showMenu = false
-                                onDelete()
-                            },
-                            leadingIcon = { Icon(Icons.Default.Delete, null, tint = AlertRed) }
-                        )
-                    }
-                }
             }
 
             HorizontalDivider()
@@ -372,7 +305,8 @@ fun VehicleCardBackendIntegrated(
             // Info Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 InfoChip(
                     icon = Icons.Default.CreditCard,

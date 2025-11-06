@@ -80,6 +80,18 @@ fun NavGraph(
             )
         }
 
+        composable(Screen.VehicleDetail.route) { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getString("vehicleId") ?: return@composable
+
+            VehicleDetailScreen(
+                vehicleId = vehicleId,
+                onBackClick = { navController.popBackStack() },
+                onEditClick = { car ->
+                    // Edit handled within VehicleDetailScreen
+                }
+            )
+        }
+
         composable(Screen.Entretiens.route) {
             EntretiensScreen(
                 onBackClick = { navController.popBackStack() }

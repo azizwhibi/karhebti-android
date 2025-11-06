@@ -41,6 +41,9 @@ fun SettingsScreen(
         }
     )
 
+    // SharedPreferences for clearing Remember Me on logout
+    val prefs = remember { context.getSharedPreferences("login_prefs", android.content.Context.MODE_PRIVATE) }
+
     var notificationsEnabled by remember { mutableStateOf(true) }
     var darkModeEnabled by remember { mutableStateOf(false) }
     var twoFactorEnabled by remember { mutableStateOf(false) }
@@ -301,7 +304,16 @@ fun SettingsScreen(
 
             // Logout Button
             Button(
-                onClick = onLogout,
+                onClick = {
+                    // Clear saved credentials
+                    prefs.edit().clear().apply()
+
+                    // Logout from auth system
+                    authViewModel.logout()
+
+                    // Navigate to login
+                    onLogout()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),

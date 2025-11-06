@@ -69,7 +69,12 @@ data class UpdateCarRequest(
     val marque: String? = null,
     val modele: String? = null,
     val annee: Int? = null,
-    val typeCarburant: String? = null
+    val typeCarburant: String? = null,
+    val kilometrage: Int? = null,
+    val statut: String? = null,
+    val prochainEntretien: String? = null,
+    val joursProchainEntretien: Int? = null,
+    val imageUrl: String? = null
 )
 
 data class CarResponse(
@@ -80,6 +85,11 @@ data class CarResponse(
     val annee: Int,
     val immatriculation: String,
     val typeCarburant: String,
+    val kilometrage: Int? = null,
+    val statut: String? = null, // "BON", "ATTENTION", "URGENT"
+    val prochainEntretien: String? = null,
+    val joursProchainEntretien: Int? = null,
+    val imageUrl: String? = null,
     @JsonAdapter(FlexibleUserDeserializer::class)
     val user: String? = null, // Can be either user ID string or user object
     val createdAt: Date,

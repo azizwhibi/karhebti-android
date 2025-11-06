@@ -116,6 +116,9 @@ class CarViewModel(application: Application) : AndroidViewModel(application) {
     private val _createCarState = MutableLiveData<Resource<CarResponse>>()
     val createCarState: LiveData<Resource<CarResponse>> = _createCarState
 
+    private val _updateCarState = MutableLiveData<Resource<CarResponse>>()
+    val updateCarState: LiveData<Resource<CarResponse>> = _updateCarState
+
     private val _deleteCarState = MutableLiveData<Resource<MessageResponse>>()
     val deleteCarState: LiveData<Resource<MessageResponse>> = _deleteCarState
 
@@ -139,10 +142,26 @@ class CarViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateCar(id: String, marque: String? = null, modele: String? = null,
-                  annee: Int? = null, typeCarburant: String? = null) {
+    fun updateCar(
+        id: String,
+        marque: String? = null,
+        modele: String? = null,
+        annee: Int? = null,
+        typeCarburant: String? = null,
+        kilometrage: Int? = null,
+        statut: String? = null,
+        prochainEntretien: String? = null,
+        joursProchainEntretien: Int? = null,
+        imageUrl: String? = null
+    ) {
+        _updateCarState.value = Resource.Loading()
         viewModelScope.launch {
-            val result = repository.updateCar(id, marque, modele, annee, typeCarburant)
+            val result = repository.updateCar(
+                id, marque, modele, annee, typeCarburant,
+                kilometrage, statut, prochainEntretien, joursProchainEntretien, imageUrl
+            )
+            _updateCarState.value = result
+
             if (result is Resource.Success) {
                 getMyCars() // Refresh list
             }
