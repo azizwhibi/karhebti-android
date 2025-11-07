@@ -188,8 +188,14 @@ class MaintenanceViewModel(application: Application) : AndroidViewModel(applicat
     private val _maintenancesState = MutableLiveData<Resource<List<MaintenanceResponse>>>()
     val maintenancesState: LiveData<Resource<List<MaintenanceResponse>>> = _maintenancesState
 
+    private val _maintenanceState = MutableLiveData<Resource<MaintenanceResponse>>()
+    val maintenanceState: LiveData<Resource<MaintenanceResponse>> = _maintenanceState
+
     private val _createMaintenanceState = MutableLiveData<Resource<MaintenanceResponse>>()
     val createMaintenanceState: LiveData<Resource<MaintenanceResponse>> = _createMaintenanceState
+
+    private val _updateMaintenanceState = MutableLiveData<Resource<MaintenanceResponse>>()
+    val updateMaintenanceState: LiveData<Resource<MaintenanceResponse>> = _updateMaintenanceState
 
     fun getMaintenances() {
         _maintenancesState.value = Resource.Loading()
@@ -208,6 +214,22 @@ class MaintenanceViewModel(application: Application) : AndroidViewModel(applicat
             if (result is Resource.Success) {
                 getMaintenances() // Refresh list
             }
+        }
+    }
+
+    fun getMaintenanceById(id: String) {
+        _maintenanceState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.getMaintenanceById(id)
+            _maintenanceState.value = result
+        }
+    }
+
+    fun updateMaintenanceDate(id: String, date: String) {
+        _updateMaintenanceState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.updateMaintenance(id, UpdateMaintenanceRequest(date = date))
+            _updateMaintenanceState.value = result
         }
     }
 

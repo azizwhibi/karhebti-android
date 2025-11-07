@@ -116,12 +116,15 @@ data class MaintenanceResponse(
     val id: String,
     val type: String,
     val date: Date,
-    val cout: Double,
-    val garage: String? = null, // Changed from GarageResponse to String (garage ID)
-    val voiture: String? = null, // Changed from CarResponse to String (car ID)
+    val cout: Double = 0.0,
+    val status: String? = "pending",
+    @JsonAdapter(FlexibleGarageDeserializer::class)
+    val garage: String? = null, // garage ID or extracted from object
+    @JsonAdapter(FlexibleCarDeserializer::class)
+    val voiture: String? = null, // car ID or extracted from object
     val user: String? = null, // User ID who created the maintenance
-    val createdAt: Date,
-    val updatedAt: Date
+    val createdAt: Date? = null,
+    val updatedAt: Date? = null
 )
 
 // Garage DTOs

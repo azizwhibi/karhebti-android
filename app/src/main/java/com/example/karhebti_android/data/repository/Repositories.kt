@@ -214,6 +214,30 @@ class MaintenanceRepository(private val apiService: KarhebtiApiService = Retrofi
         }
     }
 
+    suspend fun getMaintenanceById(id: String): Resource<MaintenanceResponse> = withContext(Dispatchers.IO) {
+        try {
+            android.util.Log.d("MaintenanceRepository", "Fetching maintenance by ID: $id")
+            val response = apiService.getMaintenance(id)
+            android.util.Log.d("MaintenanceRepository", "Response code: ${response.code()}")
+            android.util.Log.d("MaintenanceRepository", "Response body: ${response.body()}")
+
+            if (response.isSuccessful && response.body() != null) {
+                android.util.Log.d("MaintenanceRepository", "Successfully fetched maintenance")
+                Resource.Success(response.body()!!)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                val errorMsg = "Erreur: ${response.code()} - ${response.message()} - $errorBody"
+                android.util.Log.e("MaintenanceRepository", errorMsg)
+                Resource.Error(errorMsg)
+            }
+        } catch (e: Exception) {
+            val errorMsg = "Erreur réseau: ${e.message}"
+            android.util.Log.e("MaintenanceRepository", errorMsg, e)
+            e.printStackTrace()
+            Resource.Error(errorMsg)
+        }
+    }
+
     suspend fun createMaintenance(
         type: String,
         date: String,
@@ -229,6 +253,19 @@ class MaintenanceRepository(private val apiService: KarhebtiApiService = Retrofi
                 Resource.Success(response.body()!!)
             } else {
                 Resource.Error("Erreur lors de la création de l'entretien")
+            }
+        } catch (e: Exception) {
+            Resource.Error("Erreur réseau: ${e.localizedMessage}")
+        }
+    }
+
+    suspend fun updateMaintenance(id: String, request: UpdateMaintenanceRequest): Resource<MaintenanceResponse> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.updateMaintenance(id, request)
+            if (response.isSuccessful && response.body() != null) {
+                Resource.Success(response.body()!!)
+            } else {
+                Resource.Error("Erreur lors de la mise à jour")
             }
         } catch (e: Exception) {
             Resource.Error("Erreur réseau: ${e.localizedMessage}")

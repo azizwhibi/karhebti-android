@@ -1,7 +1,9 @@
 package com.example.karhebti_android.ui.screens
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -35,7 +37,8 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EntretiensScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onMaintenanceClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val maintenanceViewModel: MaintenanceViewModel = viewModel(
@@ -197,7 +200,9 @@ fun EntretiensScreen(
                                 items(displayedMaintenances, key = { it.id }) { maintenance ->
                                     MaintenanceCardBackendIntegrated(
                                         maintenance = maintenance,
-                                        onDelete = { showDeleteDialog = maintenance }
+                                        onDelete = { showDeleteDialog = maintenance },
+                                        onClick = { onMaintenanceClick(maintenance.id) },
+                                        cars = carsState?.data ?: emptyList() // Pass cars list
                                     )
                                 }
                             }
@@ -288,7 +293,9 @@ fun EntretiensScreen(
 @Composable
 fun MaintenanceCardBackendIntegrated(
     maintenance: MaintenanceResponse,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onClick: () -> Unit,
+    cars: List<com.example.karhebti_android.data.api.CarResponse> = emptyList()
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
@@ -310,10 +317,21 @@ fun MaintenanceCardBackendIntegrated(
         else -> "Prévu"
     }
 
+    // Look up the car from the cars list
+    val car = maintenance.voiture?.let { carId ->
+        cars.find { it.id == carId }
+    }
+
+    // Check if maintenance is not confirmed - use yellow border
+    val isUnconfirmed = maintenance.status != "confirmed"
+    val borderColor = if (isUnconfirmed) AccentYellow else urgencyColor.copy(alpha = 0.3f)
+    val borderWidth = if (isUnconfirmed) 3.dp else 2.dp
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(2.dp, urgencyColor.copy(alpha = 0.3f), RoundedCornerShape(16.dp)),
+            .border(borderWidth, borderColor, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -336,13 +354,13 @@ fun MaintenanceCardBackendIntegrated(
                         style = MaterialTheme.typography.titleMedium,
                         color = TextPrimary
                     )
-                /*    maintenance.voiture?.let { car ->
+                    car?.let {
                         Text(
-                            text = "${car.marque} ${car.modele}",
+                            text = "${it.marque} ${it.modele}",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary
                         )
-                    }*/
+                    }
                 }
 
                 Row(
@@ -407,7 +425,7 @@ fun MaintenanceCardBackendIntegrated(
                 }
 
                 Text(
-                    text = "${maintenance.cout} DH",
+                    text = "${maintenance.cout} DT",
                     style = MaterialTheme.typography.titleMedium,
                     color = DeepPurple
                 )
@@ -426,15 +444,34 @@ fun AddMaintenanceDialog(
     garagesState: Resource<*>?
 ) {
     var type by remember { mutableStateOf("vidange") }
-    var date by remember { mutableStateOf("") }
+    var selectedDate by remember { mutableStateOf<Date?>(null) }
     var cout by remember { mutableStateOf("") }
     var selectedCarId by remember { mutableStateOf("") }
     var selectedGarageId by remember { mutableStateOf("") }
     var expandedType by remember { mutableStateOf(false) }
     var expandedCar by remember { mutableStateOf(false) }
     var expandedGarage by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     val types = listOf("vidange", "révision", "réparation", "pneus", "freins")
+    val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
+    val isoDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.FRANCE)
+
+    // Extract cars and garages from state
+    val cars = remember(carsState) {
+        (carsState as? Resource.Success<List<com.example.karhebti_android.data.api.CarResponse>>)?.data ?: emptyList()
+    }
+
+    val allGarages = remember(garagesState) {
+        (garagesState as? Resource.Success<List<com.example.karhebti_android.data.api.GarageResponse>>)?.data ?: emptyList()
+    }
+
+    // Filter garages by selected service type
+    val filteredGarages = remember(type, allGarages) {
+        allGarages.filter { garage ->
+            garage.typeService.contains(type)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -447,10 +484,10 @@ fun AddMaintenanceDialog(
                     onExpandedChange = { expandedType = it }
                 ) {
                     OutlinedTextField(
-                        value = type,
+                        value = type.replaceFirstChar { it.uppercase() },
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Type") },
+                        label = { Text("Type d'entretien") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedType) },
                         modifier = Modifier.fillMaxWidth().menuAnchor()
                     )
@@ -460,9 +497,10 @@ fun AddMaintenanceDialog(
                     ) {
                         types.forEach { item ->
                             DropdownMenuItem(
-                                text = { Text(item) },
+                                text = { Text(item.replaceFirstChar { it.uppercase() }) },
                                 onClick = {
                                     type = item
+                                    selectedGarageId = "" // Reset garage when type changes
                                     expandedType = false
                                 }
                             )
@@ -470,40 +508,150 @@ fun AddMaintenanceDialog(
                     }
                 }
 
+                // Car selection dropdown
+                ExposedDropdownMenuBox(
+                    expanded = expandedCar,
+                    onExpandedChange = { expandedCar = it }
+                ) {
+                    OutlinedTextField(
+                        value = if (selectedCarId.isNotBlank()) {
+                            cars.find { it.id == selectedCarId }?.let { "${it.marque} ${it.modele}" } ?: ""
+                        } else "",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Véhicule") },
+                        placeholder = { Text("Sélectionner un véhicule") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCar) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        isError = cars.isEmpty()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedCar,
+                        onDismissRequest = { expandedCar = false }
+                    ) {
+                        if (cars.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("Aucun véhicule disponible", color = TextSecondary) },
+                                onClick = { expandedCar = false }
+                            )
+                        } else {
+                            cars.forEach { car ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text("${car.marque} ${car.modele}")
+                                            Text(
+                                                car.immatriculation,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = TextSecondary
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedCarId = car.id
+                                        expandedCar = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Garage selection dropdown (filtered by service type)
+                ExposedDropdownMenuBox(
+                    expanded = expandedGarage,
+                    onExpandedChange = { expandedGarage = it }
+                ) {
+                    OutlinedTextField(
+                        value = if (selectedGarageId.isNotBlank()) {
+                            filteredGarages.find { it.id == selectedGarageId }?.nom ?: ""
+                        } else "",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Garage") },
+                        placeholder = { Text("Sélectionner un garage") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedGarage) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        isError = filteredGarages.isEmpty()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedGarage,
+                        onDismissRequest = { expandedGarage = false }
+                    ) {
+                        if (filteredGarages.isEmpty()) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Aucun garage pour ce service",
+                                        color = TextSecondary,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                },
+                                onClick = { expandedGarage = false }
+                            )
+                        } else {
+                            filteredGarages.forEach { garage ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(garage.nom)
+                                            Text(
+                                                garage.adresse,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = TextSecondary
+                                            )
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Star,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(12.dp),
+                                                    tint = AccentYellow
+                                                )
+                                                Text(
+                                                    garage.noteUtilisateur.toString(),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = TextSecondary
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedGarageId = garage.id
+                                        expandedGarage = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Date picker field
                 OutlinedTextField(
-                    value = date,
-                    onValueChange = { date = it },
-                    label = { Text("Date (YYYY-MM-DD)") },
-                    placeholder = { Text("2024-12-31") },
-                    singleLine = true,
+                    value = selectedDate?.let { dateFormat.format(it) } ?: "",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Date") },
+                    placeholder = { Text("Sélectionner une date") },
+                    trailingIcon = {
+                        IconButton(onClick = { showDatePicker = true }) {
+                            Icon(Icons.Default.CalendarToday, "Choisir date")
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 OutlinedTextField(
                     value = cout,
                     onValueChange = { cout = it.filter { c -> c.isDigit() || c == '.' } },
-                    label = { Text("Coût (DH)") },
+                    label = { Text("Coût (DT)") },
+                    placeholder = { Text("Montant en dinars") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Car selection (simplified - you'd show actual car data)
-                OutlinedTextField(
-                    value = selectedCarId,
-                    onValueChange = { selectedCarId = it },
-                    label = { Text("ID Voiture") },
-                    placeholder = { Text("Entrez l'ID de la voiture") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Garage selection (simplified)
-                OutlinedTextField(
-                    value = selectedGarageId,
-                    onValueChange = { selectedGarageId = it },
-                    label = { Text("ID Garage") },
-                    placeholder = { Text("Entrez l'ID du garage") },
-                    singleLine = true,
+                    leadingIcon = {
+                        Text("DT", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -526,17 +674,27 @@ fun AddMaintenanceDialog(
             Button(
                 onClick = {
                     val coutValue = cout.toDoubleOrNull()
-                    if (type.isNotBlank() && date.isNotBlank() && coutValue != null &&
+                    val dateString = selectedDate?.let { isoDateFormat.format(it) }
+                    if (type.isNotBlank() && dateString != null && coutValue != null &&
                         selectedCarId.isNotBlank() && selectedGarageId.isNotBlank()) {
-                        onAdd(type, date, coutValue, selectedGarageId, selectedCarId)
+                        onAdd(type, dateString, coutValue, selectedGarageId, selectedCarId)
                     }
                 },
                 enabled = createState !is Resource.Loading &&
-                         type.isNotBlank() && date.isNotBlank() &&
+                         type.isNotBlank() && selectedDate != null &&
                          cout.toDoubleOrNull() != null &&
-                         selectedCarId.isNotBlank() && selectedGarageId.isNotBlank()
+                         selectedCarId.isNotBlank() && selectedGarageId.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = DeepPurple)
             ) {
-                Text("Ajouter")
+                if (createState is Resource.Loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Ajouter")
+                }
             }
         },
         dismissButton = {
@@ -548,6 +706,27 @@ fun AddMaintenanceDialog(
             }
         }
     )
+
+    // Date Picker Dialog
+    if (showDatePicker) {
+        val calendar = Calendar.getInstance()
+        selectedDate?.let { calendar.time = it }
+
+        DatePickerDialog(
+            LocalContext.current,
+            { _, year, month, dayOfMonth ->
+                calendar.set(year, month, dayOfMonth)
+                selectedDate = calendar.time
+                showDatePicker = false
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).apply {
+            setOnCancelListener { showDatePicker = false }
+            show()
+        }
+    }
 }
 
 @Preview(showBackground = true)
