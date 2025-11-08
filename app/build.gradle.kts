@@ -56,6 +56,11 @@ dependencies {
     // LiveData integration for Compose
     implementation("androidx.compose.runtime:runtime-livedata:1.7.5")
 
+    // Lifecycle-aware state collection for Compose
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.2")
+
+
+
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp)

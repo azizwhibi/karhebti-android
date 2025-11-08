@@ -1,8 +1,11 @@
 package com.example.karhebti_android.ui.screens
 
+import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -13,96 +16,91 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.example.karhebti_android.data.api.CarResponse
+import com.example.karhebti_android.data.api.MaintenanceResponse
 import com.example.karhebti_android.data.repository.Resource
-import com.example.karhebti_android.ui.theme.*
 import com.example.karhebti_android.viewmodel.CarViewModel
+import com.example.karhebti_android.viewmodel.MaintenanceViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VehicleDetailScreen(
     vehicleId: String,
-    onBackClick: () -> Unit,
-    onEditClick: (CarResponse) -> Unit = {}
+    onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
     val carViewModel: CarViewModel = viewModel(
         factory = ViewModelFactory(context.applicationContext as android.app.Application)
     )
+    val maintenanceViewModel: MaintenanceViewModel = viewModel(
+        factory = ViewModelFactory(context.applicationContext as android.app.Application)
+    )
 
     val carsState by carViewModel.carsState.observeAsState()
     val deleteCarState by carViewModel.deleteCarState.observeAsState()
-    val updateCarState by carViewModel.updateCarState.observeAsState()
+    val maintenancesState by maintenanceViewModel.maintenancesState.observeAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showEditDialog by remember { mutableStateOf(false) }
+    var showAddMaintenanceDialog by remember { mutableStateOf(false) }
+    var hasNavigatedBack by remember { mutableStateOf(false) }
 
-    // Load cars if not already loaded
     LaunchedEffect(Unit) {
-        if (carsState == null) {
-            carViewModel.getMyCars()
-        }
+        if (carsState == null) carViewModel.getMyCars()
+        maintenanceViewModel.getMaintenances()
     }
 
-    // Handle delete result - Navigate back IMMEDIATELY on success
+    DisposableEffect(Unit) {
+        onDispose { carViewModel.resetDeleteState() }
+    }
+
     LaunchedEffect(deleteCarState) {
-        if (deleteCarState is Resource.Success) {
-            // Navigate back immediately when delete succeeds
+        if (deleteCarState is Resource.Success && !hasNavigatedBack) {
+            hasNavigatedBack = true
+            carViewModel.getMyCars()
+            carViewModel.resetDeleteState()
             onBackClick()
         }
     }
 
-    // Handle update result
-    LaunchedEffect(updateCarState) {
-        when (updateCarState) {
-            is Resource.Success -> {
-                showEditDialog = false
-                carViewModel.getMyCars() // Refresh the car data
-            }
-            else -> {}
-        }
-    }
-
-    // Find the specific car
-    val car = remember(carsState, vehicleId) {
-        (carsState as? Resource.Success)?.data?.find { it.id == vehicleId }
-    }
-
-    // If currently deleting, show loading overlay instead of normal UI
     if (deleteCarState is Resource.Loading) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(SoftWhite),
+                .background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                CircularProgressIndicator(color = AlertRed)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 Text(
                     "Suppression en cours...",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = TextPrimary
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             }
         }
         return
     }
 
-    // If delete was successful, don't render anything (navigation is happening)
-    if (deleteCarState is Resource.Success) {
-        return
+    val car = remember(carsState, vehicleId) {
+        (carsState as? Resource.Success)?.data?.find { it.id == vehicleId }
+    }
+
+    val carMaintenances = remember(maintenancesState, vehicleId) {
+        (maintenancesState as? Resource.Success)?.data?.filter { it.voiture == vehicleId } ?: emptyList()
     }
 
     Scaffold(
@@ -111,23 +109,17 @@ fun VehicleDetailScreen(
                 title = { Text("Détails du véhicule") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour")
-                    }
-                },
-                actions = {
-                    if (car != null) {
-                        IconButton(onClick = { showEditDialog = true }) {
-                            Icon(Icons.Default.Edit, "Modifier", tint = Color.White)
-                        }
-                        IconButton(onClick = { showDeleteDialog = true }) {
-                            Icon(Icons.Default.Delete, "Supprimer", tint = AlertRed)
-                        }
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Retour",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DeepPurple,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
         }
@@ -135,23 +127,17 @@ fun VehicleDetailScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(SoftWhite)
+                .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
         ) {
             when {
                 carsState is Resource.Loading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = DeepPurple)
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
                 car == null -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -160,9 +146,13 @@ fun VehicleDetailScreen(
                                 Icons.Default.Error,
                                 contentDescription = null,
                                 modifier = Modifier.size(64.dp),
-                                tint = AlertRed
+                                tint = MaterialTheme.colorScheme.error
                             )
-                            Text("Véhicule non trouvé", style = MaterialTheme.typography.titleLarge)
+                            Text(
+                                "Véhicule non trouvé",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
                             Button(onClick = onBackClick) {
                                 Text("Retour")
                             }
@@ -170,40 +160,46 @@ fun VehicleDetailScreen(
                     }
                 }
                 else -> {
-                    VehicleDetailContent(car = car)
+                    VehicleDetailContent(
+                        car = car,
+                        maintenances = carMaintenances,
+                        maintenancesLoading = maintenancesState is Resource.Loading,
+                        onDeleteClick = { showDeleteDialog = true },
+                        onAddMaintenanceClick = { showAddMaintenanceDialog = true }
+                    )
                 }
             }
         }
     }
 
-    // Delete confirmation dialog
     if (showDeleteDialog && car != null) {
         AlertDialog(
-            onDismissRequest = {
-                if (deleteCarState !is Resource.Loading) {
-                    showDeleteDialog = false
-                }
-            },
+            onDismissRequest = { showDeleteDialog = false },
             title = { Text("Supprimer le véhicule ?") },
             text = {
-                Text("Êtes-vous sûr de vouloir supprimer ${car.marque} ${car.modele} ? Cette action est irréversible.")
+                Text(
+                    "Voulez-vous vraiment supprimer ${car.marque} ${car.modele} ? Cette action est irréversible."
+                )
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        carViewModel.deleteCar(car.id)
                         showDeleteDialog = false
+                        carViewModel.deleteCar(car.id)
                     },
                     enabled = deleteCarState !is Resource.Loading,
-                    colors = ButtonDefaults.buttonColors(containerColor = AlertRed)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
                 ) {
                     if (deleteCarState is Resource.Loading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onError
                         )
                     } else {
-                        Text("Oui, supprimer", color = Color.White)
+                        Text("Supprimer")
                     }
                 }
             },
@@ -211,237 +207,202 @@ fun VehicleDetailScreen(
                 TextButton(
                     onClick = { showDeleteDialog = false },
                     enabled = deleteCarState !is Resource.Loading
-                ) {
-                    Text("Annuler")
-                }
+                ) { Text("Annuler") }
             }
         )
     }
 
-    // Edit vehicle dialog
-    if (showEditDialog && car != null) {
-        EditVehicleDialogInDetail(
-            car = car,
-            onDismiss = { showEditDialog = false },
-            carViewModel = carViewModel,
-            updateCarState = updateCarState
+    if (showAddMaintenanceDialog && car != null) {
+        AddMaintenanceDialogWithPrefilledCar(
+            onDismiss = { showAddMaintenanceDialog = false },
+            prefilledCarId = vehicleId,
+            onSuccess = {
+                showAddMaintenanceDialog = false
+                maintenanceViewModel.getMaintenances()
+            }
         )
     }
 }
 
 @Composable
-fun VehicleDetailContent(car: CarResponse) {
+fun VehicleDetailContent(
+    car: CarResponse,
+    maintenances: List<MaintenanceResponse>,
+    maintenancesLoading: Boolean,
+    onDeleteClick: () -> Unit,
+    onAddMaintenanceClick: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Vehicle Image
-        if (car.imageUrl != null) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(car.imageUrl)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = "Image du véhicule",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    error = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_gallery)
+        // Hero section with theme gradient
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+                        )
+                    )
                 )
-            }
-        } else {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.LightGray.copy(alpha = 0.3f))
-            ) {
+                .padding(24.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    Icon(
+                        imageVector = Icons.Default.DirectionsCar,
+                        contentDescription = null,
+                        modifier = Modifier.size(36.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+
+                Text(
+                    text = "${car.marque} ${car.modele}",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontSize = 32.sp
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            Icons.Default.DirectionsCar,
+                            imageVector = Icons.Default.CreditCard,
                             contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = TextSecondary.copy(alpha = 0.5f)
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            "Aucune image",
-                            color = TextSecondary,
-                            style = MaterialTheme.typography.bodyMedium
+                            text = car.immatriculation,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 18.sp
                         )
                     }
                 }
             }
         }
 
-        // Vehicle Title Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = DeepPurple),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "${car.marque} ${car.modele}",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Text(
-                    text = "Année ${car.annee}",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White.copy(alpha = 0.9f)
-                )
-            }
-        }
-
-        // Status Card (if available)
-        car.statut?.let { status ->
-            StatusCard(status = status)
-        }
-
-        // Basic Information
-        DetailSection(title = "Informations de base") {
-            DetailRow(
-                icon = Icons.Default.DriveEta,
-                label = "Marque",
-                value = car.marque,
-                color = DeepPurple
-            )
-            DetailRow(
-                icon = Icons.Default.DirectionsCar,
-                label = "Modèle",
-                value = car.modele,
-                color = DeepPurple
-            )
-            DetailRow(
-                icon = Icons.Default.CalendarToday,
-                label = "Année",
-                value = car.annee.toString(),
-                color = AccentBlue
-            )
-            DetailRow(
-                icon = Icons.Default.CreditCard,
-                label = "Immatriculation",
-                value = car.immatriculation,
-                color = AccentOrange
-            )
-            DetailRow(
-                icon = Icons.Default.LocalGasStation,
-                label = "Type de carburant",
-                value = car.typeCarburant,
-                color = AccentGreen
-            )
-        }
-
-        // Mileage and Maintenance
-        DetailSection(title = "Entretien") {
-            DetailRow(
-                icon = Icons.Default.Speed,
-                label = "Kilométrage",
-                value = if (car.kilometrage != null) "${car.kilometrage} km" else "Non défini",
-                color = AccentBlue
-            )
-
-            car.prochainEntretien?.let { date ->
-                DetailRow(
-                    icon = Icons.Default.Build,
-                    label = "Prochain entretien",
-                    value = date,
-                    color = AccentOrange
-                )
-            }
-
-            car.joursProchainEntretien?.let { days ->
-                DetailRow(
-                    icon = Icons.Default.Schedule,
-                    label = "Jours restants",
-                    value = "$days jours",
-                    color = when {
-                        days <= 7 -> AlertRed
-                        days <= 30 -> AccentOrange
-                        else -> AccentGreen
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun StatusCard(status: String) {
-    val (statusText, statusColor, statusIcon) = when (status.uppercase()) {
-        "BON" -> Triple("Bon état", AccentGreen, Icons.Default.CheckCircle)
-        "ATTENTION" -> Triple("Attention nécessaire", AccentOrange, Icons.Default.Warning)
-        "URGENT" -> Triple("Entretien urgent", AlertRed, Icons.Default.Error)
-        else -> Triple(status, TextSecondary, Icons.Default.Info)
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.15f)),
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(2.dp, statusColor)
-    ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Icon(
-                imageVector = statusIcon,
-                contentDescription = null,
-                tint = statusColor,
-                modifier = Modifier.size(32.dp)
+            Text(
+                text = "Caractéristiques",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
             )
-            Column {
-                Text(
-                    text = "Statut du véhicule",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = TextSecondary
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ModernInfoCard(
+                    icon = Icons.Default.CalendarToday,
+                    label = "Année",
+                    value = car.annee.toString(),
+                    accent = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f)
                 )
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = statusColor
+                ModernInfoCard(
+                    icon = Icons.Default.LocalGasStation,
+                    label = "Carburant",
+                    value = car.typeCarburant,
+                    accent = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.weight(1f)
                 )
             }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            MaintenanceSectionCard(
+                maintenances = maintenances,
+                isLoading = maintenancesLoading,
+                onAddClick = onAddMaintenanceClick
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            Text(
+                text = "Actions",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+            OutlinedButton(
+                onClick = onDeleteClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                ),
+                border = ButtonDefaults.outlinedButtonBorder.copy(
+                    brush = Brush.linearGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.error,
+                            MaterialTheme.colorScheme.error
+                        )
+                    )
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    "Supprimer ce véhicule",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
 
 @Composable
-fun DetailSection(
-    title: String,
-    content: @Composable ColumnScope.() -> Unit
+fun ModernInfoCard(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    accent: Color,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier
@@ -449,58 +410,220 @@ fun DetailSection(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = DeepPurple
-            )
-            HorizontalDivider()
-            content()
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(accent.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
+                )
+            }
         }
     }
 }
 
 @Composable
-fun DetailRow(
-    icon: ImageVector,
-    label: String,
-    value: String,
-    color: Color
+fun MaintenanceSectionCard(
+    maintenances: List<MaintenanceResponse>,
+    isLoading: Boolean,
+    onAddClick: () -> Unit
 ) {
-    Row(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = color.copy(alpha = 0.15f),
-            modifier = Modifier.size(40.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.fillMaxSize()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(24.dp)
-                )
+                Column {
+                    Text(
+                        text = "Entretiens",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "${maintenances.size} entretien(s)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Button(
+                    onClick = onAddClick,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Ajouter",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            } else if (maintenances.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Build,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                        Text(
+                            text = "Aucun entretien",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "Commencez par ajouter un entretien",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    maintenances.take(5).forEach { maintenance ->
+                        CompactMaintenanceCard(maintenance = maintenance)
+                    }
+                    if (maintenances.size > 5) {
+                        Text(
+                            text = "Et ${maintenances.size - 5} autre(s)...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
             }
         }
-        Column(modifier = Modifier.weight(1f)) {
+    }
+}
+
+@Composable
+fun CompactMaintenanceCard(maintenance: MaintenanceResponse) {
+    val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.FRENCH)
+    val formattedDate = runCatching { dateFormat.format(maintenance.date) }.getOrElse { "Date inconnue" }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Build,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = maintenance.type.replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = formattedDate,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = TextSecondary
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = TextPrimary
+                text = "${maintenance.cout} DT",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
             )
         }
     }
@@ -508,141 +631,250 @@ fun DetailRow(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditVehicleDialogInDetail(
-    car: CarResponse,
+fun AddMaintenanceDialogWithPrefilledCar(
     onDismiss: () -> Unit,
-    carViewModel: CarViewModel,
-    updateCarState: Resource<CarResponse>?
+    prefilledCarId: String,
+    onSuccess: () -> Unit
 ) {
-    var marque by remember { mutableStateOf(car.marque) }
-    var modele by remember { mutableStateOf(car.modele) }
-    var annee by remember { mutableStateOf(car.annee.toString()) }
-    var immatriculation by remember { mutableStateOf(car.immatriculation) }
-    var typeCarburant by remember { mutableStateOf(car.typeCarburant) }
-    var expanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val maintenanceViewModel: MaintenanceViewModel = viewModel(
+        factory = ViewModelFactory(context.applicationContext as android.app.Application)
+    )
+    val garageViewModel: com.example.karhebti_android.viewmodel.GarageViewModel = viewModel(
+        factory = ViewModelFactory(context.applicationContext as android.app.Application)
+    )
+    val carViewModel: CarViewModel = viewModel(
+        factory = ViewModelFactory(context.applicationContext as android.app.Application)
+    )
 
-    val carburants = listOf("Essence", "Diesel", "Électrique", "Hybride", "GPL")
+    val createMaintenanceState by maintenanceViewModel.createMaintenanceState.observeAsState()
+    val garagesState by garageViewModel.garagesState.observeAsState()
+    val carsState by carViewModel.carsState.observeAsState()
+
+    var type by remember { mutableStateOf("vidange") }
+    var selectedDate by remember { mutableStateOf<java.util.Date?>(null) }
+    var cout by remember { mutableStateOf("") }
+    var selectedGarageId by remember { mutableStateOf("") }
+    var expandedType by remember { mutableStateOf(false) }
+    var expandedGarage by remember { mutableStateOf(false) }
+
+    val types = listOf("vidange", "révision", "réparation", "pneus", "freins", "autre")
+    val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
+    val isoDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.FRANCE)
+
+    LaunchedEffect(Unit) { garageViewModel.getGarages() }
+
+    LaunchedEffect(createMaintenanceState) { if (createMaintenanceState is Resource.Success) onSuccess() }
+
+    val allGarages = remember(garagesState) {
+        (garagesState as? Resource.Success<List<com.example.karhebti_android.data.api.GarageResponse>>)?.data ?: emptyList()
+    }
+
+    val filteredGarages = remember(type, allGarages) {
+        allGarages.filter { it.typeService.contains(type) }
+    }
+
+    val carName = remember(carsState, prefilledCarId) {
+        val car = (carsState as? Resource.Success)?.data?.find { it.id == prefilledCarId }
+        car?.let { "${it.marque} ${it.modele}" } ?: "Véhicule sélectionné"
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Modifier le véhicule") },
+        title = {
+            Text(
+                "Nouvel entretien",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedTextField(
-                    value = marque,
-                    onValueChange = { marque = it },
-                    label = { Text("Marque") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = modele,
-                    onValueChange = { modele = it },
-                    label = { Text("Modèle") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = annee,
-                    onValueChange = { if (it.length <= 4) annee = it.filter { c -> c.isDigit() } },
-                    label = { Text("Année") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = immatriculation,
-                    onValueChange = { },
-                    label = { Text("Immatriculation") },
-                    singleLine = true,
-                    enabled = false,
-                    modifier = Modifier.fillMaxWidth()
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                OutlinedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.outlinedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DirectionsCar,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Véhicule",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = carName,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
 
                 ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = it }
+                    expanded = expandedType,
+                    onExpandedChange = { expandedType = it }
                 ) {
                     OutlinedTextField(
-                        value = typeCarburant,
+                        value = type.replaceFirstChar { it.uppercase() },
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Type de carburant") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                        label = { Text("Type d'entretien") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedType) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
                     )
                     ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
+                        expanded = expandedType,
+                        onDismissRequest = { expandedType = false }
                     ) {
-                        carburants.forEach { item ->
+                        types.forEach { item ->
                             DropdownMenuItem(
-                                text = { Text(item) },
+                                text = { Text(item.replaceFirstChar { it.uppercase() }) },
                                 onClick = {
-                                    typeCarburant = item
-                                    expanded = false
+                                    type = item
+                                    expandedType = false
+                                    selectedGarageId = ""
                                 }
                             )
                         }
                     }
                 }
 
-                when (updateCarState) {
-                    is Resource.Loading -> {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    value = selectedDate?.let { dateFormat.format(it) } ?: "",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Date") },
+                    placeholder = { Text("Sélectionner une date") },
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            val calendar = java.util.Calendar.getInstance()
+                            val datePicker = android.app.DatePickerDialog(
+                                context,
+                                { _, year, month, day ->
+                                    calendar.set(year, month, day)
+                                    selectedDate = calendar.time
+                                },
+                                calendar.get(java.util.Calendar.YEAR),
+                                calendar.get(java.util.Calendar.MONTH),
+                                calendar.get(java.util.Calendar.DAY_OF_MONTH)
+                            )
+                            datePicker.show()
+                        }) {
+                            Icon(Icons.Default.CalendarToday, "Sélectionner date")
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = cout,
+                    onValueChange = { if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) cout = it },
+                    label = { Text("Coût (DT)") },
+                    placeholder = { Text("0.00") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                ExposedDropdownMenuBox(
+                    expanded = expandedGarage,
+                    onExpandedChange = { expandedGarage = it }
+                ) {
+                    OutlinedTextField(
+                        value = filteredGarages.find { it.id == selectedGarageId }?.nom ?: "",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Garage (optionnel)") },
+                        placeholder = { Text("Sélectionner un garage") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedGarage) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedGarage,
+                        onDismissRequest = { expandedGarage = false }
+                    ) {
+                        if (filteredGarages.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("Aucun garage disponible pour ce service") },
+                                onClick = { }
+                            )
+                        } else {
+                            filteredGarages.forEach { garage ->
+                                DropdownMenuItem(
+                                    text = { Text(garage.nom) },
+                                    onClick = {
+                                        selectedGarageId = garage.id
+                                        expandedGarage = false
+                                    }
+                                )
+                            }
+                        }
                     }
-                    is Resource.Error -> {
-                        Text(
-                            text = updateCarState.message ?: "Erreur",
-                            color = AlertRed,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    else -> {}
+                }
+
+                if (createMaintenanceState is Resource.Error) {
+                    Text(
+                        text = (createMaintenanceState as Resource.Error).message ?: "Erreur",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val year = annee.toIntOrNull()
-                    if (marque.isNotBlank() && modele.isNotBlank() && year != null && typeCarburant.isNotBlank()) {
-                        carViewModel.updateCar(
-                            id = car.id,
-                            marque = marque,
-                            modele = modele,
-                            annee = year,
-                            typeCarburant = typeCarburant
+                    selectedDate?.let { date ->
+                        val coutValue = cout.toDoubleOrNull() ?: 0.0
+                        val dateStr = isoDateFormat.format(date)
+                        maintenanceViewModel.createMaintenance(
+                            type = type,
+                            date = dateStr,
+                            cout = coutValue,
+                            garage = selectedGarageId.ifEmpty { "" },
+                            voiture = prefilledCarId
                         )
                     }
                 },
-                enabled = updateCarState !is Resource.Loading &&
-                         marque.isNotBlank() && modele.isNotBlank() &&
-                         annee.toIntOrNull() != null,
-                colors = ButtonDefaults.buttonColors(containerColor = DeepPurple)
+                enabled = selectedDate != null && cout.isNotEmpty() && createMaintenanceState !is Resource.Loading,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
-                if (updateCarState is Resource.Loading) {
+                if (createMaintenanceState is Resource.Loading) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
+                        modifier = Modifier.size(16.dp),
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
-                    Text("Sauvegarder")
+                    Text("Ajouter")
                 }
             }
         },
         dismissButton = {
             TextButton(
                 onClick = onDismiss,
-                enabled = updateCarState !is Resource.Loading
-            ) {
-                Text("Annuler")
-            }
+                enabled = createMaintenanceState !is Resource.Loading
+            ) { Text("Annuler") }
         }
     )
 }

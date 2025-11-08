@@ -72,6 +72,22 @@ class AuthRepository(private val apiService: KarhebtiApiService = RetrofitClient
             }
         }
 
+    suspend fun changePassword(currentPassword: String, newPassword: String): Resource<MessageResponse> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = ChangePasswordRequest(currentPassword, newPassword)
+                val response = apiService.changePassword(request)
+
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!)
+                } else {
+                    Resource.Error("Erreur: ${response.message()}")
+                }
+            } catch (e: Exception) {
+                Resource.Error("Erreur réseau: ${e.localizedMessage}")
+            }
+        }
+
     fun logout() {
         RetrofitClient.setAuthToken(null)
     }
@@ -181,9 +197,13 @@ class CarRepository(private val apiService: KarhebtiApiService = RetrofitClient.
             val response = apiService.deleteCar(id)
 
             android.util.Log.d("CarRepository", "Delete response code: ${response.code()}")
-            if (response.isSuccessful && response.body() != null) {
+            
+            // Backend returns empty body (Unit/Void), so we just check if successful
+            if (response.isSuccessful) {
                 android.util.Log.d("CarRepository", "Car deleted successfully")
-                Resource.Success(response.body()!!)
+                // Create a success message for the UI
+                val successMessage = MessageResponse(message = "Véhicule supprimé avec succès")
+                Resource.Success(successMessage)
             } else {
                 val errorBody = response.errorBody()?.string()
                 val errorMsg = "Erreur lors de la suppression: ${response.code()} - $errorBody"

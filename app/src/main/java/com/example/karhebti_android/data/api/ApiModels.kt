@@ -28,6 +28,11 @@ data class ForgotPasswordRequest(
     val email: String
 )
 
+data class ChangePasswordRequest(
+    val currentPassword: String,
+    val newPassword: String
+)
+
 data class ResetPasswordRequest(
     val token: String,
     val nouveauMotDePasse: String

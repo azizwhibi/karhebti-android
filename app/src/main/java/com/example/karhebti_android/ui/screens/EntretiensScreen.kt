@@ -30,6 +30,7 @@ import com.example.karhebti_android.viewmodel.CarViewModel
 import com.example.karhebti_android.viewmodel.GarageViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
 import java.text.SimpleDateFormat
+import androidx.compose.ui.draw.clip
 import java.util.*
 
 // Backend-Integrated EntretiensScreen
@@ -94,17 +95,17 @@ fun EntretiensScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DeepPurple,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = DeepPurple,
-                contentColor = Color.White,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape
             ) {
                 Icon(Icons.Default.Add, "Ajouter entretien")
@@ -114,22 +115,22 @@ fun EntretiensScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(SoftWhite)
+                .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
         ) {
             // Tabs
             TabRow(
                 selectedTabIndex = selectedTab,
-                containerColor = Color.White,
-                contentColor = DeepPurple
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary
             ) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTab == index,
                         onClick = { selectedTab = index },
                         text = { Text(title) },
-                        selectedContentColor = DeepPurple,
-                        unselectedContentColor = TextSecondary
+                        selectedContentColor = MaterialTheme.colorScheme.primary,
+                        unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -146,8 +147,11 @@ fun EntretiensScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                CircularProgressIndicator(color = DeepPurple)
-                                Text("Chargement des entretiens...", color = TextSecondary)
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    "Chargement des entretiens...",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
@@ -227,16 +231,18 @@ fun EntretiensScreen(
                                 Text(
                                     "Erreur de chargement",
                                     style = MaterialTheme.typography.titleLarge,
-                                    color = TextPrimary
+                                    color = MaterialTheme.colorScheme.onBackground
                                 )
                                 Text(
                                     state.message ?: "Une erreur est survenue",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = TextSecondary
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Button(
                                     onClick = { maintenanceViewModel.getMaintenances() },
-                                    colors = ButtonDefaults.buttonColors(containerColor = DeepPurple)
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    )
                                 ) {
                                     Icon(Icons.Default.Refresh, null)
                                     Spacer(Modifier.width(8.dp))
@@ -302,19 +308,28 @@ fun MaintenanceCardBackendIntegrated(
 
     // Determine urgency based on date
     val daysUntil = ((maintenance.date.time - Date().time) / (1000 * 60 * 60 * 24)).toInt()
-    val urgencyColor = when {
-        daysUntil < 0 -> TextSecondary // Past
-        daysUntil <= 7 -> AlertRed // Urgent
-        daysUntil <= 30 -> AccentYellow // Attention
-        else -> AccentGreen // Normal
-    }
 
-    val urgencyLabel = when {
-        daysUntil < 0 -> "Terminé"
-        daysUntil == 0 -> "Aujourd'hui"
-        daysUntil <= 7 -> "Urgent"
-        daysUntil <= 30 -> "Bientôt"
-        else -> "Prévu"
+    val (urgencyLabel, chipColors) = when {
+        daysUntil < 0 -> "Terminé" to AssistChipDefaults.assistChipColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        daysUntil == 0 -> "Aujourd'hui" to AssistChipDefaults.assistChipColors(
+            containerColor = AlertRed.copy(alpha = 0.2f),
+            labelColor = AlertRed
+        )
+        daysUntil <= 7 -> "Urgent" to AssistChipDefaults.assistChipColors(
+            containerColor = AlertRed.copy(alpha = 0.2f),
+            labelColor = AlertRed
+        )
+        daysUntil <= 30 -> "Bientôt" to AssistChipDefaults.assistChipColors(
+            containerColor = AccentYellow.copy(alpha = 0.2f),
+            labelColor = AccentYellow
+        )
+        else -> "Prévu" to AssistChipDefaults.assistChipColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            labelColor = MaterialTheme.colorScheme.onTertiaryContainer
+        )
     }
 
     // Look up the car from the cars list
@@ -322,19 +337,15 @@ fun MaintenanceCardBackendIntegrated(
         cars.find { it.id == carId }
     }
 
-    // Check if maintenance is not confirmed - use yellow border
-    val isUnconfirmed = maintenance.status != "confirmed"
-    val borderColor = if (isUnconfirmed) AccentYellow else urgencyColor.copy(alpha = 0.3f)
-    val borderWidth = if (isUnconfirmed) 3.dp else 2.dp
-
-    Card(
+    ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .border(borderWidth, borderColor, RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
@@ -345,20 +356,36 @@ fun MaintenanceCardBackendIntegrated(
             // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Leading icon
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(MaterialTheme.shapes.small)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Build,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = maintenance.type,
+                        text = maintenance.type.replaceFirstChar { it.uppercase() },
                         style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     car?.let {
                         Text(
                             text = "${it.marque} ${it.modele}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -367,21 +394,24 @@ fun MaintenanceCardBackendIntegrated(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = urgencyColor.copy(alpha = 0.2f)
-                    ) {
-                        Text(
-                            text = urgencyLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = urgencyColor,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
+                    AssistChip(
+                        onClick = {},
+                        label = {
+                            Text(
+                                urgencyLabel,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
+                        colors = chipColors
+                    )
 
                     Box {
                         IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, "Menu", tint = TextSecondary)
+                            Icon(
+                                Icons.Default.MoreVert,
+                                "Menu",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                         DropdownMenu(
                             expanded = showMenu,
@@ -400,12 +430,13 @@ fun MaintenanceCardBackendIntegrated(
                 }
             }
 
-            HorizontalDivider()
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             // Details
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -415,19 +446,19 @@ fun MaintenanceCardBackendIntegrated(
                         imageVector = Icons.Default.CalendarToday,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = TextSecondary
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = dateFormat.format(maintenance.date),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
                 Text(
                     text = "${maintenance.cout} DT",
                     style = MaterialTheme.typography.titleMedium,
-                    color = DeepPurple
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }

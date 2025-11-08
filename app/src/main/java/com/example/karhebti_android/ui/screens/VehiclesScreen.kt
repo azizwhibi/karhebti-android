@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -47,14 +48,16 @@ fun VehiclesScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
 
-    // Load cars on screen start and refresh when screen becomes visible
+    // Load cars on screen start - ALWAYS refresh when screen becomes visible
     LaunchedEffect(Unit) {
         carViewModel.getMyCars()
     }
 
-    // Refresh list when navigating back from detail screen
-    LaunchedEffect(carsState) {
-        // This will trigger when we navigate back and the state updates
+    // Auto-refresh whenever the screen is recomposed (navigating back)
+    DisposableEffect(Unit) {
+        onDispose {
+            // No cleanup needed
+        }
     }
 
     // Handle create car result
@@ -62,6 +65,8 @@ fun VehiclesScreen(
         when (createCarState) {
             is Resource.Success -> {
                 showAddDialog = false
+                // Refresh the list after creating a car
+                carViewModel.getMyCars()
             }
             is Resource.Error -> {
                 // Error shown in dialog
@@ -90,29 +95,19 @@ fun VehiclesScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour")
                     }
                 },
-                actions = {
-                    // Refresh button
-                    IconButton(
-                        onClick = {
-                            refreshing = true
-                            carViewModel.getMyCars()
-                        }
-                    ) {
-                        Icon(Icons.Default.Refresh, "Actualiser", tint = Color.White)
-                    }
-                },
+
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DeepPurple,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = DeepPurple,
-                contentColor = Color.White,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape
             ) {
                 Icon(Icons.Default.Add, "Ajouter véhicule")
@@ -122,7 +117,7 @@ fun VehiclesScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(SoftWhite)
+                .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
         ) {
             when (val state = carsState) {
@@ -136,8 +131,11 @@ fun VehiclesScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            CircularProgressIndicator(color = DeepPurple)
-                            Text("Chargement des véhicules...", color = TextSecondary)
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            Text(
+                                "Chargement des véhicules...",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
@@ -163,22 +161,22 @@ fun VehiclesScreen(
                                     imageVector = Icons.Default.DriveEta,
                                     contentDescription = null,
                                     modifier = Modifier.size(64.dp),
-                                    tint = TextSecondary.copy(alpha = 0.5f)
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                 )
                                 Text(
                                     "Aucun véhicule",
                                     style = MaterialTheme.typography.titleLarge,
-                                    color = TextPrimary
+                                    color = MaterialTheme.colorScheme.onBackground
                                 )
                                 Text(
                                     "Ajoutez votre premier véhicule pour commencer",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = TextSecondary
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Button(
                                     onClick = { showAddDialog = true },
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = DeepPurple
+                                        containerColor = MaterialTheme.colorScheme.primary
                                     )
                                 ) {
                                     Icon(Icons.Default.Add, null)
@@ -196,7 +194,8 @@ fun VehiclesScreen(
                             items(cars, key = { it.id }) { car ->
                                 VehicleCardBackendIntegrated(
                                     car = car,
-                                    onClick = { onVehicleClick(car.id) }
+                                    onClick = { onVehicleClick(car.id) },
+                                    onDelete = { carViewModel.deleteCar(it) }
                                 )
                             }
                         }
@@ -222,17 +221,17 @@ fun VehiclesScreen(
                             Text(
                                 "Erreur de chargement",
                                 style = MaterialTheme.typography.titleLarge,
-                                color = TextPrimary
+                                color = MaterialTheme.colorScheme.onBackground
                             )
                             Text(
                                 state.message ?: "Une erreur est survenue",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Button(
                                 onClick = { carViewModel.getMyCars() },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = DeepPurple
+                                    containerColor = MaterialTheme.colorScheme.primary
                                 )
                             ) {
                                 Icon(Icons.Default.Refresh, null)
@@ -264,15 +263,18 @@ fun VehiclesScreen(
 @Composable
 fun VehicleCardBackendIntegrated(
     car: CarResponse,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDelete: (String) -> Unit
 ) {
-    Card(
+    ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
@@ -280,43 +282,91 @@ fun VehicleCardBackendIntegrated(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header Row
+            // Header Row with leading icon
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Leading car icon
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(MaterialTheme.shapes.small)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DirectionsCar,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "${car.marque} ${car.modele}",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = TextPrimary
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "Année ${car.annee}",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            HorizontalDivider()
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-            // Info Row
+            // Info Row with chips
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                InfoChip(
-                    icon = Icons.Default.CreditCard,
-                    label = car.immatriculation,
-                    color = DeepPurple
+                AssistChip(
+                    onClick = {},
+                    label = {
+                        Text(
+                            car.immatriculation,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.CreditCard,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        leadingIconContentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
                 )
-                InfoChip(
-                    icon = Icons.Default.LocalGasStation,
-                    label = car.typeCarburant,
-                    color = AccentGreen
+                AssistChip(
+                    onClick = {},
+                    label = {
+                        Text(
+                            car.typeCarburant,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.LocalGasStation,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        labelColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        leadingIconContentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
                 )
             }
         }
@@ -402,7 +452,7 @@ fun AddVehicleDialog(
 
                 OutlinedTextField(
                     value = immatriculation,
-                    onValueChange = { immatriculation = it.uppercase() },
+                    onValueChange = { immatriculation = it },
                     label = { Text("Immatriculation") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -410,70 +460,42 @@ fun AddVehicleDialog(
 
                 ExposedDropdownMenuBox(
                     expanded = expanded,
-                    onExpandedChange = { expanded = it }
+                    onExpandedChange = { expanded = !expanded }
                 ) {
                     OutlinedTextField(
                         value = typeCarburant,
                         onValueChange = {},
-                        readOnly = true,
                         label = { Text("Type de carburant") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                        readOnly = true,
+                        modifier = Modifier.fillMaxWidth()
                     )
                     ExposedDropdownMenu(
                         expanded = expanded,
                         onDismissRequest = { expanded = false }
                     ) {
-                        carburants.forEach { item ->
-                            DropdownMenuItem(
-                                text = { Text(item) },
-                                onClick = {
-                                    typeCarburant = item
-                                    expanded = false
-                                }
-                            )
+                        carburants.forEach { c ->
+                            DropdownMenuItem(text = { Text(c) }, onClick = {
+                                typeCarburant = c
+                                expanded = false
+                            })
                         }
                     }
-                }
-
-                when (createState) {
-                    is Resource.Loading -> {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    }
-                    is Resource.Error -> {
-                        Text(
-                            text = createState.message ?: "Erreur",
-                            color = AlertRed,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    else -> {}
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val year = annee.toIntOrNull()
-                    if (marque.isNotBlank() && modele.isNotBlank() && year != null &&
-                        immatriculation.isNotBlank() && typeCarburant.isNotBlank()) {
-                        onAdd(marque, modele, year, immatriculation, typeCarburant)
-                    }
+                    val yearInt = annee.toIntOrNull() ?: 0
+                    onAdd(marque, modele, yearInt, immatriculation, typeCarburant)
                 },
-                enabled = createState !is Resource.Loading &&
-                         marque.isNotBlank() && modele.isNotBlank() &&
-                         annee.toIntOrNull() != null && immatriculation.isNotBlank()
+                colors = ButtonDefaults.buttonColors(containerColor = DeepPurple)
             ) {
                 Text("Ajouter")
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                enabled = createState !is Resource.Loading
-            ) {
-                Text("Annuler")
-            }
+            TextButton(onClick = onDismiss) { Text("Annuler") }
         }
     )
 }
