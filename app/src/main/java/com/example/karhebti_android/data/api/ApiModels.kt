@@ -1,5 +1,5 @@
 package com.example.karhebti_android.data.api
-
+import com.example.karhebti_android.data.model.Vehicule
 import com.google.gson.annotations.SerializedName
 import java.util.Date
 
@@ -35,7 +35,7 @@ data class ResetPasswordRequest(
 // User DTOs
 data class UserResponse(
     @SerializedName("_id")
-    val id: String?,
+    val id: IdWrapper?,
     val nom: String,
     val prenom: String,
     val email: String,
@@ -44,6 +44,7 @@ data class UserResponse(
     val createdAt: Date? = null,
     val updatedAt: Date? = null
 )
+
 
 data class UpdateUserRequest(
     val nom: String? = null,
@@ -71,18 +72,39 @@ data class UpdateCarRequest(
     val typeCarburant: String? = null
 )
 
+data class IdWrapper(
+    @SerializedName("\$oid") val oid: String
+)
 data class CarResponse(
-    @SerializedName("_id")
-    val id: String,
+    @SerializedName("_id") val id: IdWrapper,
     val marque: String,
     val modele: String,
     val annee: Int,
     val immatriculation: String,
     val typeCarburant: String,
-    val user: UserResponse? = null,
-    val createdAt: Date,
-    val updatedAt: Date
+    val user: IdWrapper? = null,
+    val createdAt: Date? = null,
+    val updatedAt: Date? = null
 )
+
+
+
+data class ServiceResponse(
+    @SerializedName("_id") val id: IdWrapper,
+    val type: String,
+    val coutMoyen: Double,
+    val dureeEstimee: Int,
+    val garage: IdWrapper? = null,
+    val car: IdWrapper? = null,
+    val createdAt: Date? = null,
+    val updatedAt: Date? = null
+)
+
+
+
+
+
+
 
 // Maintenance DTOs
 data class CreateMaintenanceRequest(
@@ -259,24 +281,6 @@ data class GarageRecommendation(
     val recommande: Boolean
 )
 
-// Service DTOs
-data class CreateServiceRequest(
-    val type: String,
-    val coutMoyen: Double,
-    val dureeEstimee: Int,
-    val garage: String
-)
-
-data class ServiceResponse(
-    @SerializedName("_id")
-    val id: String,
-    val type: String,
-    val coutMoyen: Double,
-    val dureeEstimee: Int,
-    val garage: GarageResponse? = null,
-    val createdAt: Date? = null,
-    val updatedAt: Date? = null
-)
 
 // Generic Response
 data class MessageResponse(
@@ -289,3 +293,18 @@ data class ErrorResponse(
     val message: List<String>,
     val error: String
 )
+
+data class CreateServiceRequest(
+    val type: String,
+    val coutMoyen: Double,
+    val dureeEstimee: Int,
+    val garage: String, // ALWAYS send .oid, not IdWrapper
+    val car: String     // ALWAYS send .oid, not IdWrapper
+)
+
+
+
+
+
+
+

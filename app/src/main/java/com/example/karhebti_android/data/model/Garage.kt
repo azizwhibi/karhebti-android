@@ -19,11 +19,5 @@ data class Garage(
 enum class GarageService {
     REVISION,
     VIDANGE,
-    PNEUS,
-    FREINS,
-    CONTROLE_TECHNIQUE,
-    BATTERIE,
-    CLIMATISATION,
-    CARROSSERIE
 }
 

@@ -4,6 +4,7 @@ import com.example.karhebti_android.data.api.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+
 sealed class Resource<T>(
     val data: T? = null,
     val message: String? = null
@@ -445,6 +446,41 @@ class AIRepository(private val apiService: KarhebtiApiService = RetrofitClient.a
     }
 }
 
+class ServiceRepository(private val apiService: KarhebtiApiService = RetrofitClient.apiService) {
+    suspend fun createService(
+        type: String,
+        coutMoyen: Double,
+        dureeEstimee: Int,
+        garageId: String,
+        carId: String
+    ): Resource<ServiceResponse> = withContext(Dispatchers.IO) {
+        try {
+            val request = CreateServiceRequest(type, coutMoyen, dureeEstimee, garageId, carId)
+            val response = apiService.createService(request)
+            if (response.isSuccessful && response.body() != null) {
+                Resource.Success(response.body()!!)
+            } else {
+                Resource.Error("Erreur lors de la création du service: ${response.code()} - ${response.message()}")
+            }
+        } catch (e: Exception) {
+            Resource.Error("Erreur réseau: ${e.localizedMessage}")
+        }
+    }
+    suspend fun getServicesByGarage(garageId: String): Resource<List<ServiceResponse>> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getServicesByGarage(garageId)
+            if (response.isSuccessful && response.body() != null) {
+                Resource.Success(response.body()!!)
+            } else {
+                Resource.Error("Erreur de récupération des services")
+            }
+        } catch (e: Exception) {
+            Resource.Error("Erreur réseau: ${e.localizedMessage}")
+        }
+    }
+
+}
+
 class UserRepository(private val apiService: KarhebtiApiService = RetrofitClient.apiService) {
 
     suspend fun getAllUsers(): Resource<List<UserResponse>> = withContext(Dispatchers.IO) {
@@ -510,3 +546,6 @@ class UserRepository(private val apiService: KarhebtiApiService = RetrofitClient
         }
     }
 }
+
+
+
