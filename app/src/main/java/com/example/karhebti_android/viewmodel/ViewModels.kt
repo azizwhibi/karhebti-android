@@ -251,6 +251,9 @@ class MaintenanceViewModel(application: Application) : AndroidViewModel(applicat
     private val _updateMaintenanceState = MutableLiveData<Resource<MaintenanceResponse>>()
     val updateMaintenanceState: LiveData<Resource<MaintenanceResponse>> = _updateMaintenanceState
 
+    private val _deleteMaintenanceState = MutableLiveData<Resource<MessageResponse>?>(null)
+    val deleteMaintenanceState: LiveData<Resource<MessageResponse>?> = _deleteMaintenanceState
+
     fun getMaintenances() {
         _maintenancesState.value = Resource.Loading()
         _maintenancesStateFlow.value = Resource.Loading()
@@ -295,11 +298,10 @@ class MaintenanceViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun deleteMaintenance(id: String) {
+        _deleteMaintenanceState.value = Resource.Loading()
         viewModelScope.launch {
             val result = repository.deleteMaintenance(id)
-            if (result is Resource.Success) {
-                getMaintenances() // Refresh list
-            }
+            _deleteMaintenanceState.value = result
         }
     }
 }

@@ -23,6 +23,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.karhebti_android.data.api.MaintenanceResponse
+import com.example.karhebti_android.data.api.MessageResponse
 import com.example.karhebti_android.data.repository.Resource
 import com.example.karhebti_android.ui.theme.*
 import com.example.karhebti_android.viewmodel.MaintenanceViewModel
@@ -32,6 +33,11 @@ import com.example.karhebti_android.viewmodel.ViewModelFactory
 import java.text.SimpleDateFormat
 import androidx.compose.ui.draw.clip
 import java.util.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+
 
 // Backend-Integrated EntretiensScreen
 // All maintenance data from API, Create/Delete operations call backend
@@ -62,6 +68,7 @@ fun EntretiensScreen(
     val tabs = listOf("À venir", "Historique")
     var showAddDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<MaintenanceResponse?>(null) }
+    val scope = rememberCoroutineScope()
 
     // Load data on screen start
     LaunchedEffect(Unit) {
@@ -87,11 +94,6 @@ fun EntretiensScreen(
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { maintenanceViewModel.getMaintenances() }) {
-                        Icon(Icons.Default.Refresh, "Actualiser", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -279,8 +281,12 @@ fun EntretiensScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        maintenanceViewModel.deleteMaintenance(maintenance.id)
-                        showDeleteDialog = null
+                        scope.launch {
+                            maintenanceViewModel.deleteMaintenance(maintenance.id)
+                            showDeleteDialog = null
+                            delay(500L)
+                            maintenanceViewModel.getMaintenances()
+                        }
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = AlertRed)
                 ) {
@@ -314,7 +320,7 @@ fun MaintenanceCardBackendIntegrated(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             labelColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        daysUntil == 0 -> "Aujourd'hui" to AssistChipDefaults.assistChipColors(
+        daysUntil == 0 -> "Urgent" to AssistChipDefaults.assistChipColors(
             containerColor = AlertRed.copy(alpha = 0.2f),
             labelColor = AlertRed
         )
