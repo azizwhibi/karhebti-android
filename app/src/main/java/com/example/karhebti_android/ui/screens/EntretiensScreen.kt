@@ -1,7 +1,9 @@
 package com.example.karhebti_android.ui.screens
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,6 +30,7 @@ import com.example.karhebti_android.viewmodel.CarViewModel
 import com.example.karhebti_android.viewmodel.GarageViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
 import java.text.SimpleDateFormat
+import androidx.compose.ui.draw.clip
 import java.util.*
 
 // Backend-Integrated EntretiensScreen
@@ -35,7 +38,8 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EntretiensScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onMaintenanceClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val maintenanceViewModel: MaintenanceViewModel = viewModel(
@@ -91,17 +95,17 @@ fun EntretiensScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DeepPurple,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = DeepPurple,
-                contentColor = Color.White,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape
             ) {
                 Icon(Icons.Default.Add, "Ajouter entretien")
@@ -111,22 +115,22 @@ fun EntretiensScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(SoftWhite)
+                .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
         ) {
             // Tabs
             TabRow(
                 selectedTabIndex = selectedTab,
-                containerColor = Color.White,
-                contentColor = DeepPurple
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary
             ) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTab == index,
                         onClick = { selectedTab = index },
                         text = { Text(title) },
-                        selectedContentColor = DeepPurple,
-                        unselectedContentColor = TextSecondary
+                        selectedContentColor = MaterialTheme.colorScheme.primary,
+                        unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -143,8 +147,11 @@ fun EntretiensScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                CircularProgressIndicator(color = DeepPurple)
-                                Text("Chargement des entretiens...", color = TextSecondary)
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    "Chargement des entretiens...",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
@@ -197,7 +204,9 @@ fun EntretiensScreen(
                                 items(displayedMaintenances, key = { it.id }) { maintenance ->
                                     MaintenanceCardBackendIntegrated(
                                         maintenance = maintenance,
-                                        onDelete = { showDeleteDialog = maintenance }
+                                        onDelete = { showDeleteDialog = maintenance },
+                                        onClick = { onMaintenanceClick(maintenance.id) },
+                                        cars = carsState?.data ?: emptyList() // Pass cars list
                                     )
                                 }
                             }
@@ -222,16 +231,18 @@ fun EntretiensScreen(
                                 Text(
                                     "Erreur de chargement",
                                     style = MaterialTheme.typography.titleLarge,
-                                    color = TextPrimary
+                                    color = MaterialTheme.colorScheme.onBackground
                                 )
                                 Text(
                                     state.message ?: "Une erreur est survenue",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = TextSecondary
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Button(
                                     onClick = { maintenanceViewModel.getMaintenances() },
-                                    colors = ButtonDefaults.buttonColors(containerColor = DeepPurple)
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    )
                                 ) {
                                     Icon(Icons.Default.Refresh, null)
                                     Spacer(Modifier.width(8.dp))
@@ -288,35 +299,53 @@ fun EntretiensScreen(
 @Composable
 fun MaintenanceCardBackendIntegrated(
     maintenance: MaintenanceResponse,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onClick: () -> Unit,
+    cars: List<com.example.karhebti_android.data.api.CarResponse> = emptyList()
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
 
     // Determine urgency based on date
     val daysUntil = ((maintenance.date.time - Date().time) / (1000 * 60 * 60 * 24)).toInt()
-    val urgencyColor = when {
-        daysUntil < 0 -> TextSecondary // Past
-        daysUntil <= 7 -> AlertRed // Urgent
-        daysUntil <= 30 -> AccentYellow // Attention
-        else -> AccentGreen // Normal
+
+    val (urgencyLabel, chipColors) = when {
+        daysUntil < 0 -> "Terminé" to AssistChipDefaults.assistChipColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        daysUntil == 0 -> "Aujourd'hui" to AssistChipDefaults.assistChipColors(
+            containerColor = AlertRed.copy(alpha = 0.2f),
+            labelColor = AlertRed
+        )
+        daysUntil <= 7 -> "Urgent" to AssistChipDefaults.assistChipColors(
+            containerColor = AlertRed.copy(alpha = 0.2f),
+            labelColor = AlertRed
+        )
+        daysUntil <= 30 -> "Bientôt" to AssistChipDefaults.assistChipColors(
+            containerColor = AccentYellow.copy(alpha = 0.2f),
+            labelColor = AccentYellow
+        )
+        else -> "Prévu" to AssistChipDefaults.assistChipColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            labelColor = MaterialTheme.colorScheme.onTertiaryContainer
+        )
     }
 
-    val urgencyLabel = when {
-        daysUntil < 0 -> "Terminé"
-        daysUntil == 0 -> "Aujourd'hui"
-        daysUntil <= 7 -> "Urgent"
-        daysUntil <= 30 -> "Bientôt"
-        else -> "Prévu"
+    // Look up the car from the cars list
+    val car = maintenance.voiture?.let { carId ->
+        cars.find { it.id == carId }
     }
 
-    Card(
+    ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .border(2.dp, urgencyColor.copy(alpha = 0.3f), RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            .clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
@@ -327,20 +356,36 @@ fun MaintenanceCardBackendIntegrated(
             // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Leading icon
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(MaterialTheme.shapes.small)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Build,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = maintenance.type,
+                        text = maintenance.type.replaceFirstChar { it.uppercase() },
                         style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                    maintenance.voiture?.let { car ->
+                    car?.let {
                         Text(
-                            text = "${car.marque} ${car.modele}",
+                            text = "${it.marque} ${it.modele}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -349,21 +394,24 @@ fun MaintenanceCardBackendIntegrated(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = urgencyColor.copy(alpha = 0.2f)
-                    ) {
-                        Text(
-                            text = urgencyLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = urgencyColor,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
+                    AssistChip(
+                        onClick = {},
+                        label = {
+                            Text(
+                                urgencyLabel,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
+                        colors = chipColors
+                    )
 
                     Box {
                         IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, "Menu", tint = TextSecondary)
+                            Icon(
+                                Icons.Default.MoreVert,
+                                "Menu",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                         DropdownMenu(
                             expanded = showMenu,
@@ -382,12 +430,13 @@ fun MaintenanceCardBackendIntegrated(
                 }
             }
 
-            HorizontalDivider()
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             // Details
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -397,39 +446,20 @@ fun MaintenanceCardBackendIntegrated(
                         imageVector = Icons.Default.CalendarToday,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = TextSecondary
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = dateFormat.format(maintenance.date),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
                 Text(
-                    text = "${maintenance.cout} DH",
+                    text = "${maintenance.cout} DT",
                     style = MaterialTheme.typography.titleMedium,
-                    color = DeepPurple
+                    color = MaterialTheme.colorScheme.primary
                 )
-            }
-
-            maintenance.garage?.let { garage ->
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Store,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = TextSecondary
-                    )
-                    Text(
-                        text = garage.nom,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
-                    )
-                }
             }
         }
     }
@@ -445,15 +475,34 @@ fun AddMaintenanceDialog(
     garagesState: Resource<*>?
 ) {
     var type by remember { mutableStateOf("vidange") }
-    var date by remember { mutableStateOf("") }
+    var selectedDate by remember { mutableStateOf<Date?>(null) }
     var cout by remember { mutableStateOf("") }
     var selectedCarId by remember { mutableStateOf("") }
     var selectedGarageId by remember { mutableStateOf("") }
     var expandedType by remember { mutableStateOf(false) }
     var expandedCar by remember { mutableStateOf(false) }
     var expandedGarage by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     val types = listOf("vidange", "révision", "réparation", "pneus", "freins")
+    val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
+    val isoDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.FRANCE)
+
+    // Extract cars and garages from state
+    val cars = remember(carsState) {
+        (carsState as? Resource.Success<List<com.example.karhebti_android.data.api.CarResponse>>)?.data ?: emptyList()
+    }
+
+    val allGarages = remember(garagesState) {
+        (garagesState as? Resource.Success<List<com.example.karhebti_android.data.api.GarageResponse>>)?.data ?: emptyList()
+    }
+
+    // Filter garages by selected service type
+    val filteredGarages = remember(type, allGarages) {
+        allGarages.filter { garage ->
+            garage.typeService.contains(type)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -466,10 +515,10 @@ fun AddMaintenanceDialog(
                     onExpandedChange = { expandedType = it }
                 ) {
                     OutlinedTextField(
-                        value = type,
+                        value = type.replaceFirstChar { it.uppercase() },
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Type") },
+                        label = { Text("Type d'entretien") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedType) },
                         modifier = Modifier.fillMaxWidth().menuAnchor()
                     )
@@ -479,9 +528,10 @@ fun AddMaintenanceDialog(
                     ) {
                         types.forEach { item ->
                             DropdownMenuItem(
-                                text = { Text(item) },
+                                text = { Text(item.replaceFirstChar { it.uppercase() }) },
                                 onClick = {
                                     type = item
+                                    selectedGarageId = "" // Reset garage when type changes
                                     expandedType = false
                                 }
                             )
@@ -489,40 +539,150 @@ fun AddMaintenanceDialog(
                     }
                 }
 
+                // Car selection dropdown
+                ExposedDropdownMenuBox(
+                    expanded = expandedCar,
+                    onExpandedChange = { expandedCar = it }
+                ) {
+                    OutlinedTextField(
+                        value = if (selectedCarId.isNotBlank()) {
+                            cars.find { it.id == selectedCarId }?.let { "${it.marque} ${it.modele}" } ?: ""
+                        } else "",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Véhicule") },
+                        placeholder = { Text("Sélectionner un véhicule") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCar) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        isError = cars.isEmpty()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedCar,
+                        onDismissRequest = { expandedCar = false }
+                    ) {
+                        if (cars.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("Aucun véhicule disponible", color = TextSecondary) },
+                                onClick = { expandedCar = false }
+                            )
+                        } else {
+                            cars.forEach { car ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text("${car.marque} ${car.modele}")
+                                            Text(
+                                                car.immatriculation,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = TextSecondary
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedCarId = car.id
+                                        expandedCar = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Garage selection dropdown (filtered by service type)
+                ExposedDropdownMenuBox(
+                    expanded = expandedGarage,
+                    onExpandedChange = { expandedGarage = it }
+                ) {
+                    OutlinedTextField(
+                        value = if (selectedGarageId.isNotBlank()) {
+                            filteredGarages.find { it.id == selectedGarageId }?.nom ?: ""
+                        } else "",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Garage") },
+                        placeholder = { Text("Sélectionner un garage") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedGarage) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        isError = filteredGarages.isEmpty()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedGarage,
+                        onDismissRequest = { expandedGarage = false }
+                    ) {
+                        if (filteredGarages.isEmpty()) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Aucun garage pour ce service",
+                                        color = TextSecondary,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                },
+                                onClick = { expandedGarage = false }
+                            )
+                        } else {
+                            filteredGarages.forEach { garage ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(garage.nom)
+                                            Text(
+                                                garage.adresse,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = TextSecondary
+                                            )
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Star,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(12.dp),
+                                                    tint = AccentYellow
+                                                )
+                                                Text(
+                                                    garage.noteUtilisateur.toString(),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = TextSecondary
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedGarageId = garage.id
+                                        expandedGarage = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Date picker field
                 OutlinedTextField(
-                    value = date,
-                    onValueChange = { date = it },
-                    label = { Text("Date (YYYY-MM-DD)") },
-                    placeholder = { Text("2024-12-31") },
-                    singleLine = true,
+                    value = selectedDate?.let { dateFormat.format(it) } ?: "",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Date") },
+                    placeholder = { Text("Sélectionner une date") },
+                    trailingIcon = {
+                        IconButton(onClick = { showDatePicker = true }) {
+                            Icon(Icons.Default.CalendarToday, "Choisir date")
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 OutlinedTextField(
                     value = cout,
                     onValueChange = { cout = it.filter { c -> c.isDigit() || c == '.' } },
-                    label = { Text("Coût (DH)") },
+                    label = { Text("Coût (DT)") },
+                    placeholder = { Text("Montant en dinars") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Car selection (simplified - you'd show actual car data)
-                OutlinedTextField(
-                    value = selectedCarId,
-                    onValueChange = { selectedCarId = it },
-                    label = { Text("ID Voiture") },
-                    placeholder = { Text("Entrez l'ID de la voiture") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Garage selection (simplified)
-                OutlinedTextField(
-                    value = selectedGarageId,
-                    onValueChange = { selectedGarageId = it },
-                    label = { Text("ID Garage") },
-                    placeholder = { Text("Entrez l'ID du garage") },
-                    singleLine = true,
+                    leadingIcon = {
+                        Text("DT", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -545,17 +705,27 @@ fun AddMaintenanceDialog(
             Button(
                 onClick = {
                     val coutValue = cout.toDoubleOrNull()
-                    if (type.isNotBlank() && date.isNotBlank() && coutValue != null &&
+                    val dateString = selectedDate?.let { isoDateFormat.format(it) }
+                    if (type.isNotBlank() && dateString != null && coutValue != null &&
                         selectedCarId.isNotBlank() && selectedGarageId.isNotBlank()) {
-                        onAdd(type, date, coutValue, selectedGarageId, selectedCarId)
+                        onAdd(type, dateString, coutValue, selectedGarageId, selectedCarId)
                     }
                 },
                 enabled = createState !is Resource.Loading &&
-                         type.isNotBlank() && date.isNotBlank() &&
+                         type.isNotBlank() && selectedDate != null &&
                          cout.toDoubleOrNull() != null &&
-                         selectedCarId.isNotBlank() && selectedGarageId.isNotBlank()
+                         selectedCarId.isNotBlank() && selectedGarageId.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = DeepPurple)
             ) {
-                Text("Ajouter")
+                if (createState is Resource.Loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Ajouter")
+                }
             }
         },
         dismissButton = {
@@ -567,6 +737,27 @@ fun AddMaintenanceDialog(
             }
         }
     )
+
+    // Date Picker Dialog
+    if (showDatePicker) {
+        val calendar = Calendar.getInstance()
+        selectedDate?.let { calendar.time = it }
+
+        DatePickerDialog(
+            LocalContext.current,
+            { _, year, month, dayOfMonth ->
+                calendar.set(year, month, dayOfMonth)
+                selectedDate = calendar.time
+                showDatePicker = false
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).apply {
+            setOnCancelListener { showDatePicker = false }
+            show()
+        }
+    }
 }
 
 @Preview(showBackground = true)

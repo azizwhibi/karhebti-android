@@ -9,6 +9,8 @@ val LightPurple = Color(0xFFEBEAFE)
 
 // Accent Colors
 val AccentGreen = Color(0xFF00C896)  // Darker, more vibrant green
+val AccentBlue = Color(0xFF2196F3)   // Material Blue
+val AccentOrange = Color(0xFFFF9800) // Material Orange
 val AlertRed = Color(0xFFDC3545)     // Stronger red for better contrast
 val AccentYellow = Color(0xFFFFC107) // More saturated yellow
 

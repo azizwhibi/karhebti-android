@@ -1,6 +1,7 @@
 package com.example.karhebti_android.data.api
 
 import com.google.gson.annotations.SerializedName
+import com.google.gson.annotations.JsonAdapter
 import java.util.Date
 
 // Auth DTOs
@@ -25,6 +26,11 @@ data class AuthResponse(
 
 data class ForgotPasswordRequest(
     val email: String
+)
+
+data class ChangePasswordRequest(
+    val currentPassword: String,
+    val newPassword: String
 )
 
 data class ResetPasswordRequest(
@@ -68,7 +74,12 @@ data class UpdateCarRequest(
     val marque: String? = null,
     val modele: String? = null,
     val annee: Int? = null,
-    val typeCarburant: String? = null
+    val typeCarburant: String? = null,
+    val kilometrage: Int? = null,
+    val statut: String? = null,
+    val prochainEntretien: String? = null,
+    val joursProchainEntretien: Int? = null,
+    val imageUrl: String? = null
 )
 
 data class CarResponse(
@@ -79,7 +90,13 @@ data class CarResponse(
     val annee: Int,
     val immatriculation: String,
     val typeCarburant: String,
-    val user: UserResponse? = null,
+    val kilometrage: Int? = null,
+    val statut: String? = null, // "BON", "ATTENTION", "URGENT"
+    val prochainEntretien: String? = null,
+    val joursProchainEntretien: Int? = null,
+    val imageUrl: String? = null,
+    @JsonAdapter(FlexibleUserDeserializer::class)
+    val user: String? = null, // Can be either user ID string or user object
     val createdAt: Date,
     val updatedAt: Date
 )
@@ -104,11 +121,15 @@ data class MaintenanceResponse(
     val id: String,
     val type: String,
     val date: Date,
-    val cout: Double,
-    val garage: GarageResponse? = null,
-    val voiture: CarResponse? = null,
-    val createdAt: Date,
-    val updatedAt: Date
+    val cout: Double = 0.0,
+    val status: String? = "pending",
+    @JsonAdapter(FlexibleGarageDeserializer::class)
+    val garage: String? = null, // garage ID or extracted from object
+    @JsonAdapter(FlexibleCarDeserializer::class)
+    val voiture: String? = null, // car ID or extracted from object
+    val user: String? = null, // User ID who created the maintenance
+    val createdAt: Date? = null,
+    val updatedAt: Date? = null
 )
 
 // Garage DTOs
@@ -153,7 +174,9 @@ data class UpdateDocumentRequest(
     val type: String? = null,
     val dateEmission: String? = null,
     val dateExpiration: String? = null,
-    val fichier: String? = null
+    val fichier: String? = null,
+    val description: String? = null,
+    val etat: String? = null
 )
 
 data class DocumentResponse(
@@ -163,9 +186,35 @@ data class DocumentResponse(
     val dateEmission: Date,
     val dateExpiration: Date,
     val fichier: String,
-    val voiture: CarResponse? = null,
+    @JsonAdapter(FlexibleCarDeserializer::class)
+    val voiture: String? = null, // Can be either car ID string or car object
     val createdAt: Date,
-    val updatedAt: Date
+    val updatedAt: Date,
+    val description: String? = null,
+    val etat: String? = null
+)
+
+// Echeance DTOs
+data class CreateEcheanceRequest(
+    val documentId: String,
+    val dateEcheance: String, // ISO 8601
+    val description: String,
+    val estTerminee: Boolean
+)
+
+data class UpdateEcheanceRequest(
+    val dateEcheance: String? = null,
+    val description: String? = null,
+    val estTerminee: Boolean? = null
+)
+
+data class EcheanceResponse(
+    @SerializedName("_id")
+    val id: String,
+    val dateEcheance: Date,
+    val description: String,
+    val estTerminee: Boolean,
+    val document: String? = null // The document ID
 )
 
 // Part DTOs
@@ -184,7 +233,7 @@ data class PartResponse(
     val type: String,
     val dateInstallation: Date,
     val kilometrageRecommande: Int,
-    val voiture: CarResponse? = null,
+    val voiture: String? = null, // Changed from CarResponse to String (car ID)
     val createdAt: Date,
     val updatedAt: Date
 )
@@ -273,7 +322,8 @@ data class ServiceResponse(
     val type: String,
     val coutMoyen: Double,
     val dureeEstimee: Int,
-    val garage: GarageResponse? = null,
+    @JsonAdapter(FlexibleGarageDeserializer::class)
+    val garage: String? = null, // Can be either garage ID string or garage object
     val createdAt: Date? = null,
     val updatedAt: Date? = null
 )

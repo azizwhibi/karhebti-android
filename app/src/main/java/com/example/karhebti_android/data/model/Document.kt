@@ -13,7 +13,9 @@ data class Document(
     val expiryDate: Date? = null,
     val fileUrl: String,
     val fileSize: Long,
-    val mimeType: String
+    val mimeType: String,
+    val description: String? = null,
+    val etat: String? = null
 )
 
 enum class DocumentType {
@@ -22,4 +24,3 @@ enum class DocumentType {
     FACTURE, // Invoice
     AUTRE // Other
 }
-

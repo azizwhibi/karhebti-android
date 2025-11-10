@@ -10,7 +10,7 @@ data class User(
     val memberSince: String,
     val preferences: UserPreferences = UserPreferences()
 )
-//
+
 data class UserPreferences(
     val notificationsEnabled: Boolean = true,
     val darkModeEnabled: Boolean = false,

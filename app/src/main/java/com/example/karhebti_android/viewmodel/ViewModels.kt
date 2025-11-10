@@ -10,6 +10,17 @@ import com.example.karhebti_android.data.preferences.TokenManager
 import com.example.karhebti_android.data.preferences.UserData
 import com.example.karhebti_android.data.repository.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+// Data class for counters
+data class AppCounters(
+    val vehicles: Int = 0,
+    val entretiens: Int = 0,
+    val garages: Int = 0,
+    val documents: Int = 0
+)
 
 // Auth ViewModel
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
@@ -21,6 +32,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _forgotPasswordState = MutableLiveData<Resource<MessageResponse>>()
     val forgotPasswordState: LiveData<Resource<MessageResponse>> = _forgotPasswordState
+
+    private val _changePasswordState = MutableStateFlow<Resource<MessageResponse>?>(null)
+    val changePasswordState: StateFlow<Resource<MessageResponse>?> = _changePasswordState.asStateFlow()
 
     init {
         tokenManager.initializeToken()
@@ -40,15 +54,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     try {
                         val userData = result.data!!
                         android.util.Log.d("AuthViewModel", "User data received: ${userData.user}")
-                        android.util.Log.d("AuthViewModel", "User ID: ${userData.user.id}")
-                        android.util.Log.d("AuthViewModel", "User email: ${userData.user.email}")
-
-                        // Handle null id by using email as fallback
-                        val userId = userData.user.id ?: userData.user.email
 
                         tokenManager.saveToken(userData.accessToken)
                         tokenManager.saveUser(UserData(
-                            id = userId,
+                            id = userData.user.id,
                             email = userData.user.email,
                             nom = userData.user.nom,
                             prenom = userData.user.prenom,
@@ -76,10 +85,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 _authState.value = result
 
                 if (result is Resource.Success) {
-                    val userId = result.data!!.user.id ?: result.data.user.email
-                    tokenManager.saveToken(result.data.accessToken)
+                    tokenManager.saveToken(result.data!!.accessToken)
                     tokenManager.saveUser(UserData(
-                        id = userId,
+                        id = result.data.user.id,
                         email = result.data.user.email,
                         nom = result.data.user.nom,
                         prenom = result.data.user.prenom,
@@ -102,6 +110,23 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun changePassword(currentPassword: String, newPassword: String) {
+        _changePasswordState.value = Resource.Loading()
+        viewModelScope.launch {
+            try {
+                val result = repository.changePassword(currentPassword, newPassword)
+                _changePasswordState.value = result
+            } catch (e: Exception) {
+                android.util.Log.e("AuthViewModel", "Change password error: ${e.message}", e)
+                _changePasswordState.value = Resource.Error("Erreur lors du changement de mot de passe: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    fun resetChangePasswordState() {
+        _changePasswordState.value = null
+    }
+
     fun logout() {
         repository.logout()
         tokenManager.clearAll()
@@ -119,19 +144,35 @@ class CarViewModel(application: Application) : AndroidViewModel(application) {
     private val _carsState = MutableLiveData<Resource<List<CarResponse>>>()
     val carsState: LiveData<Resource<List<CarResponse>>> = _carsState
 
+    private val _carsStateFlow = MutableStateFlow<Resource<List<CarResponse>>?>(null)
+    val carsStateFlow: StateFlow<Resource<List<CarResponse>>?> = _carsStateFlow.asStateFlow()
+
+    private val _carCount = MutableStateFlow(0)
+    val carCount: StateFlow<Int> = _carCount.asStateFlow()
+
     private val _createCarState = MutableLiveData<Resource<CarResponse>>()
     val createCarState: LiveData<Resource<CarResponse>> = _createCarState
+
+    private val _updateCarState = MutableLiveData<Resource<CarResponse>>()
+    val updateCarState: LiveData<Resource<CarResponse>> = _updateCarState
 
     private val _deleteCarState = MutableLiveData<Resource<MessageResponse>>()
     val deleteCarState: LiveData<Resource<MessageResponse>> = _deleteCarState
 
     fun getMyCars() {
         _carsState.value = Resource.Loading()
+        _carsStateFlow.value = Resource.Loading()
         viewModelScope.launch {
             val result = repository.getMyCars()
             _carsState.value = result
+            _carsStateFlow.value = result
+            if (result is Resource.Success) {
+                _carCount.value = result.data?.size ?: 0
+            }
         }
     }
+
+    fun refresh() = getMyCars()
 
     fun createCar(marque: String, modele: String, annee: Int, immatriculation: String, typeCarburant: String) {
         _createCarState.value = Resource.Loading()
@@ -145,10 +186,26 @@ class CarViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateCar(id: String, marque: String? = null, modele: String? = null,
-                  annee: Int? = null, typeCarburant: String? = null) {
+    fun updateCar(
+        id: String,
+        marque: String? = null,
+        modele: String? = null,
+        annee: Int? = null,
+        typeCarburant: String? = null,
+        kilometrage: Int? = null,
+        statut: String? = null,
+        prochainEntretien: String? = null,
+        joursProchainEntretien: Int? = null,
+        imageUrl: String? = null
+    ) {
+        _updateCarState.value = Resource.Loading()
         viewModelScope.launch {
-            val result = repository.updateCar(id, marque, modele, annee, typeCarburant)
+            val result = repository.updateCar(
+                id, marque, modele, annee, typeCarburant,
+                kilometrage, statut, prochainEntretien, joursProchainEntretien, imageUrl
+            )
+            _updateCarState.value = result
+
             if (result is Resource.Success) {
                 getMyCars() // Refresh list
             }
@@ -166,6 +223,10 @@ class CarViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
+    fun resetDeleteState() {
+        _deleteCarState.value = Resource.Loading() // Reset to loading instead of null
+    }
 }
 
 // Maintenance ViewModel
@@ -175,16 +236,35 @@ class MaintenanceViewModel(application: Application) : AndroidViewModel(applicat
     private val _maintenancesState = MutableLiveData<Resource<List<MaintenanceResponse>>>()
     val maintenancesState: LiveData<Resource<List<MaintenanceResponse>>> = _maintenancesState
 
+    private val _maintenancesStateFlow = MutableStateFlow<Resource<List<MaintenanceResponse>>?>(null)
+    val maintenancesStateFlow: StateFlow<Resource<List<MaintenanceResponse>>?> = _maintenancesStateFlow.asStateFlow()
+
+    private val _maintenanceCount = MutableStateFlow(0)
+    val maintenanceCount: StateFlow<Int> = _maintenanceCount.asStateFlow()
+
+    private val _maintenanceState = MutableLiveData<Resource<MaintenanceResponse>>()
+    val maintenanceState: LiveData<Resource<MaintenanceResponse>> = _maintenanceState
+
     private val _createMaintenanceState = MutableLiveData<Resource<MaintenanceResponse>>()
     val createMaintenanceState: LiveData<Resource<MaintenanceResponse>> = _createMaintenanceState
 
+    private val _updateMaintenanceState = MutableLiveData<Resource<MaintenanceResponse>>()
+    val updateMaintenanceState: LiveData<Resource<MaintenanceResponse>> = _updateMaintenanceState
+
     fun getMaintenances() {
         _maintenancesState.value = Resource.Loading()
+        _maintenancesStateFlow.value = Resource.Loading()
         viewModelScope.launch {
             val result = repository.getMaintenances()
             _maintenancesState.value = result
+            _maintenancesStateFlow.value = result
+            if (result is Resource.Success) {
+                _maintenanceCount.value = result.data?.size ?: 0
+            }
         }
     }
+
+    fun refresh() = getMaintenances()
 
     fun createMaintenance(type: String, date: String, cout: Double, garage: String, voiture: String) {
         _createMaintenanceState.value = Resource.Loading()
@@ -195,6 +275,22 @@ class MaintenanceViewModel(application: Application) : AndroidViewModel(applicat
             if (result is Resource.Success) {
                 getMaintenances() // Refresh list
             }
+        }
+    }
+
+    fun getMaintenanceById(id: String) {
+        _maintenanceState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.getMaintenanceById(id)
+            _maintenanceState.value = result
+        }
+    }
+
+    fun updateMaintenanceDate(id: String, date: String) {
+        _updateMaintenanceState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.updateMaintenance(id, UpdateMaintenanceRequest(date = date))
+            _updateMaintenanceState.value = result
         }
     }
 
@@ -215,16 +311,29 @@ class GarageViewModel(application: Application) : AndroidViewModel(application) 
     private val _garagesState = MutableLiveData<Resource<List<GarageResponse>>>()
     val garagesState: LiveData<Resource<List<GarageResponse>>> = _garagesState
 
+    private val _garagesStateFlow = MutableStateFlow<Resource<List<GarageResponse>>?>(null)
+    val garagesStateFlow: StateFlow<Resource<List<GarageResponse>>?> = _garagesStateFlow.asStateFlow()
+
+    private val _garageCount = MutableStateFlow(0)
+    val garageCount: StateFlow<Int> = _garageCount.asStateFlow()
+
     private val _recommendationsState = MutableLiveData<Resource<List<GarageRecommendation>>>()
     val recommendationsState: LiveData<Resource<List<GarageRecommendation>>> = _recommendationsState
 
     fun getGarages() {
         _garagesState.value = Resource.Loading()
+        _garagesStateFlow.value = Resource.Loading()
         viewModelScope.launch {
             val result = repository.getGarages()
             _garagesState.value = result
+            _garagesStateFlow.value = result
+            if (result is Resource.Success) {
+                _garageCount.value = result.data?.size ?: 0
+            }
         }
     }
+
+    fun refresh() = getGarages()
 
     fun getRecommendations(typePanne: String? = null, latitude: Double? = null,
                           longitude: Double? = null, rayon: Double? = null) {
@@ -249,28 +358,78 @@ class GarageViewModel(application: Application) : AndroidViewModel(application) 
 class DocumentViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = DocumentRepository()
 
+    // Document States
     private val _documentsState = MutableLiveData<Resource<List<DocumentResponse>>>()
     val documentsState: LiveData<Resource<List<DocumentResponse>>> = _documentsState
+
+    private val _documentDetailState = MutableLiveData<Resource<DocumentResponse>>()
+    val documentDetailState: LiveData<Resource<DocumentResponse>> = _documentDetailState
+
+    private val _documentsStateFlow = MutableStateFlow<Resource<List<DocumentResponse>>?>(null)
+    val documentsStateFlow: StateFlow<Resource<List<DocumentResponse>>?> = _documentsStateFlow.asStateFlow()
+
+    private val _documentCount = MutableStateFlow(0)
+    val documentCount: StateFlow<Int> = _documentCount.asStateFlow()
 
     private val _createDocumentState = MutableLiveData<Resource<DocumentResponse>>()
     val createDocumentState: LiveData<Resource<DocumentResponse>> = _createDocumentState
 
+    private val _updateDocumentState = MutableLiveData<Resource<DocumentResponse>>()
+    val updateDocumentState: LiveData<Resource<DocumentResponse>> = _updateDocumentState
+
+    // Echeance States
+    private val _echeancesState = MutableLiveData<Resource<List<EcheanceResponse>>>()
+    val echeancesState: LiveData<Resource<List<EcheanceResponse>>> = _echeancesState
+
+    private val _createEcheanceState = MutableLiveData<Resource<EcheanceResponse>>()
+    val createEcheanceState: LiveData<Resource<EcheanceResponse>> = _createEcheanceState
+
+    private val _updateEcheanceState = MutableLiveData<Resource<EcheanceResponse>>()
+    val updateEcheanceState: LiveData<Resource<EcheanceResponse>> = _updateEcheanceState
+
+    // Document Functions
     fun getDocuments() {
         _documentsState.value = Resource.Loading()
+        _documentsStateFlow.value = Resource.Loading()
         viewModelScope.launch {
             val result = repository.getDocuments()
             _documentsState.value = result
+            _documentsStateFlow.value = result
+            if (result is Resource.Success) {
+                _documentCount.value = result.data?.size ?: 0
+            }
         }
     }
 
-    fun createDocument(type: String, dateEmission: String, dateExpiration: String, fichier: String, voiture: String) {
+    fun getDocumentById(id: String) {
+        _documentDetailState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.getDocumentById(id)
+            _documentDetailState.value = result
+        }
+    }
+
+    fun refresh() = getDocuments()
+
+    fun createDocument(request: CreateDocumentRequest) {
         _createDocumentState.value = Resource.Loading()
         viewModelScope.launch {
-            val result = repository.createDocument(type, dateEmission, dateExpiration, fichier, voiture)
+            val result = repository.createDocument(request)
             _createDocumentState.value = result
-
             if (result is Resource.Success) {
                 getDocuments() // Refresh list
+            }
+        }
+    }
+
+    fun updateDocument(id: String, request: UpdateDocumentRequest) {
+        _updateDocumentState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.updateDocument(id, request)
+            _updateDocumentState.value = result
+            if (result is Resource.Success) {
+                getDocuments() // Refresh list
+                getDocumentById(id) // Refresh detail view
             }
         }
     }
@@ -283,7 +442,48 @@ class DocumentViewModel(application: Application) : AndroidViewModel(application
             }
         }
     }
+
+    // Echeance Functions
+    fun getEcheancesForDocument(documentId: String) {
+        _echeancesState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.getEcheancesForDocument(documentId)
+            _echeancesState.value = result
+        }
+    }
+
+    fun createEcheance(request: CreateEcheanceRequest) {
+        _createEcheanceState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.createEcheance(request)
+            _createEcheanceState.value = result
+            if (result is Resource.Success) {
+                getEcheancesForDocument(request.documentId)
+            }
+        }
+    }
+
+    fun updateEcheance(id: String, request: UpdateEcheanceRequest, documentId: String) {
+        _updateEcheanceState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.updateEcheance(id, request)
+            _updateEcheanceState.value = result
+            if (result is Resource.Success) {
+                getEcheancesForDocument(documentId)
+            }
+        }
+    }
+
+    fun deleteEcheance(id: String, documentId: String) {
+        viewModelScope.launch {
+            val result = repository.deleteEcheance(id)
+            if (result is Resource.Success) {
+                getEcheancesForDocument(documentId) // Refresh list
+            }
+        }
+    }
 }
+
 
 // Part ViewModel
 class PartViewModel(application: Application) : AndroidViewModel(application) {

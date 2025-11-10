@@ -16,7 +16,14 @@ sealed class Screen(val route: String) {
         fun createRoute(vehicleId: String) = "vehicle_detail/$vehicleId"
     }
     object Entretiens : Screen("entretiens")
+    object MaintenanceDetail : Screen("maintenance_detail/{maintenanceId}") {
+        fun createRoute(maintenanceId: String) = "maintenance_detail/$maintenanceId"
+    }
     object Documents : Screen("documents")
+    object DocumentDetail : Screen("document_detail/{documentId}") {
+        fun createRoute(documentId: String) = "document_detail/$documentId"
+    }
+    object AddDocument : Screen("add_document")
     object Garages : Screen("garages")
     object Settings : Screen("settings")
 }
@@ -80,16 +87,54 @@ fun NavGraph(
             )
         }
 
+        composable(Screen.VehicleDetail.route) { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getString("vehicleId")
+            requireNotNull(vehicleId) { "vehicleId parameter wasn't found. Please make sure it's set!" }
+            VehicleDetailScreen(
+                vehicleId = vehicleId,
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
         composable(Screen.Entretiens.route) {
             EntretiensScreen(
+                onBackClick = { navController.popBackStack() },
+                onMaintenanceClick = { maintenanceId ->
+                    navController.navigate(Screen.MaintenanceDetail.createRoute(maintenanceId))
+                }
+            )
+        }
+
+        composable(Screen.MaintenanceDetail.route) { backStackEntry ->
+            val maintenanceId = backStackEntry.arguments?.getString("maintenanceId")
+            requireNotNull(maintenanceId) { "maintenanceId parameter wasn't found. Please make sure it's set!" }
+            MaintenanceDetailsScreen(
+                maintenanceId = maintenanceId,
                 onBackClick = { navController.popBackStack() }
             )
         }
 
         composable(Screen.Documents.route) {
             DocumentsScreen(
+                onBackClick = { navController.popBackStack() },
+                onAddDocumentClick = { navController.navigate(Screen.AddDocument.route) },
+                onDocumentClick = { documentId ->
+                    navController.navigate(Screen.DocumentDetail.createRoute(documentId))
+                }
+            )
+        }
+
+        composable(Screen.DocumentDetail.route) { backStackEntry ->
+            val documentId = backStackEntry.arguments?.getString("documentId")
+            requireNotNull(documentId) { "documentId parameter wasn't found. Please make sure it's set!" }
+            DocumentDetailScreen(
+                documentId = documentId,
                 onBackClick = { navController.popBackStack() }
             )
+        }
+
+        composable(Screen.AddDocument.route) {
+            AddDocumentScreen(onBackClick = { navController.popBackStack() })
         }
 
         composable(Screen.Garages.route) {

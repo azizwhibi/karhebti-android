@@ -16,6 +16,9 @@ interface KarhebtiApiService {
     @POST("auth/forgot-password")
     suspend fun forgotPassword(@Body request: ForgotPasswordRequest): Response<MessageResponse>
 
+    @POST("auth/change-password")
+    suspend fun changePassword(@Body request: ChangePasswordRequest): Response<MessageResponse>
+
     @POST("auth/reset-password")
     suspend fun resetPassword(@Body request: ResetPasswordRequest): Response<MessageResponse>
 
@@ -63,7 +66,7 @@ interface KarhebtiApiService {
     ): Response<CarResponse>
 
     @DELETE("cars/{id}")
-    suspend fun deleteCar(@Path("id") id: String): Response<MessageResponse>
+    suspend fun deleteCar(@Path("id") id: String): Response<Unit>
 
     // ==================== MAINTENANCES ====================
 
@@ -124,6 +127,20 @@ interface KarhebtiApiService {
 
     @DELETE("documents/{id}")
     suspend fun deleteDocument(@Path("id") id: String): Response<MessageResponse>
+
+    // ==================== ECHEANCES ====================
+
+    @GET("echeances/document/{documentId}")
+    suspend fun getEcheancesForDocument(@Path("documentId") documentId: String): Response<List<EcheanceResponse>>
+
+    @POST("echeances")
+    suspend fun createEcheance(@Body request: CreateEcheanceRequest): Response<EcheanceResponse>
+
+    @PATCH("echeances/{id}")
+    suspend fun updateEcheance(@Path("id") id: String, @Body request: UpdateEcheanceRequest): Response<EcheanceResponse>
+
+    @DELETE("echeances/{id}")
+    suspend fun deleteEcheance(@Path("id") id: String): Response<MessageResponse>
 
     // ==================== PARTS ====================
 
