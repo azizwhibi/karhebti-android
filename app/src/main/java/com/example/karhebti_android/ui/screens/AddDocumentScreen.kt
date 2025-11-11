@@ -12,15 +12,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.karhebti_android.data.api.CreateDocumentRequest
+import com.example.karhebti_android.data.api.UpdateDocumentRequest
 import com.example.karhebti_android.data.repository.Resource
 import com.example.karhebti_android.viewmodel.CarViewModel
 import com.example.karhebti_android.viewmodel.DocumentViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddDocumentScreen(
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    documentId: String? = null
 ) {
     val context = LocalContext.current
     val documentViewModel: DocumentViewModel = viewModel(
@@ -29,6 +33,8 @@ fun AddDocumentScreen(
     val carViewModel: CarViewModel = viewModel(
         factory = ViewModelFactory(context.applicationContext as android.app.Application)
     )
+
+    val isEditMode = documentId != null
 
     // Document fields state
     var selectedType by remember { mutableStateOf("") }
@@ -43,20 +49,43 @@ fun AddDocumentScreen(
 
     // Data states
     val carsState by carViewModel.carsState.observeAsState()
-    val createDocumentState by documentViewModel.createDocumentState.observeAsState()
     val documentTypes = listOf("Assurance", "Carte Grise", "Contrôle Technique", "Autre")
 
-    // Fetch cars on screen launch
-    LaunchedEffect(Unit) {
+    // State for fetching document details in edit mode
+    val documentDetailState by documentViewModel.documentDetailState.observeAsState()
+
+    // Fetch cars and document details on screen launch
+    LaunchedEffect(key1 = documentId) {
         carViewModel.getMyCars()
+        if (isEditMode) {
+            documentViewModel.getDocumentById(documentId!!)
+        }
     }
 
-    // Observe creation state
-    LaunchedEffect(createDocumentState) {
-        when (val state = createDocumentState) {
+    // Pre-fill form in edit mode
+    LaunchedEffect(documentDetailState) {
+        if (isEditMode) {
+            (documentDetailState as? Resource.Success)?.data?.let { doc ->
+                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                selectedType = doc.type.replace("_", " ").replaceFirstChar { it.titlecase(Locale.getDefault()) }
+                dateEmission = sdf.format(doc.dateEmission)
+                dateExpiration = sdf.format(doc.dateExpiration)
+                selectedCarId = doc.voiture
+            }
+        }
+    }
+
+    // Observe creation/update state
+    val createDocumentState by documentViewModel.createDocumentState.observeAsState()
+    val updateDocumentState by documentViewModel.updateDocumentState.observeAsState()
+
+    LaunchedEffect(createDocumentState, updateDocumentState) {
+        val state = if (isEditMode) updateDocumentState else createDocumentState
+        when (state) {
             is Resource.Success -> {
                 isLoading = false
-                Toast.makeText(context, "Document ajouté avec succès", Toast.LENGTH_SHORT).show()
+                val message = if (isEditMode) "Document modifié avec succès" else "Document ajouté avec succès"
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                 onBackClick()
             }
             is Resource.Error -> {
@@ -70,13 +99,12 @@ fun AddDocumentScreen(
         }
     }
 
-    // Dummy file path, replace with actual file picker logic
-    val filePath = "/path/to/dummy/file.pdf"
+    val filePath = "/path/to/dummy/file.pdf" // Replace with actual file picker logic
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Ajouter un Document") },
+                title = { Text(if (isEditMode) "Modifier le Document" else "Ajouter un Document") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
@@ -92,8 +120,7 @@ fun AddDocumentScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-
-            // Document Type Dropdown
+            // Form fields...
             ExposedDropdownMenuBox(expanded = typeMenuExpanded, onExpandedChange = { if (!isLoading) typeMenuExpanded = !typeMenuExpanded }) {
                 OutlinedTextField(
                     value = selectedType,
@@ -101,24 +128,16 @@ fun AddDocumentScreen(
                     readOnly = true,
                     label = { Text("Type de document") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeMenuExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
                     enabled = !isLoading
                 )
                 ExposedDropdownMenu(expanded = typeMenuExpanded, onDismissRequest = { typeMenuExpanded = false }) {
-                    documentTypes.forEach {
-                        type ->
-                        DropdownMenuItem(
-                            text = { Text(type) },
-                            onClick = {
-                                selectedType = type
-                                typeMenuExpanded = false
-                            }
-                        )
+                    documentTypes.forEach { type ->
+                        DropdownMenuItem(text = { Text(type) }, onClick = { selectedType = type; typeMenuExpanded = false })
                     }
                 }
             }
 
-            // Car Selection Dropdown
             ExposedDropdownMenuBox(expanded = carMenuExpanded, onExpandedChange = { if (!isLoading) carMenuExpanded = !carMenuExpanded }) {
                 val selectedCarText = when (val state = carsState) {
                     is Resource.Success -> state.data?.find { it.id == selectedCarId }?.let { "${it.marque} ${it.modele}" } ?: ""
@@ -130,19 +149,13 @@ fun AddDocumentScreen(
                     readOnly = true,
                     label = { Text("Véhicule") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = carMenuExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                    enabled = !isLoading
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    enabled = !isLoading && !isEditMode // Disable car change in edit mode for simplicity
                 )
-                ExposedDropdownMenu(expanded = carMenuExpanded, onDismissRequest = { carMenuExpanded = false }) {
-                    if (carsState is Resource.Success) {
-                        (carsState as Resource.Success).data?.forEach { car ->
-                            DropdownMenuItem(
-                                text = { Text("${car.marque} ${car.modele}") },
-                                onClick = {
-                                    selectedCarId = car.id
-                                    carMenuExpanded = false
-                                }
-                            )
+                if (!isEditMode) {
+                    ExposedDropdownMenu(expanded = carMenuExpanded, onDismissRequest = { carMenuExpanded = false }) {
+                        (carsState as? Resource.Success)?.data?.forEach { car ->
+                            DropdownMenuItem(text = { Text("${car.marque} ${car.modele}") }, onClick = { selectedCarId = car.id; carMenuExpanded = false })
                         }
                     }
                 }
@@ -167,22 +180,31 @@ fun AddDocumentScreen(
 
             Button(
                 onClick = {
-                    val request = CreateDocumentRequest(
-                        type = selectedType.lowercase().replace(" ", "_"),
-                        dateEmission = dateEmission,
-                        dateExpiration = dateExpiration,
-                        fichier = filePath,
-                        voiture = selectedCarId!!
-                    )
-                    documentViewModel.createDocument(request)
+                    if (isEditMode) {
+                        val request = UpdateDocumentRequest(
+                            type = selectedType.lowercase(),
+                            dateEmission = dateEmission,
+                            dateExpiration = dateExpiration
+                        )
+                        documentViewModel.updateDocument(documentId!!, request)
+                    } else {
+                        val request = CreateDocumentRequest(
+                            type = selectedType.lowercase(),
+                            dateEmission = dateEmission,
+                            dateExpiration = dateExpiration,
+                            fichier = filePath,
+                            voiture = selectedCarId!!
+                        )
+                        documentViewModel.createDocument(request)
+                    }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = selectedType.isNotBlank() && dateEmission.isNotBlank() && dateExpiration.isNotBlank() && selectedCarId != null && !isLoading
+                enabled = selectedType.isNotBlank() && dateEmission.isNotBlank() && dateExpiration.isNotBlank() && (isEditMode || selectedCarId != null) && !isLoading
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
                 } else {
-                    Text("Enregistrer")
+                    Text(if (isEditMode) "Enregistrer les modifications" else "Enregistrer")
                 }
             }
         }

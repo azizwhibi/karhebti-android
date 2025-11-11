@@ -28,7 +28,8 @@ import com.example.karhebti_android.viewmodel.ViewModelFactory
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GaragesScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onAddGarageClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val garageViewModel: GarageViewModel = viewModel(
@@ -70,6 +71,18 @@ fun GaragesScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAddGarageClick,
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = "Ajouter un garage",
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
+            }
         }
     ) { paddingValues ->
         Box(

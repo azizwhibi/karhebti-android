@@ -187,34 +187,11 @@ data class DocumentResponse(
     val dateExpiration: Date,
     val fichier: String,
     @JsonAdapter(FlexibleCarDeserializer::class)
-    val voiture: String? = null, // Can be either car ID string or car object
+    val voiture: String? = null,
     val createdAt: Date,
     val updatedAt: Date,
     val description: String? = null,
     val etat: String? = null
-)
-
-// Echeance DTOs
-data class CreateEcheanceRequest(
-    val documentId: String,
-    val dateEcheance: String, // ISO 8601
-    val description: String,
-    val estTerminee: Boolean
-)
-
-data class UpdateEcheanceRequest(
-    val dateEcheance: String? = null,
-    val description: String? = null,
-    val estTerminee: Boolean? = null
-)
-
-data class EcheanceResponse(
-    @SerializedName("_id")
-    val id: String,
-    val dateEcheance: Date,
-    val description: String,
-    val estTerminee: Boolean,
-    val document: String? = null // The document ID
 )
 
 // Part DTOs
@@ -233,7 +210,7 @@ data class PartResponse(
     val type: String,
     val dateInstallation: Date,
     val kilometrageRecommande: Int,
-    val voiture: String? = null, // Changed from CarResponse to String (car ID)
+    val voiture: String? = null,
     val createdAt: Date,
     val updatedAt: Date
 )
@@ -269,7 +246,7 @@ data class DangerZone(
     val latitude: Double,
     val longitude: Double,
     val signalements: Int,
-    val niveauDanger: String // faible, moyen, élevé, très élevé
+    val niveauDanger: String
 )
 
 data class MaintenanceRecommendationRequest(
@@ -278,7 +255,7 @@ data class MaintenanceRecommendationRequest(
 
 data class MaintenanceRecommendation(
     val type: String,
-    val priorite: String, // faible, moyenne, haute
+    val priorite: String,
     val raison: String,
     val estimationCout: Double,
     val delaiRecommande: String
@@ -323,14 +300,68 @@ data class ServiceResponse(
     val coutMoyen: Double,
     val dureeEstimee: Int,
     @JsonAdapter(FlexibleGarageDeserializer::class)
-    val garage: String? = null, // Can be either garage ID string or garage object
+    val garage: String? = null,
     val createdAt: Date? = null,
     val updatedAt: Date? = null
+)
+
+// Reclamation (Feedback) DTOs
+data class CreateReclamationRequest(
+    val type: String,
+    val titre: String,
+    val message: String,
+    val garageId: String? = null,
+    val serviceId: String? = null
+)
+
+data class UpdateReclamationRequest(
+    val titre: String? = null,
+    val message: String? = null
+)
+
+data class ReclamationResponse(
+    @SerializedName("_id")
+    val id: String,
+    val type: String,
+    val titre: String,
+    val message: String,
+    val user: UserResponse? = null,
+    val garage: GarageResponse? = null,
+    val service: ServiceResponse? = null,
+    val createdAt: Date,
+    val updatedAt: Date
 )
 
 // Generic Response
 data class MessageResponse(
     val message: String
+)
+
+// Notification DTOs
+data class NotificationResponse(
+    @SerializedName("_id")
+    val id: String,
+    val titre: String,
+    val message: String,
+    val type: String, // echeance, maintenance, info, alerte
+    val user: UserResponse? = null,
+    val document: DocumentResponse? = null,
+    val lu: Boolean = false,
+    val dateEcheance: Date? = null,
+    val createdAt: Date,
+    val updatedAt: Date
+)
+
+data class CreateNotificationRequest(
+    val titre: String,
+    val message: String,
+    val type: String,
+    val documentId: String? = null,
+    val dateEcheance: String? = null
+)
+
+data class UpdateNotificationRequest(
+    val lu: Boolean
 )
 
 // Error Response
@@ -339,3 +370,4 @@ data class ErrorResponse(
     val message: List<String>,
     val error: String
 )
+

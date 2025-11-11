@@ -149,26 +149,6 @@ fun HomeScreen(
                 fontWeight = FontWeight.Bold
             )
 
-            // Alertes importantes Section
-            Text(
-                text = "Alertes importantes",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            // Révision à prévoir Card
-            AlertCard(
-                title = "Révision à prévoir",
-                description = "Vidange + Filtre à huile",
-                deadline = "Dans 15 jours ou 500 km",
-                urgency = "URGENT",
-                urgencyColor = AlertRed,
-                onActionClick = { /* Handle planifier */ }
-            )
-
-            // Niveau carburant bas Card
-            FuelAlertCard()
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -265,153 +245,6 @@ fun HomeScreen(
     }
 }
 
-@Composable
-fun AlertCard(
-    title: String,
-    description: String,
-    deadline: String,
-    urgency: String,
-    urgencyColor: Color,
-    onActionClick: () -> Unit
-) {
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = null,
-                        tint = urgencyColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = urgencyColor.copy(alpha = 0.2f)
-                ) {
-                    Text(
-                        text = urgency,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = urgencyColor,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-            }
-
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Schedule,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = deadline,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                TextButton(onClick = onActionClick) {
-                    Text("Planifier", color = MaterialTheme.colorScheme.primary)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun FuelAlertCard() {
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(AccentYellow.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.LocalGasStation,
-                    contentDescription = null,
-                    tint = AccentYellow,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Niveau carburant bas",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "15% restant · Autonomie 45 km",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
 
 @Composable
 fun QuickActionButton(
@@ -505,3 +338,6 @@ fun HomeScreenPreview() {
         HomeScreen()
     }
 }
+
+
+

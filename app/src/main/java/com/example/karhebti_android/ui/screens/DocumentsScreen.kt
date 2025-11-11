@@ -86,18 +86,15 @@ fun DocumentsScreen(
             }
         }
     ) { paddingValues ->
-        Box(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
+            item { 
                 // Filter chips
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -116,8 +113,10 @@ fun DocumentsScreen(
                         )
                     }
                 }
+            }
 
-                // Content
+            // Content
+            item {
                 when (val state = documentsState) {
                     is Resource.Loading -> {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -136,7 +135,7 @@ fun DocumentsScreen(
                     is Resource.Success -> {
                         val allDocs = state.data ?: emptyList()
                         val filteredDocs = if (selectedFilter == "Tous") allDocs
-                        else allDocs.filter { it.type == selectedFilter.lowercase().replace(" ", "_") }
+                        else allDocs.filter { it.type == selectedFilter.lowercase() }
 
                         if (filteredDocs.isEmpty()) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -163,16 +162,12 @@ fun DocumentsScreen(
                                 }
                             }
                         } else {
-                            LazyColumn(
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                items(filteredDocs, key = { it.id }) { document ->
-                                    DocumentCard(
-                                        document = document,
-                                        onClick = { onDocumentClick(document.id) },
-                                        onDelete = { showDeleteDialog = document }
-                                    )
-                                }
+                            filteredDocs.forEach { document ->
+                                DocumentCard(
+                                    document = document,
+                                    onClick = { onDocumentClick(document.id) },
+                                    onDelete = { showDeleteDialog = document }
+                                )
                             }
                         }
                     }

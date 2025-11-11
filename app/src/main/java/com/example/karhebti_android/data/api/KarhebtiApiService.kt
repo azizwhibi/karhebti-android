@@ -128,20 +128,6 @@ interface KarhebtiApiService {
     @DELETE("documents/{id}")
     suspend fun deleteDocument(@Path("id") id: String): Response<MessageResponse>
 
-    // ==================== ECHEANCES ====================
-
-    @GET("echeances/document/{documentId}")
-    suspend fun getEcheancesForDocument(@Path("documentId") documentId: String): Response<List<EcheanceResponse>>
-
-    @POST("echeances")
-    suspend fun createEcheance(@Body request: CreateEcheanceRequest): Response<EcheanceResponse>
-
-    @PATCH("echeances/{id}")
-    suspend fun updateEcheance(@Path("id") id: String, @Body request: UpdateEcheanceRequest): Response<EcheanceResponse>
-
-    @DELETE("echeances/{id}")
-    suspend fun deleteEcheance(@Path("id") id: String): Response<MessageResponse>
-
     // ==================== PARTS ====================
 
     @GET("parts")
@@ -185,6 +171,32 @@ interface KarhebtiApiService {
     @DELETE("services/{id}")
     suspend fun deleteService(@Path("id") id: String): Response<MessageResponse>
 
+    // ==================== RECLAMATIONS (FEEDBACK) ====================
+
+    @GET("reclamations")
+    suspend fun getReclamations(): Response<List<ReclamationResponse>>
+
+    @GET("reclamations/{id}")
+    suspend fun getReclamation(@Path("id") id: String): Response<ReclamationResponse>
+
+    @GET("reclamations/garage/{garageId}")
+    suspend fun getReclamationsByGarage(@Path("garageId") garageId: String): Response<List<ReclamationResponse>>
+
+    @GET("reclamations/service/{serviceId}")
+    suspend fun getReclamationsByService(@Path("serviceId") serviceId: String): Response<List<ReclamationResponse>>
+
+    @POST("reclamations")
+    suspend fun createReclamation(@Body request: CreateReclamationRequest): Response<ReclamationResponse>
+
+    @PATCH("reclamations/{id}")
+    suspend fun updateReclamation(
+        @Path("id") id: String,
+        @Body request: UpdateReclamationRequest
+    ): Response<ReclamationResponse>
+
+    @DELETE("reclamations/{id}")
+    suspend fun deleteReclamation(@Path("id") id: String): Response<MessageResponse>
+
     // ==================== AI FEATURES ====================
 
     @POST("ai/report-road-issue")
@@ -209,4 +221,25 @@ interface KarhebtiApiService {
         @Query("longitude") longitude: Double? = null,
         @Query("rayon") rayon: Double? = null
     ): Response<List<GarageRecommendation>>
+
+    // ==================== NOTIFICATIONS ====================
+
+    @GET("notifications")
+    suspend fun getNotifications(): Response<List<NotificationResponse>>
+
+    @GET("notifications/mes-notifications")
+    suspend fun getMyNotifications(): Response<List<NotificationResponse>>
+
+    @GET("notifications/non-lues")
+    suspend fun getUnreadNotifications(): Response<List<NotificationResponse>>
+
+    @PATCH("notifications/{id}/marquer-lu")
+    suspend fun markNotificationAsRead(@Path("id") id: String): Response<NotificationResponse>
+
+    @PATCH("notifications/marquer-toutes-lues")
+    suspend fun markAllNotificationsAsRead(): Response<MessageResponse>
+
+    @DELETE("notifications/{id}")
+    suspend fun deleteNotification(@Path("id") id: String): Response<MessageResponse>
 }
+

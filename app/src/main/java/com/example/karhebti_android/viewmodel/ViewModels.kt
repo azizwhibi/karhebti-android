@@ -97,7 +97,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (e: Exception) {
                 android.util.Log.e("AuthViewModel", "Signup error: ${e.message}", e)
-                _authState.value = Resource.Error("Erreur d'inscription: ${e.localizedMessage}")
+                _authState.value = Resource.Error("Erreur d\'inscription: ${e.localizedMessage}")
             }
         }
     }
@@ -377,17 +377,6 @@ class DocumentViewModel(application: Application) : AndroidViewModel(application
     private val _updateDocumentState = MutableLiveData<Resource<DocumentResponse>>()
     val updateDocumentState: LiveData<Resource<DocumentResponse>> = _updateDocumentState
 
-    // Echeance States
-    private val _echeancesState = MutableLiveData<Resource<List<EcheanceResponse>>>()
-    val echeancesState: LiveData<Resource<List<EcheanceResponse>>> = _echeancesState
-
-    private val _createEcheanceState = MutableLiveData<Resource<EcheanceResponse>>()
-    val createEcheanceState: LiveData<Resource<EcheanceResponse>> = _createEcheanceState
-
-    private val _updateEcheanceState = MutableLiveData<Resource<EcheanceResponse>>()
-    val updateEcheanceState: LiveData<Resource<EcheanceResponse>> = _updateEcheanceState
-
-    // Document Functions
     fun getDocuments() {
         _documentsState.value = Resource.Loading()
         _documentsStateFlow.value = Resource.Loading()
@@ -442,48 +431,7 @@ class DocumentViewModel(application: Application) : AndroidViewModel(application
             }
         }
     }
-
-    // Echeance Functions
-    fun getEcheancesForDocument(documentId: String) {
-        _echeancesState.value = Resource.Loading()
-        viewModelScope.launch {
-            val result = repository.getEcheancesForDocument(documentId)
-            _echeancesState.value = result
-        }
-    }
-
-    fun createEcheance(request: CreateEcheanceRequest) {
-        _createEcheanceState.value = Resource.Loading()
-        viewModelScope.launch {
-            val result = repository.createEcheance(request)
-            _createEcheanceState.value = result
-            if (result is Resource.Success) {
-                getEcheancesForDocument(request.documentId)
-            }
-        }
-    }
-
-    fun updateEcheance(id: String, request: UpdateEcheanceRequest, documentId: String) {
-        _updateEcheanceState.value = Resource.Loading()
-        viewModelScope.launch {
-            val result = repository.updateEcheance(id, request)
-            _updateEcheanceState.value = result
-            if (result is Resource.Success) {
-                getEcheancesForDocument(documentId)
-            }
-        }
-    }
-
-    fun deleteEcheance(id: String, documentId: String) {
-        viewModelScope.launch {
-            val result = repository.deleteEcheance(id)
-            if (result is Resource.Success) {
-                getEcheancesForDocument(documentId) // Refresh list
-            }
-        }
-    }
 }
-
 
 // Part ViewModel
 class PartViewModel(application: Application) : AndroidViewModel(application) {
@@ -593,6 +541,7 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+
     fun updateUserRole(id: String, role: String) {
         viewModelScope.launch {
             val result = repository.updateUserRole(id, role)
@@ -601,13 +550,208 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+}
 
-    fun deleteUser(id: String) {
+// Reclamation (Feedback) ViewModel
+class ReclamationViewModel(application: Application) : AndroidViewModel(application) {
+    private val repository = ReclamationRepository()
+
+    private val _reclamationsState = MutableLiveData<Resource<List<ReclamationResponse>>>()
+    val reclamationsState: LiveData<Resource<List<ReclamationResponse>>> = _reclamationsState
+
+    private val _reclamationDetailState = MutableLiveData<Resource<ReclamationResponse>>()
+    val reclamationDetailState: LiveData<Resource<ReclamationResponse>> = _reclamationDetailState
+
+    private val _myReclamationsState = MutableLiveData<Resource<List<ReclamationResponse>>>()
+    val myReclamationsState: LiveData<Resource<List<ReclamationResponse>>> = _myReclamationsState
+
+    private val _createReclamationState = MutableLiveData<Resource<ReclamationResponse>>()
+    val createReclamationState: LiveData<Resource<ReclamationResponse>> = _createReclamationState
+
+    private val _updateReclamationState = MutableLiveData<Resource<ReclamationResponse>>()
+    val updateReclamationState: LiveData<Resource<ReclamationResponse>> = _updateReclamationState
+
+    private val _deleteReclamationState = MutableLiveData<Resource<MessageResponse>>()
+    val deleteReclamationState: LiveData<Resource<MessageResponse>> = _deleteReclamationState
+
+    private val _reclamationsStateFlow = MutableStateFlow<Resource<List<ReclamationResponse>>?>(null)
+    val reclamationsStateFlow: StateFlow<Resource<List<ReclamationResponse>>?> = _reclamationsStateFlow.asStateFlow()
+
+    fun getAllReclamations() {
+        _reclamationsState.value = Resource.Loading()
+        _reclamationsStateFlow.value = Resource.Loading()
         viewModelScope.launch {
-            val result = repository.deleteUser(id)
+            val result = repository.getReclamations()
+            _reclamationsState.value = result
+            _reclamationsStateFlow.value = result
+        }
+    }
+
+    fun getReclamationById(id: String) {
+        _reclamationDetailState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.getReclamationById(id)
+            _reclamationDetailState.value = result
+        }
+    }
+
+    fun getMyReclamations() {
+        _myReclamationsState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.getMyReclamations()
+            _myReclamationsState.value = result
+        }
+    }
+
+    fun getReclamationsByGarage(garageId: String) {
+        _reclamationsState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.getReclamationsByGarage(garageId)
+            _reclamationsState.value = result
+        }
+    }
+
+    fun getReclamationsByService(serviceId: String) {
+        _reclamationsState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.getReclamationsByService(serviceId)
+            _reclamationsState.value = result
+        }
+    }
+
+    fun createReclamation(
+        type: String,
+        titre: String,
+        message: String,
+        garageId: String? = null,
+        serviceId: String? = null
+    ) {
+        _createReclamationState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.createReclamation(
+                type = type,
+                titre = titre,
+                message = message,
+                garageId = garageId,
+                serviceId = serviceId
+            )
+            _createReclamationState.value = result
+
             if (result is Resource.Success) {
-                getAllUsers() // Refresh list
+                getMyReclamations() // Refresh user's reclamations
             }
         }
     }
+
+    fun updateReclamation(id: String, titre: String? = null, message: String? = null) {
+        _updateReclamationState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.updateReclamation(id, titre, message)
+            _updateReclamationState.value = result
+
+            if (result is Resource.Success) {
+                getMyReclamations() // Refresh list
+            }
+        }
+    }
+
+    fun deleteReclamation(id: String) {
+        _deleteReclamationState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.deleteReclamation(id)
+            _deleteReclamationState.value = result
+
+            if (result is Resource.Success) {
+                getMyReclamations() // Refresh list
+            }
+        }
+    }
+
+    fun refresh() {
+        getMyReclamations()
+    }
 }
+
+// Notification ViewModel
+class NotificationViewModel(application: Application) : AndroidViewModel(application) {
+    private val repository = NotificationRepository()
+
+    private val _notificationsState = MutableLiveData<Resource<List<NotificationResponse>>>()
+    val notificationsState: LiveData<Resource<List<NotificationResponse>>> = _notificationsState
+
+    private val _unreadNotificationsState = MutableLiveData<Resource<List<NotificationResponse>>>()
+    val unreadNotificationsState: LiveData<Resource<List<NotificationResponse>>> = _unreadNotificationsState
+
+    private val _markAsReadState = MutableLiveData<Resource<NotificationResponse>>()
+    val markAsReadState: LiveData<Resource<NotificationResponse>> = _markAsReadState
+
+    private val _deleteNotificationState = MutableLiveData<Resource<MessageResponse>>()
+    val deleteNotificationState: LiveData<Resource<MessageResponse>> = _deleteNotificationState
+
+    private val _unreadCount = MutableStateFlow(0)
+    val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
+
+    fun getMyNotifications() {
+        _notificationsState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.getMyNotifications()
+            _notificationsState.value = result
+
+            // Update unread count
+            if (result is Resource.Success) {
+                _unreadCount.value = result.data?.count { !it.lu } ?: 0
+            }
+        }
+    }
+
+    fun getUnreadNotifications() {
+        _unreadNotificationsState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.getUnreadNotifications()
+            _unreadNotificationsState.value = result
+
+            // Update unread count
+            if (result is Resource.Success) {
+                _unreadCount.value = result.data?.size ?: 0
+            }
+        }
+    }
+
+    fun markNotificationAsRead(id: String) {
+        _markAsReadState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.markNotificationAsRead(id)
+            _markAsReadState.value = result
+
+            if (result is Resource.Success) {
+                getMyNotifications() // Refresh list
+            }
+        }
+    }
+
+    fun markAllNotificationsAsRead() {
+        viewModelScope.launch {
+            val result = repository.markAllNotificationsAsRead()
+            if (result is Resource.Success) {
+                getMyNotifications() // Refresh list
+            }
+        }
+    }
+
+    fun deleteNotification(id: String) {
+        _deleteNotificationState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.deleteNotification(id)
+            _deleteNotificationState.value = result
+
+            if (result is Resource.Success) {
+                getMyNotifications() // Refresh list
+            }
+        }
+    }
+
+    fun refresh() {
+        getMyNotifications()
+    }
+}
+

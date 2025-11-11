@@ -37,7 +37,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun SettingsScreen(
     onBackClick: () -> Unit = {},
-    onLogout: () -> Unit = {}
+    onLogout: () -> Unit = {},
+    onReclamationsClick: () -> Unit = {},
+    onNotificationsClick: () -> Unit = {}
 ) {
     // Get AuthViewModel to access current user data
     val context = LocalContext.current
@@ -211,11 +213,11 @@ fun SettingsScreen(
                 modifier = Modifier.padding(top = 8.dp)
             )
 
-            SettingsToggleItem(
+            SettingsItem(
                 icon = Icons.Default.Notifications,
                 title = "Notifications",
-                checked = notificationsEnabled,
-                onCheckedChange = { notificationsEnabled = it },
+                subtitle = "Gérer vos notifications",
+                onClick = onNotificationsClick,
                 iconTint = AccentGreen
             )
 
@@ -256,6 +258,14 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(top = 8.dp)
+            )
+
+            SettingsItem(
+                icon = Icons.Default.Feedback,
+                title = "Réclamations",
+                subtitle = "Signaler un problème",
+                onClick = onReclamationsClick,
+                iconTint = AccentOrange
             )
 
             SettingsItem(

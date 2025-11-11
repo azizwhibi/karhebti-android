@@ -24,8 +24,20 @@ sealed class Screen(val route: String) {
         fun createRoute(documentId: String) = "document_detail/$documentId"
     }
     object AddDocument : Screen("add_document")
+    object EditDocument : Screen("edit_document/{documentId}") {
+        fun createRoute(documentId: String) = "edit_document/$documentId"
+    }
     object Garages : Screen("garages")
     object Settings : Screen("settings")
+    object Notifications : Screen("notifications")
+    object Reclamations : Screen("reclamations")
+    object AddReclamation : Screen("add_reclamation")
+    object ReclamationDetail : Screen("reclamation_detail/{reclamationId}") {
+        fun createRoute(reclamationId: String) = "reclamation_detail/$reclamationId"
+    }
+    object EditReclamation : Screen("edit_reclamation/{reclamationId}") {
+        fun createRoute(reclamationId: String) = "edit_reclamation/$reclamationId"
+    }
 }
 
 @Composable
@@ -42,7 +54,6 @@ fun NavGraph(
                 onLoginSuccess = {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
-                        launchSingleTop = true
                     }
                 },
                 onSignUpClick = { navController.navigate(Screen.SignUp.route) },
@@ -54,11 +65,10 @@ fun NavGraph(
             SignUpScreen(
                 onSignUpSuccess = {
                     navController.navigate(Screen.Home.route) {
-                        popUpTo(0) { inclusive = true }
-                        launchSingleTop = true
+                        popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
-                onLoginClick = { navController.popBackStack() }
+                onBackClick = { navController.popBackStack() }
             )
         }
 
@@ -98,18 +108,6 @@ fun NavGraph(
 
         composable(Screen.Entretiens.route) {
             EntretiensScreen(
-                onBackClick = { navController.popBackStack() },
-                onMaintenanceClick = { maintenanceId ->
-                    navController.navigate(Screen.MaintenanceDetail.createRoute(maintenanceId))
-                }
-            )
-        }
-
-        composable(Screen.MaintenanceDetail.route) { backStackEntry ->
-            val maintenanceId = backStackEntry.arguments?.getString("maintenanceId")
-            requireNotNull(maintenanceId) { "maintenanceId parameter wasn't found. Please make sure it's set!" }
-            MaintenanceDetailsScreen(
-                maintenanceId = maintenanceId,
                 onBackClick = { navController.popBackStack() }
             )
         }
@@ -117,10 +115,10 @@ fun NavGraph(
         composable(Screen.Documents.route) {
             DocumentsScreen(
                 onBackClick = { navController.popBackStack() },
-                onAddDocumentClick = { navController.navigate(Screen.AddDocument.route) },
                 onDocumentClick = { documentId ->
                     navController.navigate(Screen.DocumentDetail.createRoute(documentId))
-                }
+                },
+                onAddDocumentClick = { navController.navigate(Screen.AddDocument.route) }
             )
         }
 
@@ -129,12 +127,22 @@ fun NavGraph(
             requireNotNull(documentId) { "documentId parameter wasn't found. Please make sure it's set!" }
             DocumentDetailScreen(
                 documentId = documentId,
-                onBackClick = { navController.popBackStack() }
+                onBackClick = { navController.popBackStack() },
+                onEditClick = { docId -> navController.navigate(Screen.EditDocument.createRoute(docId)) }
             )
         }
 
         composable(Screen.AddDocument.route) {
             AddDocumentScreen(onBackClick = { navController.popBackStack() })
+        }
+
+        composable(Screen.EditDocument.route) { backStackEntry ->
+            val documentId = backStackEntry.arguments?.getString("documentId")
+            requireNotNull(documentId) { "documentId parameter wasn't found. Please make sure it's set!" }
+            AddDocumentScreen(
+                documentId = documentId,
+                onBackClick = { navController.popBackStack() }
+            )
         }
 
         composable(Screen.Garages.route) {
@@ -150,8 +158,56 @@ fun NavGraph(
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
                     }
+                },
+                onReclamationsClick = { navController.navigate(Screen.Reclamations.route) },
+                onNotificationsClick = { navController.navigate(Screen.Notifications.route) }
+            )
+        }
+
+        composable(Screen.Notifications.route) {
+            NotificationsScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Reclamations.route) {
+            ReclamationsScreen(
+                onBackClick = { navController.popBackStack() },
+                onAddReclamationClick = { navController.navigate(Screen.AddReclamation.route) },
+                onReclamationClick = { reclamationId ->
+                    navController.navigate(Screen.ReclamationDetail.createRoute(reclamationId))
                 }
+            )
+        }
+
+        composable(Screen.AddReclamation.route) {
+            AddReclamationScreen(
+                onBackClick = { navController.popBackStack() },
+                onReclamationCreated = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.ReclamationDetail.route) { backStackEntry ->
+            val reclamationId = backStackEntry.arguments?.getString("reclamationId")
+            requireNotNull(reclamationId) { "reclamationId parameter wasn't found. Please make sure it's set!" }
+            ReclamationDetailScreen(
+                reclamationId = reclamationId,
+                onBackClick = { navController.popBackStack() },
+                onEditClick = { id ->
+                    navController.navigate(Screen.EditReclamation.createRoute(id))
+                }
+            )
+        }
+
+        composable(Screen.EditReclamation.route) { backStackEntry ->
+            val reclamationId = backStackEntry.arguments?.getString("reclamationId")
+            requireNotNull(reclamationId) { "reclamationId parameter wasn't found. Please make sure it's set!" }
+            EditReclamationScreen(
+                reclamationId = reclamationId,
+                onBackClick = { navController.popBackStack() },
+                onReclamationUpdated = { navController.popBackStack() }
             )
         }
     }
 }
+
