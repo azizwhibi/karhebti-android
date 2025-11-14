@@ -1,6 +1,7 @@
 package com.example.karhebti_android.data.repository
 
 import com.example.karhebti_android.data.api.*
+import com.example.karhebti_android.data.preferences.TokenManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -13,7 +14,10 @@ sealed class Resource<T>(
     class Loading<T> : Resource<T>()
 }
 
-class AuthRepository(private val apiService: KarhebtiApiService = RetrofitClient.apiService) {
+class AuthRepository(
+    private val apiService: KarhebtiApiService = RetrofitClient.apiService,
+    private val tokenManager: TokenManager
+) {
 
     suspend fun signup(
         nom: String,
@@ -21,17 +25,32 @@ class AuthRepository(private val apiService: KarhebtiApiService = RetrofitClient
         email: String,
         motDePasse: String,
         telephone: String
-    ): Resource<AuthResponse> = withContext(Dispatchers.IO) {
+    ): Resource<MessageResponse> = withContext(Dispatchers.IO) {
         try {
             val request = SignupRequest(nom, prenom, email, motDePasse, telephone)
             val response = apiService.signup(request)
 
             if (response.isSuccessful && response.body() != null) {
-                val authResponse = response.body()!!
-                RetrofitClient.setAuthToken(authResponse.accessToken)
-                Resource.Success(authResponse)
+                Resource.Success(response.body()!!)
             } else {
                 Resource.Error("Erreur d'inscription: ${response.message()}")
+            }
+        } catch (e: Exception) {
+            Resource.Error("Erreur réseau: ${e.localizedMessage}")
+        }
+    }
+
+    // This verifies the OTP for a pending signup and completes account creation.
+    suspend fun verifySignupOtp(email: String, otpCode: String): Resource<AuthResponse> = withContext(Dispatchers.IO) {
+        try {
+            val request = VerifySignupOtpRequest(email, otpCode)
+            val response = apiService.verifySignupOtp(request)
+
+            if (response.isSuccessful && response.body() != null) {
+                Resource.Success(response.body()!!)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Resource.Error("Erreur de vérification: ${response.code()} - $errorBody")
             }
         } catch (e: Exception) {
             Resource.Error("Erreur réseau: ${e.localizedMessage}")
@@ -46,7 +65,7 @@ class AuthRepository(private val apiService: KarhebtiApiService = RetrofitClient
 
                 if (response.isSuccessful && response.body() != null) {
                     val authResponse = response.body()!!
-                    RetrofitClient.setAuthToken(authResponse.accessToken)
+                    // Token will be saved by AuthViewModel via tokenManager.saveToken()
                     Resource.Success(authResponse)
                 } else {
                     Resource.Error("Email ou mot de passe incorrect")
@@ -72,10 +91,44 @@ class AuthRepository(private val apiService: KarhebtiApiService = RetrofitClient
             }
         }
 
+    suspend fun verifyOtp(email: String, otp: String): Resource<MessageResponse> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = VerifyOtpRequest(email, otp)
+                val response = apiService.verifyOtp(request)
+
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!)
+                } else {
+                    Resource.Error("Code OTP invalide ou expiré")
+                }
+            } catch (e: Exception) {
+                Resource.Error("Erreur réseau: ${e.localizedMessage}")
+            }
+        }
+
+    suspend fun resetPassword(email: String, otp: String, newPassword: String): Resource<MessageResponse> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = ResetPasswordRequest(email, otp, newPassword)
+                val response = apiService.resetPassword(request)
+
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!)
+                } else {
+                    Resource.Error("Erreur: ${response.message()}")
+                }
+            } catch (e: Exception) {
+                Resource.Error("Erreur réseau: ${e.localizedMessage}")
+            }
+        }
+
     suspend fun changePassword(currentPassword: String, newPassword: String): Resource<MessageResponse> =
         withContext(Dispatchers.IO) {
             try {
-                val request = ChangePasswordRequest(currentPassword, newPassword)
+                val userId = tokenManager.getUser()?.id ?: tokenManager.getToken()?.let { tokenManager.getUserIdFromToken(it) }
+                    ?: return@withContext Resource.Error("Utilisateur non connecté")
+                val request = ChangePasswordRequest(userId, currentPassword, newPassword)
                 val response = apiService.changePassword(request)
 
                 if (response.isSuccessful && response.body() != null) {
@@ -88,9 +141,7 @@ class AuthRepository(private val apiService: KarhebtiApiService = RetrofitClient
             }
         }
 
-    fun logout() {
-        RetrofitClient.setAuthToken(null)
-    }
+    // Logout is now handled entirely by TokenManager.clearAll()
 }
 
 class CarRepository(private val apiService: KarhebtiApiService = RetrofitClient.apiService) {
@@ -477,7 +528,8 @@ class AIRepository(private val apiService: KarhebtiApiService = RetrofitClient.a
         description: String
     ): Resource<RoadIssueResponse> = withContext(Dispatchers.IO) {
         try {
-            val request = ReportRoadIssueRequest(latitude, longitude, typeAnomalie, description)
+            // ReportRoadIssueRequest(type, description, latitude, longitude)
+            val request = ReportRoadIssueRequest(typeAnomalie, description, latitude, longitude)
             val response = apiService.reportRoadIssue(request)
 
             if (response.isSuccessful && response.body() != null) {
@@ -509,10 +561,16 @@ class AIRepository(private val apiService: KarhebtiApiService = RetrofitClient.a
     }
 
     suspend fun getMaintenanceRecommendations(
-        voitureId: String
+        voitureId: String,
+        mileage: Int,
+        lastMaintenanceDate: String? = null
     ): Resource<MaintenanceRecommendationResponse> = withContext(Dispatchers.IO) {
         try {
-            val request = MaintenanceRecommendationRequest(voitureId)
+            val request = MaintenanceRecommendationRequest(
+                carId = voitureId,
+                mileage = mileage,
+                lastMaintenanceDate = lastMaintenanceDate
+            )
             val response = apiService.getMaintenanceRecommendations(request)
 
             if (response.isSuccessful && response.body() != null) {

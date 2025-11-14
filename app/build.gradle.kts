@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.devtools.ksp") version "2.0.21-1.0.28"
 }
 
 android {
@@ -59,13 +60,27 @@ dependencies {
     // Lifecycle-aware state collection for Compose
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.2")
 
-
-
+    // Networking
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.coil.compose)
+
+    // Room
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.compose.foundation)
+    ksp(libs.androidx.room.compiler)
+
+    // WorkManager
+    implementation(libs.androidx.work.runtime.ktx)
+
+    // Glance for App Widgets
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
+
+    // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

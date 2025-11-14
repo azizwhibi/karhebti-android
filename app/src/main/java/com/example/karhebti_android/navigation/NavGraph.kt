@@ -1,15 +1,37 @@
 package com.example.karhebti_android.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.example.karhebti_android.data.api.SignupData
+import com.example.karhebti_android.data.repository.Resource
 import com.example.karhebti_android.ui.screens.*
+import com.example.karhebti_android.viewmodel.AuthViewModel
+import com.example.karhebti_android.viewmodel.ViewModelFactory
+import android.app.Application
 
 sealed class Screen(val route: String) {
     object Login : Screen("login")
     object SignUp : Screen("signup")
     object ForgotPassword : Screen("forgot_password")
+    object VerifyOtp : Screen("verify_otp/{email}") {
+        fun createRoute(email: String) = "verify_otp/$email"
+    }
+    object ResetPassword : Screen("reset_password/{email}/{otp}") {
+        fun createRoute(email: String, otp: String) = "reset_password/$email/$otp"
+    }
+    object EmailVerification : Screen("email_verification/{email}") {
+        fun createRoute(email: String) = "email_verification/$email"
+    }
     object Home : Screen("home")
     object Vehicles : Screen("vehicles")
     object VehicleDetail : Screen("vehicle_detail/{vehicleId}") {
@@ -29,6 +51,27 @@ fun NavGraph(
     navController: NavHostController,
     startDestination: String = Screen.Login.route
 ) {
+    val context = LocalContext.current
+    val authViewModel: AuthViewModel = viewModel(
+        factory = ViewModelFactory(context.applicationContext as Application)
+    )
+
+    var pendingSignupPerform by remember { mutableStateOf(false) }
+    val authState by authViewModel.authState.observeAsState()
+
+    // When a signup has been triggered after email verification, navigate to Home on success
+    LaunchedEffect(authState, pendingSignupPerform) {
+        if (pendingSignupPerform && authState is Resource.Success) {
+            // Clear pending signup from previous back stack entry if present
+            navController.previousBackStackEntry?.savedStateHandle?.remove<SignupData>("pendingSignup")
+            // Navigate to home, clear back stack
+            navController.navigate(Screen.Home.route) {
+                popUpTo(0) { inclusive = true }
+            }
+            pendingSignupPerform = false
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination
@@ -48,11 +91,13 @@ fun NavGraph(
 
         composable(Screen.SignUp.route) {
             SignUpScreen(
-                onSignUpSuccess = {
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(0) { inclusive = true }
-                        launchSingleTop = true
-                    }
+                onSignupInitiated = { signupData: SignupData ->
+                    // Store pending signup data so EmailVerification can access it
+                    navController.currentBackStackEntry?.savedStateHandle?.set("pendingSignup", signupData)
+                    // Initiate signup (sends OTP) then navigate to verification screen on success
+                    authViewModel.signupInitiate(signupData.nom, signupData.prenom, signupData.email, signupData.password, signupData.telephone)
+                    // Navigate to EmailVerification immediately; EmailVerificationScreen will show resend/cooldown
+                    navController.navigate(Screen.EmailVerification.createRoute(signupData.email))
                 },
                 onLoginClick = { navController.popBackStack() }
             )
@@ -60,7 +105,81 @@ fun NavGraph(
 
         composable(Screen.ForgotPassword.route) {
             ForgotPasswordScreen(
+                onBackClick = { navController.popBackStack() },
+                onNavigateToSignup = { navController.navigate(Screen.SignUp.route) },
+                onNavigateToOtpVerification = { email ->
+                    navController.navigate(Screen.VerifyOtp.createRoute(email))
+                }
+            )
+        }
+
+        composable(Screen.VerifyOtp.route) { backStackEntry ->
+            val email = backStackEntry.arguments?.getString("email")
+            requireNotNull(email) { "email parameter wasn't found. Please make sure it's set!" }
+
+            VerifyOtpScreen(
+                email = email,
+                onBackClick = { navController.popBackStack() },
+                onOtpVerified = { verifiedEmail, otp ->
+                    navController.navigate(Screen.ResetPassword.createRoute(verifiedEmail, otp))
+                }
+            )
+        }
+
+        composable(Screen.ResetPassword.route) { backStackEntry ->
+            val email = backStackEntry.arguments?.getString("email")
+            val otp = backStackEntry.arguments?.getString("otp")
+            requireNotNull(email) { "email parameter wasn't found. Please make sure it's set!" }
+            requireNotNull(otp) { "otp parameter wasn't found. Please make sure it's set!" }
+            ResetPasswordScreen(
+                email = email,
+                otp = otp,
+                navController = navController,
                 onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.EmailVerification.route) { backStackEntry ->
+            val email = backStackEntry.arguments?.getString("email")
+            requireNotNull(email) { "email parameter wasn't found. Please make sure it's set!" }
+
+            // Check if this is a signup flow (has pending signup data)
+            val pendingSignup = navController.previousBackStackEntry?.savedStateHandle?.get<SignupData>("pendingSignup")
+
+            EmailVerificationScreen(
+                email = email,
+                onBackClick = { navController.popBackStack() },
+                onVerificationSuccess = {
+                    // After successful email verification, check if there is a pending signup to perform.
+                    if (pendingSignup != null) {
+                        // This is a signup flow - create the account by verifying signup OTP
+                        pendingSignupPerform = true
+                        // Remove pending signup from saved state
+                        navController.previousBackStackEntry?.savedStateHandle?.remove<SignupData>("pendingSignup")
+                        // Note: EmailVerificationScreen will supply the OTP code via the verifyForSignup callback
+                        // The actual completion (token save & navigation) will happen when AuthViewModel.authState emits success
+                    } else {
+                        // No pending signup; just navigate to Home
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                },
+                // When in signup flow, EmailVerificationScreen will call this to verify signup OTP
+                verifyForSignup = { verifiedEmail, code ->
+                    // Mark that we are performing a pending signup so NavGraph listens for authState success
+                    pendingSignupPerform = true
+                    // Trigger the signup verification which will return AuthResponse and set authState
+                    authViewModel.verifySignupOtp(verifiedEmail, code)
+                },
+                // Provide a resend callback for signup flow that re-initiates the signup using saved pendingSignup
+                resendForSignup = { _email ->
+                    val saved = navController.previousBackStackEntry?.savedStateHandle?.get<SignupData>("pendingSignup")
+                    saved?.let { sd ->
+                        authViewModel.signupInitiate(sd.nom, sd.prenom, sd.email, sd.password, sd.telephone)
+                    }
+                },
+                isSignupFlow = pendingSignup != null
             )
         }
 

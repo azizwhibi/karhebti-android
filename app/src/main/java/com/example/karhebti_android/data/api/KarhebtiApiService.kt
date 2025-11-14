@@ -1,5 +1,6 @@
 package com.example.karhebti_android.data.api
 
+import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -8,7 +9,7 @@ interface KarhebtiApiService {
     // ==================== AUTH ====================
 
     @POST("auth/signup")
-    suspend fun signup(@Body request: SignupRequest): Response<AuthResponse>
+    suspend fun signup(@Body request: SignupRequest): Response<MessageResponse>
 
     @POST("auth/login")
     suspend fun login(@Body request: LoginRequest): Response<AuthResponse>
@@ -16,11 +17,35 @@ interface KarhebtiApiService {
     @POST("auth/forgot-password")
     suspend fun forgotPassword(@Body request: ForgotPasswordRequest): Response<MessageResponse>
 
-    @POST("auth/change-password")
-    suspend fun changePassword(@Body request: ChangePasswordRequest): Response<MessageResponse>
+    @POST("auth/verify-otp")
+    suspend fun verifyOtp(@Body request: VerifyOtpRequest): Response<MessageResponse>
 
     @POST("auth/reset-password")
     suspend fun resetPassword(@Body request: ResetPasswordRequest): Response<MessageResponse>
+
+    @POST("auth/change-password")
+    suspend fun changePassword(@Body request: ChangePasswordRequest): Response<MessageResponse>
+
+    // ==================== NEW: OTP LOGIN ====================
+
+    @POST("auth/otp/send")
+    suspend fun sendOtpLogin(@Body request: SendOtpLoginRequest): Response<OtpResponse>
+
+    @POST("auth/otp/verify")
+    suspend fun verifyOtpLogin(@Body request: VerifyOtpLoginRequest): Response<AuthResponse>
+
+    // ==================== NEW: EMAIL VERIFICATION ====================
+
+    @POST("auth/email/send")
+    suspend fun sendEmailVerification(@Body request: SendEmailVerificationRequest): Response<EmailVerificationResponse>
+
+    @POST("auth/email/verify")
+    suspend fun verifyEmail(@Body request: VerifyEmailRequest): Response<EmailVerificationResponse>
+
+    // ==================== NEW: SIGNUP VERIFY ====================
+
+    @POST("auth/signup/verify")
+    suspend fun verifySignupOtp(@Body request: VerifySignupOtpRequest): Response<AuthResponse>
 
     // ==================== USERS ====================
 
@@ -68,6 +93,15 @@ interface KarhebtiApiService {
     @DELETE("cars/{id}")
     suspend fun deleteCar(@Path("id") id: String): Response<Unit>
 
+    // ==================== NEW: CAR IMAGE UPLOAD ====================
+
+    @Multipart
+    @POST("cars/{id}/image")
+    suspend fun uploadCarImage(
+        @Path("id") id: String,
+        @Part image: MultipartBody.Part
+    ): Response<CarResponse>
+
     // ==================== MAINTENANCES ====================
 
     @GET("maintenances")
@@ -87,6 +121,33 @@ interface KarhebtiApiService {
 
     @DELETE("maintenances/{id}")
     suspend fun deleteMaintenance(@Path("id") id: String): Response<MessageResponse>
+
+    // ==================== NEW: MAINTENANCES SEARCH/FILTER ====================
+
+    @GET("maintenances/search/filter")
+    suspend fun searchMaintenances(
+        @Query("search") search: String? = null,
+        @Query("status") status: String? = null,
+        @Query("dateFrom") dateFrom: String? = null,
+        @Query("dateTo") dateTo: String? = null,
+        @Query("tags[]") tags: List<String>? = null,
+        @Query("minCost") minCost: Double? = null,
+        @Query("maxCost") maxCost: Double? = null,
+        @Query("minMileage") minMileage: Int? = null,
+        @Query("maxMileage") maxMileage: Int? = null,
+        @Query("sort") sort: String? = "dueAt",
+        @Query("order") order: String? = "asc",
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20
+    ): Response<PaginatedMaintenancesResponse>
+
+    // ==================== NEW: UPCOMING MAINTENANCES WIDGET ====================
+
+    @GET("maintenances/upcoming/widget")
+    suspend fun getUpcomingMaintenances(
+        @Query("limit") limit: Int = 5,
+        @Query("includePlate") includePlate: Boolean = true
+    ): Response<List<UpcomingMaintenanceWidget>>
 
     // ==================== GARAGES ====================
 

@@ -479,8 +479,11 @@ fun ChangePasswordDialog(
                         newPassword != confirmPassword -> {
                             errorMessage = "Les mots de passe ne correspondent pas"
                         }
+                        currentPassword.length < 6 -> {
+                            errorMessage = "Le mot de passe actuel doit contenir au moins 6 caractères"
+                        }
                         newPassword.length < 6 -> {
-                            errorMessage = "Le mot de passe doit contenir au moins 6 caractères"
+                            errorMessage = "Le nouveau mot de passe doit contenir au moins 6 caractères"
                         }
                         else -> {
                             authViewModel.changePassword(currentPassword, newPassword)

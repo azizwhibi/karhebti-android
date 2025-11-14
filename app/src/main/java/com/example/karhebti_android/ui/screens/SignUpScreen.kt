@@ -13,32 +13,22 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.karhebti_android.data.repository.Resource
-import com.example.karhebti_android.viewmodel.AuthViewModel
-import com.example.karhebti_android.viewmodel.ViewModelFactory
+import com.example.karhebti_android.data.api.SignupData
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignUpScreen(
-    onSignUpSuccess: () -> Unit = {},
+    onSignupInitiated: (SignupData) -> Unit = {},
     onLoginClick: () -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
-    val context = LocalContext.current
-    val authViewModel: AuthViewModel = viewModel(
-        factory = ViewModelFactory(context.applicationContext as android.app.Application)
-    )
-
     var nom by remember { mutableStateOf("") }
     var prenom by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -55,15 +45,8 @@ fun SignUpScreen(
     var passwordError by remember { mutableStateOf<String?>(null) }
     var confirmPasswordError by remember { mutableStateOf<String?>(null) }
 
-    val authState by authViewModel.authState.observeAsState()
-
-    LaunchedEffect(authState) {
-        when (authState) {
-            is Resource.Success -> onSignUpSuccess()
-            else -> {}
-        }
-    }
-
+    // When signup is initiated we simply emit the pending signup data to the caller
+    // The caller will start the email verification flow before creating the account.
     fun validateNom(): Boolean {
         nomError = if (nom.isBlank()) "Le nom est requis" else null
         return nomError == null
@@ -123,14 +106,6 @@ fun SignUpScreen(
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
-    LaunchedEffect(authState) {
-        if (authState is Resource.Error) {
-            snackbarHostState.showSnackbar(
-                message = (authState as Resource.Error).message ?: "Erreur d'inscription",
-                duration = SnackbarDuration.Short
-            )
-        }
-    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -194,8 +169,7 @@ fun SignUpScreen(
                     ),
                     isError = nomError != null,
                     supportingText = nomError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
-                    singleLine = true,
-                    enabled = authState !is Resource.Loading
+                    singleLine = true
                 )
 
                 OutlinedTextField(
@@ -218,8 +192,7 @@ fun SignUpScreen(
                     ),
                     isError = prenomError != null,
                     supportingText = prenomError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
-                    singleLine = true,
-                    enabled = authState !is Resource.Loading
+                    singleLine = true
                 )
 
                 OutlinedTextField(
@@ -243,8 +216,7 @@ fun SignUpScreen(
                     isError = emailError != null,
                     supportingText = emailError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    singleLine = true,
-                    enabled = authState !is Resource.Loading
+                    singleLine = true
                 )
 
                 OutlinedTextField(
@@ -268,8 +240,7 @@ fun SignUpScreen(
                     isError = telephoneError != null,
                     supportingText = telephoneError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    singleLine = true,
-                    enabled = authState !is Resource.Loading
+                    singleLine = true
                 )
 
                 OutlinedTextField(
@@ -303,8 +274,7 @@ fun SignUpScreen(
                             )
                         }
                     },
-                    singleLine = true,
-                    enabled = authState !is Resource.Loading
+                    singleLine = true
                 )
 
                 OutlinedTextField(
@@ -338,14 +308,13 @@ fun SignUpScreen(
                             )
                         }
                     },
-                    singleLine = true,
-                    enabled = authState !is Resource.Loading
+                    singleLine = true
                 )
 
                 Button(
                     onClick = {
                         if (validateAll()) {
-                            authViewModel.signup(nom, prenom, email, telephone, password)
+                            onSignupInitiated(SignupData(nom = nom, prenom = prenom, email = email, telephone = telephone, password = password))
                         }
                     },
                     modifier = Modifier
@@ -356,20 +325,12 @@ fun SignUpScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
-                    enabled = authState !is Resource.Loading
+                    enabled = true
                 ) {
-                    if (authState is Resource.Loading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text(
-                            text = "S'inscrire",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
+                    Text(
+                        text = "S'inscrire",
+                        style = MaterialTheme.typography.titleMedium
+                    )
                 }
 
                 Row(

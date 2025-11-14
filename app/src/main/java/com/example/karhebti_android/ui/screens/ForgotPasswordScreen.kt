@@ -13,6 +13,7 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -25,7 +26,9 @@ import kotlinx.coroutines.delay
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ForgotPasswordScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onNavigateToSignup: () -> Unit = {},
+    onNavigateToOtpVerification: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val authViewModel: AuthViewModel = viewModel(
@@ -36,12 +39,15 @@ fun ForgotPasswordScreen(
     var emailError by remember { mutableStateOf<String?>(null) }
     val forgotPasswordState by authViewModel.forgotPasswordState.observeAsState()
     var showConfirmation by remember { mutableStateOf(false) }
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
 
     LaunchedEffect(forgotPasswordState) {
         if (forgotPasswordState is Resource.Success) {
             showConfirmation = true
-            delay(3000)
-            showConfirmation = false
+            delay(1500)
+            // Navigate to OTP verification screen
+            onNavigateToOtpVerification(email)
         }
     }
 
@@ -57,10 +63,19 @@ fun ForgotPasswordScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(forgotPasswordState) {
         if (forgotPasswordState is Resource.Error) {
-            snackbarHostState.showSnackbar(
-                message = (forgotPasswordState as Resource.Error).message ?: "Erreur",
-                duration = SnackbarDuration.Short
-            )
+            val errorMsg = (forgotPasswordState as Resource.Error).message ?: "Erreur"
+            errorMessage = errorMsg
+
+            // Show different dialog based on error type
+            if (errorMsg.contains("Email not found", ignoreCase = true) ||
+                errorMsg.contains("404", ignoreCase = true)) {
+                showErrorDialog = true
+            } else {
+                snackbarHostState.showSnackbar(
+                    message = errorMsg,
+                    duration = SnackbarDuration.Short
+                )
+            }
         }
     }
 
@@ -189,5 +204,51 @@ fun ForgotPasswordScreen(
                 }
             }
         }
+    }
+
+    // Email not found dialog with signup option
+    if (showErrorDialog) {
+        AlertDialog(
+            onDismissRequest = { showErrorDialog = false },
+            title = {
+                Text(
+                    "Email non trouvé",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Aucun compte n'est associé à cet email.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Veuillez vérifier l'email ou créer un nouveau compte.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showErrorDialog = false
+                        onNavigateToSignup()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("Créer un compte")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showErrorDialog = false }
+                ) {
+                    Text("Essayer un autre email")
+                }
+            }
+        )
     }
 }

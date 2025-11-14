@@ -2,8 +2,10 @@ package com.example.karhebti_android.data.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Base64
 import com.example.karhebti_android.data.api.RetrofitClient
 import com.google.gson.Gson
+import org.json.JSONObject
 
 class TokenManager(context: Context) {
     private val prefs: SharedPreferences =
@@ -27,12 +29,16 @@ class TokenManager(context: Context) {
     }
 
     fun saveToken(token: String) {
+        android.util.Log.d("TokenManager", "Saving token: $token")
         prefs.edit().putString(KEY_TOKEN, token).apply()
-        RetrofitClient.setAuthToken(token)
+        android.util.Log.d("TokenManager", "Token saved. Verifying: ${getToken()}")
+        // Token is now fetched directly by the interceptor from here
     }
 
     fun getToken(): String? {
-        return prefs.getString(KEY_TOKEN, null)
+        val token = prefs.getString(KEY_TOKEN, null)
+        android.util.Log.d("TokenManager", "Getting token: ${if (token != null) "Found (length: ${token.length})" else "NULL"}")
+        return token
     }
 
     fun saveUser(user: UserData) {
@@ -51,7 +57,7 @@ class TokenManager(context: Context) {
 
     fun clearAll() {
         prefs.edit().clear().apply()
-        RetrofitClient.setAuthToken(null)
+        // Token is automatically null when cleared from SharedPreferences
     }
 
     fun isLoggedIn(): Boolean {
@@ -64,9 +70,23 @@ class TokenManager(context: Context) {
 
     // Initialize token on app start
     fun initializeToken() {
-        val token = getToken()
-        if (token != null) {
-            RetrofitClient.setAuthToken(token)
+        // Token initialization now happens in RetrofitClient.initialize()
+        // Just ensure it's set up early
+    }
+
+    // Extract user ID from JWT token
+    fun getUserIdFromToken(token: String): String? {
+        return try {
+            val splitToken = token.split(".")
+            if (splitToken.size > 1) {
+                val payload = String(Base64.decode(splitToken[1], Base64.DEFAULT))
+                val jsonObject = JSONObject(payload)
+                jsonObject.getString("sub")
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
         }
     }
 }

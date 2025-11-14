@@ -20,11 +20,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.karhebti_android.data.api.CarResponse
 import com.example.karhebti_android.data.api.MaintenanceResponse
 import com.example.karhebti_android.data.repository.Resource
@@ -241,17 +243,35 @@ fun VehicleDetailContent(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+                .height(220.dp)
+        ) {
+            // Car image background
+            AsyncImage(
+                model = car.imageUrl ?: "https://cdn-icons-png.flaticon.com/512/743/743007.png",
+                contentDescription = null,
+                modifier = Modifier.matchParentSize(),
+                contentScale = ContentScale.Crop
+            )
+            // Gradient overlay
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+                            )
                         )
                     )
-                )
-                .padding(24.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            )
+            // Foreground content
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Box(
                     modifier = Modifier
                         .size(64.dp)

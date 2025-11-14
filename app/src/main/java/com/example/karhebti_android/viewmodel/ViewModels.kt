@@ -14,18 +14,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-// Data class for counters
-data class AppCounters(
-    val vehicles: Int = 0,
-    val entretiens: Int = 0,
-    val garages: Int = 0,
-    val documents: Int = 0
-)
-
 // Auth ViewModel
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = AuthRepository()
     private val tokenManager = TokenManager.getInstance(application)
+    private val repository = AuthRepository(tokenManager = tokenManager)
 
     private val _authState = MutableLiveData<Resource<AuthResponse>>()
     val authState: LiveData<Resource<AuthResponse>> = _authState
@@ -35,6 +27,15 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _changePasswordState = MutableStateFlow<Resource<MessageResponse>?>(null)
     val changePasswordState: StateFlow<Resource<MessageResponse>?> = _changePasswordState.asStateFlow()
+
+    private val _verifyOtpState = MutableStateFlow<Resource<MessageResponse>?>(null)
+    val verifyOtpState: StateFlow<Resource<MessageResponse>?> = _verifyOtpState.asStateFlow()
+
+    private val _resetPasswordState = MutableStateFlow<Resource<MessageResponse>?>(null)
+    val resetPasswordState: StateFlow<Resource<MessageResponse>?> = _resetPasswordState.asStateFlow()
+
+    private val _signupInitiationState = MutableLiveData<Resource<MessageResponse>>()
+    val signupInitiationState: LiveData<Resource<MessageResponse>> = _signupInitiationState
 
     init {
         tokenManager.initializeToken()
@@ -77,29 +78,51 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun signup(nom: String, prenom: String, email: String, password: String, telephone: String) {
-        _authState.value = Resource.Loading()
+    // Start the two-step signup: call POST /auth/signup to send OTP and create pending signup
+    fun signupInitiate(nom: String, prenom: String, email: String, password: String, telephone: String) {
+        _signupInitiationState.value = Resource.Loading()
         viewModelScope.launch {
             try {
                 val result = repository.signup(nom, prenom, email, password, telephone)
+                _signupInitiationState.value = result
+            } catch (e: Exception) {
+                _signupInitiationState.value = Resource.Error("Erreur d'inscription: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    // Complete the signup by verifying the OTP (POST /auth/signup/verify). On success save token & user.
+    fun verifySignupOtp(email: String, otpCode: String) {
+        _authState.value = Resource.Loading()
+        viewModelScope.launch {
+            try {
+                val result = repository.verifySignupOtp(email, otpCode)
                 _authState.value = result
 
                 if (result is Resource.Success) {
-                    tokenManager.saveToken(result.data!!.accessToken)
+                    // save token and user
+                    val auth = result.data!!
+                    tokenManager.saveToken(auth.accessToken)
                     tokenManager.saveUser(UserData(
-                        id = result.data.user.id,
-                        email = result.data.user.email,
-                        nom = result.data.user.nom,
-                        prenom = result.data.user.prenom,
-                        role = result.data.user.role,
-                        telephone = result.data.user.telephone ?: ""
+                        id = auth.user.id,
+                        email = auth.user.email,
+                        nom = auth.user.nom,
+                        prenom = auth.user.prenom,
+                        role = auth.user.role,
+                        telephone = auth.user.telephone ?: ""
                     ))
                 }
             } catch (e: Exception) {
-                android.util.Log.e("AuthViewModel", "Signup error: ${e.message}", e)
-                _authState.value = Resource.Error("Erreur d'inscription: ${e.localizedMessage}")
+                _authState.value = Resource.Error("Erreur lors de la vérification du signup: ${e.localizedMessage}")
             }
         }
+    }
+
+    // Remove the old single-step signup implementation (kept for backward compatibility but no longer used)
+    @Deprecated("Use signupInitiate + verifySignupOtp for two-step signup flow")
+    fun signup(nom: String, prenom: String, email: String, password: String, telephone: String) {
+        // Fallback that simply initiates the signup (sends OTP)
+        signupInitiate(nom, prenom, email, password, telephone)
     }
 
     fun forgotPassword(email: String) {
@@ -107,6 +130,32 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val result = repository.forgotPassword(email)
             _forgotPasswordState.value = result
+        }
+    }
+
+    fun verifyOtp(email: String, otp: String) {
+        _verifyOtpState.value = Resource.Loading()
+        viewModelScope.launch {
+            try {
+                val result = repository.verifyOtp(email, otp)
+                _verifyOtpState.value = result
+            } catch (e: Exception) {
+                android.util.Log.e("AuthViewModel", "Verify OTP error: ${e.message}", e)
+                _verifyOtpState.value = Resource.Error("Erreur lors de la vérification: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    fun resetPassword(email: String, otp: String, newPassword: String) {
+        _resetPasswordState.value = Resource.Loading()
+        viewModelScope.launch {
+            try {
+                val result = repository.resetPassword(email, otp, newPassword)
+                _resetPasswordState.value = result
+            } catch (e: Exception) {
+                android.util.Log.e("AuthViewModel", "Reset password error: ${e.message}", e)
+                _resetPasswordState.value = Resource.Error("Erreur lors de la réinitialisation: ${e.localizedMessage}")
+            }
         }
     }
 
@@ -123,13 +172,30 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun resetForgotPasswordState() {
+        _forgotPasswordState.value = Resource.Loading()
+    }
+
+    fun resetVerifyOtpState() {
+        _verifyOtpState.value = null
+    }
+
+    fun resetResetPasswordState() {
+        _resetPasswordState.value = null
+    }
+
     fun resetChangePasswordState() {
         _changePasswordState.value = null
     }
 
     fun logout() {
-        repository.logout()
         tokenManager.clearAll()
+        // Reset all state flows to prevent UI from attempting API calls with null token
+        _authState.value = Resource.Loading()
+        _forgotPasswordState.value = Resource.Loading()
+        _verifyOtpState.value = null
+        _resetPasswordState.value = null
+        _changePasswordState.value = null
     }
 
     fun isLoggedIn(): Boolean = tokenManager.isLoggedIn()
@@ -478,10 +544,10 @@ class AIViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun getMaintenanceRecommendations(voitureId: String) {
+    fun getMaintenanceRecommendations(voitureId: String, mileage: Int, lastMaintenanceDate: String? = null) {
         _maintenanceRecommendationsState.value = Resource.Loading()
         viewModelScope.launch {
-            val result = repository.getMaintenanceRecommendations(voitureId)
+            val result = repository.getMaintenanceRecommendations(voitureId, mileage, lastMaintenanceDate)
             _maintenanceRecommendationsState.value = result
         }
     }
