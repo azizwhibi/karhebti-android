@@ -2,6 +2,8 @@ package com.example.karhebti_android.data.api
 
 import retrofit2.Response
 import retrofit2.http.*
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 
 interface KarhebtiApiService {
 
@@ -119,10 +121,31 @@ interface KarhebtiApiService {
     @POST("documents")
     suspend fun createDocument(@Body request: CreateDocumentRequest): Response<DocumentResponse>
 
+    @Multipart
+    @POST("documents")
+    suspend fun createDocumentMultipart(
+        @Part("type") type: RequestBody,
+        @Part("dateEmission") dateEmission: RequestBody,
+        @Part("dateExpiration") dateExpiration: RequestBody,
+        @Part("voiture") voiture: RequestBody,
+        @Part fichier: MultipartBody.Part? = null
+    ): Response<DocumentResponse>
+
     @PATCH("documents/{id}")
     suspend fun updateDocument(
         @Path("id") id: String,
         @Body request: UpdateDocumentRequest
+    ): Response<DocumentResponse>
+
+    @Multipart
+    @PATCH("documents/{id}")
+    suspend fun updateDocumentMultipart(
+        @Path("id") id: String,
+        @Part("type") type: RequestBody,
+        @Part("dateEmission") dateEmission: RequestBody,
+        @Part("dateExpiration") dateExpiration: RequestBody,
+        @Part("voiture") voiture: RequestBody? = null,
+        @Part fichier: MultipartBody.Part? = null
     ): Response<DocumentResponse>
 
     @DELETE("documents/{id}")
@@ -242,4 +265,3 @@ interface KarhebtiApiService {
     @DELETE("notifications/{id}")
     suspend fun deleteNotification(@Path("id") id: String): Response<MessageResponse>
 }
-

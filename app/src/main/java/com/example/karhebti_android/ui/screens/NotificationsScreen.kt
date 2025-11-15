@@ -343,7 +343,8 @@ fun NotificationItem(
     }
 }
 
-private fun formatDate(date: Date): String {
+private fun formatDate(date: Date?): String {
+    if (date == null) return ""
     val now = Date()
     val diff = now.time - date.time
     val seconds = diff / 1000
@@ -359,4 +360,3 @@ private fun formatDate(date: Date): String {
         else -> SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(date)
     }
 }
-

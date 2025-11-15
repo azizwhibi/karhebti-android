@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.karhebti_android.data.model.Reclamation
 import com.example.karhebti_android.data.repository.Resource
 import com.example.karhebti_android.viewmodel.ReclamationViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
@@ -212,12 +213,12 @@ fun ReclamationDetailScreen(
                                             )
                                         }
                                         Text(
-                                            text = reclamation.garage.nom,
+                                            text = reclamation.garage?.nom ?: "",
                                             style = MaterialTheme.typography.bodyLarge,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Text(
-                                            text = reclamation.garage.adresse,
+                                            text = reclamation.garage?.adresse ?: "",
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -254,7 +255,7 @@ fun ReclamationDetailScreen(
                                             )
                                         }
                                         Text(
-                                            text = reclamation.service.type,
+                                            text = reclamation.service?.type ?: "",
                                             style = MaterialTheme.typography.bodyLarge,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -276,7 +277,7 @@ fun ReclamationDetailScreen(
                                 )
                                 val dateFormat = SimpleDateFormat("dd MMMM yyyy 'à' HH:mm", Locale.FRENCH)
                                 Text(
-                                    text = "Créée le ${dateFormat.format(reclamation.createdAt)}",
+                                    text = reclamation.createdAt?.let { "Créée le ${dateFormat.format(it)}" } ?: "",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -322,4 +323,3 @@ fun ReclamationDetailScreen(
         }
     }
 }
-

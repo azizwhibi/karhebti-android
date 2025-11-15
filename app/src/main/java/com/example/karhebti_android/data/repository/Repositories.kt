@@ -3,6 +3,11 @@ package com.example.karhebti_android.data.repository
 import com.example.karhebti_android.data.api.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.File
 
 sealed class Resource<T>(
     val data: T? = null,
@@ -338,40 +343,129 @@ class DocumentRepository(private val apiService: KarhebtiApiService = RetrofitCl
 
     suspend fun getDocumentById(id: String): Resource<DocumentResponse> = withContext(Dispatchers.IO) {
         try {
-            val response = apiService.getDocument(id)
+            android.util.Log.d("DocumentRepository", "=== Getting document by ID ===")
+            android.util.Log.d("DocumentRepository", "Document ID: $id")
+
+            // WORKAROUND pour erreur 500 du backend
+            // Récupérer tous les documents et filtrer celui qu'on veut
+            android.util.Log.d("DocumentRepository", "Using workaround: getting all documents and filtering")
+
+            val response = apiService.getDocuments()
+
+            android.util.Log.d("DocumentRepository", "Response code: ${response.code()}")
+
             if (response.isSuccessful && response.body() != null) {
-                Resource.Success(response.body()!!)
+                val documents = response.body()!!
+                android.util.Log.d("DocumentRepository", "Total documents retrieved: ${documents.size}")
+
+                val document = documents.find { it.id == id }
+
+                if (document != null) {
+                    android.util.Log.d("DocumentRepository", "Document found: ${document.type}")
+                    Resource.Success(document)
+                } else {
+                    val errorMsg = "Document avec ID $id non trouvé dans la liste"
+                    android.util.Log.e("DocumentRepository", errorMsg)
+                    Resource.Error(errorMsg)
+                }
             } else {
-                Resource.Error("Erreur lors de la récupération du document")
+                val errorBody = response.errorBody()?.string()
+                val errorMsg = "Erreur ${response.code()}: ${errorBody ?: "Impossible de récupérer les documents"}"
+                android.util.Log.e("DocumentRepository", "ERROR: $errorMsg")
+                Resource.Error(errorMsg)
             }
         } catch (e: Exception) {
-            Resource.Error("Erreur réseau: ${e.message}")
+            val errorMsg = "Erreur réseau: ${e.message}"
+            android.util.Log.e("DocumentRepository", errorMsg, e)
+            e.printStackTrace()
+            Resource.Error(errorMsg)
         }
     }
 
-    suspend fun createDocument(request: CreateDocumentRequest): Resource<DocumentResponse> = withContext(Dispatchers.IO) {
+    suspend fun createDocument(request: CreateDocumentRequest, filePath: String? = null): Resource<DocumentResponse> = withContext(Dispatchers.IO) {
         try {
+            android.util.Log.d("DocumentRepository", "=== Creating document ===")
+            android.util.Log.d("DocumentRepository", "Type: ${request.type}")
+            android.util.Log.d("DocumentRepository", "DateEmission: ${request.dateEmission}")
+            android.util.Log.d("DocumentRepository", "DateExpiration: ${request.dateExpiration}")
+            android.util.Log.d("DocumentRepository", "Voiture: ${request.voiture}")
+            android.util.Log.d("DocumentRepository", "Fichier: ${request.fichier}")
+            android.util.Log.d("DocumentRepository", "FilePath: $filePath")
+
+            // Pour l'instant, utiliser l'endpoint JSON normal
+            // TODO: Utiliser multipart quand le backend sera configuré
+            if (filePath.isNullOrBlank()) {
+                android.util.Log.d("DocumentRepository", "Creating document without file")
+            } else {
+                android.util.Log.d("DocumentRepository", "Creating document with file: $filePath (stored locally)")
+                val file = File(filePath)
+                if (file.exists()) {
+                    android.util.Log.d("DocumentRepository", "File size: ${file.length()} bytes")
+                } else {
+                    android.util.Log.e("DocumentRepository", "File does not exist: $filePath")
+                }
+            }
+
+            // Utiliser l'endpoint JSON normal avec le chemin du fichier
             val response = apiService.createDocument(request)
+
+            android.util.Log.d("DocumentRepository", "Response code: ${response.code()}")
+
             if (response.isSuccessful && response.body() != null) {
+                android.util.Log.d("DocumentRepository", "Document created successfully")
                 Resource.Success(response.body()!!)
             } else {
-                Resource.Error("Erreur lors de la création du document")
+                val errorBody = response.errorBody()?.string()
+                val errorMsg = "Erreur ${response.code()}: ${errorBody ?: "Inconnue"}"
+                android.util.Log.e("DocumentRepository", "ERROR DETAILS: $errorMsg")
+                Resource.Error(errorMsg)
             }
         } catch (e: Exception) {
-            Resource.Error("Erreur réseau: ${e.message}")
+            val errorMsg = "Erreur réseau: ${e.message}"
+            android.util.Log.e("DocumentRepository", errorMsg, e)
+            e.printStackTrace()
+            Resource.Error(errorMsg)
         }
     }
 
-    suspend fun updateDocument(id: String, request: UpdateDocumentRequest): Resource<DocumentResponse> = withContext(Dispatchers.IO) {
+    suspend fun updateDocument(id: String, request: UpdateDocumentRequest, filePath: String? = null): Resource<DocumentResponse> = withContext(Dispatchers.IO) {
         try {
+            android.util.Log.d("DocumentRepository", "=== Updating document ===")
+            android.util.Log.d("DocumentRepository", "Document ID: $id")
+            android.util.Log.d("DocumentRepository", "Type: ${request.type}")
+            android.util.Log.d("DocumentRepository", "DateEmission: ${request.dateEmission}")
+            android.util.Log.d("DocumentRepository", "DateExpiration: ${request.dateExpiration}")
+            android.util.Log.d("DocumentRepository", "FilePath: $filePath")
+
+            // Utiliser l'endpoint JSON normal (comme pour createDocument)
+            // TODO: Utiliser multipart quand le backend sera configuré
+            if (!filePath.isNullOrBlank()) {
+                val file = File(filePath)
+                if (file.exists()) {
+                    android.util.Log.d("DocumentRepository", "File size: ${file.length()} bytes (stored locally)")
+                } else {
+                    android.util.Log.e("DocumentRepository", "File does not exist: $filePath")
+                }
+            }
+
             val response = apiService.updateDocument(id, request)
+
+            android.util.Log.d("DocumentRepository", "Response code: ${response.code()}")
+
             if (response.isSuccessful && response.body() != null) {
+                android.util.Log.d("DocumentRepository", "Document updated successfully")
                 Resource.Success(response.body()!!)
             } else {
-                Resource.Error("Erreur lors de la mise à jour du document")
+                val errorBody = response.errorBody()?.string()
+                val errorMsg = "Erreur ${response.code()}: ${errorBody ?: "Erreur de mise à jour"}"
+                android.util.Log.e("DocumentRepository", "ERROR: $errorMsg")
+                Resource.Error(errorMsg)
             }
         } catch (e: Exception) {
-            Resource.Error("Erreur réseau: ${e.message}")
+            val errorMsg = "Erreur réseau: ${e.message}"
+            android.util.Log.e("DocumentRepository", errorMsg, e)
+            e.printStackTrace()
+            Resource.Error(errorMsg)
         }
     }
 
@@ -715,10 +809,10 @@ class NotificationRepository(private val apiService: KarhebtiApiService = Retrof
             android.util.Log.d("NotificationRepository", "Fetching my notifications...")
             // Utiliser getNotifications() car le backend filtre automatiquement par JWT
             val response = apiService.getNotifications()
-
+            
             android.util.Log.d("NotificationRepository", "Response code: ${response.code()}")
             android.util.Log.d("NotificationRepository", "Response successful: ${response.isSuccessful}")
-
+            
             if (response.isSuccessful && response.body() != null) {
                 android.util.Log.d("NotificationRepository", "Successfully fetched ${response.body()!!.size} notifications")
                 Resource.Success(response.body()!!)

@@ -6,6 +6,9 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.karhebti_android.data.api.*
+import com.example.karhebti_android.data.model.Reclamation
+import com.example.karhebti_android.data.model.Garage
+import com.example.karhebti_android.data.model.Service
 import com.example.karhebti_android.data.preferences.TokenManager
 import com.example.karhebti_android.data.preferences.UserData
 import com.example.karhebti_android.data.repository.*
@@ -386,14 +389,32 @@ class DocumentViewModel(application: Application) : AndroidViewModel(application
             _documentsStateFlow.value = result
             if (result is Resource.Success) {
                 _documentCount.value = result.data?.size ?: 0
+                // Vérifier les documents expirante et logger les alertes
+                checkExpiringDocuments(result.data ?: emptyList())
+            }
+        }
+    }
+
+    private fun checkExpiringDocuments(documents: List<DocumentResponse>) {
+        val expirationService = com.example.karhebti_android.data.websocket.DocumentExpirationNotificationService()
+        val expiringDocuments = expirationService.getDocumentsExpiringWithinThreeDays(documents)
+
+        if (expiringDocuments.isNotEmpty()) {
+            android.util.Log.w("DocumentViewModel", "🚨 ${expiringDocuments.size} document(s) expire(nt) dans 3 jours")
+            expiringDocuments.forEach { doc ->
+                val alertMessage = expirationService.getAlertMessage(doc)
+                android.util.Log.w("DocumentViewModel", alertMessage)
             }
         }
     }
 
     fun getDocumentById(id: String) {
+        android.util.Log.d("DocumentViewModel", "getDocumentById called with ID: $id")
         _documentDetailState.value = Resource.Loading()
         viewModelScope.launch {
+            android.util.Log.d("DocumentViewModel", "Fetching document from repository...")
             val result = repository.getDocumentById(id)
+            android.util.Log.d("DocumentViewModel", "Result type: ${result::class.simpleName}")
             _documentDetailState.value = result
         }
     }
@@ -415,6 +436,29 @@ class DocumentViewModel(application: Application) : AndroidViewModel(application
         _updateDocumentState.value = Resource.Loading()
         viewModelScope.launch {
             val result = repository.updateDocument(id, request)
+            _updateDocumentState.value = result
+            if (result is Resource.Success) {
+                getDocuments() // Refresh list
+                getDocumentById(id) // Refresh detail view
+            }
+        }
+    }
+
+    fun createDocument(request: CreateDocumentRequest, filePath: String? = null) {
+        _createDocumentState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.createDocument(request, filePath)
+            _createDocumentState.value = result
+            if (result is Resource.Success) {
+                getDocuments() // Refresh list
+            }
+        }
+    }
+
+    fun updateDocument(id: String, request: UpdateDocumentRequest, filePath: String? = null) {
+        _updateDocumentState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.updateDocument(id, request, filePath)
             _updateDocumentState.value = result
             if (result is Resource.Success) {
                 getDocuments() // Refresh list
@@ -556,14 +600,14 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
 class ReclamationViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = ReclamationRepository()
 
-    private val _reclamationsState = MutableLiveData<Resource<List<ReclamationResponse>>>()
-    val reclamationsState: LiveData<Resource<List<ReclamationResponse>>> = _reclamationsState
+    private val _reclamationsState = MutableLiveData<Resource<List<Reclamation>>>()
+    val reclamationsState: LiveData<Resource<List<Reclamation>>> = _reclamationsState
 
-    private val _reclamationDetailState = MutableLiveData<Resource<ReclamationResponse>>()
-    val reclamationDetailState: LiveData<Resource<ReclamationResponse>> = _reclamationDetailState
+    private val _reclamationDetailState = MutableLiveData<Resource<Reclamation>>()
+    val reclamationDetailState: LiveData<Resource<Reclamation>> = _reclamationDetailState
 
-    private val _myReclamationsState = MutableLiveData<Resource<List<ReclamationResponse>>>()
-    val myReclamationsState: LiveData<Resource<List<ReclamationResponse>>> = _myReclamationsState
+    private val _myReclamationsState = MutableLiveData<Resource<List<Reclamation>>>()
+    val myReclamationsState: LiveData<Resource<List<Reclamation>>> = _myReclamationsState
 
     private val _createReclamationState = MutableLiveData<Resource<ReclamationResponse>>()
     val createReclamationState: LiveData<Resource<ReclamationResponse>> = _createReclamationState
@@ -574,32 +618,90 @@ class ReclamationViewModel(application: Application) : AndroidViewModel(applicat
     private val _deleteReclamationState = MutableLiveData<Resource<MessageResponse>>()
     val deleteReclamationState: LiveData<Resource<MessageResponse>> = _deleteReclamationState
 
-    private val _reclamationsStateFlow = MutableStateFlow<Resource<List<ReclamationResponse>>?>(null)
-    val reclamationsStateFlow: StateFlow<Resource<List<ReclamationResponse>>?> = _reclamationsStateFlow.asStateFlow()
+    private val _reclamationsStateFlow = MutableStateFlow<Resource<List<Reclamation>>?>(null)
+    val reclamationsStateFlow: StateFlow<Resource<List<Reclamation>>?> = _reclamationsStateFlow.asStateFlow()
+
+    private fun mapToReclamation(response: ReclamationResponse): Reclamation {
+        return Reclamation(
+            id = response.id,
+            titre = response.titre,
+            message = response.message,
+            type = response.type,
+            garage = response.garage?.let {
+                Garage(
+                    id = it.id,
+                    nom = it.nom,
+                    adresse = it.adresse,
+                    latitude = 0.0,
+                    longitude = 0.0,
+                    distance = 0.0,
+                    rating = 0.0f,
+                    reviewCount = 0,
+                    phoneNumber = it.telephone ?: "",
+                    isOpen = false,
+                    openUntil = null,
+                    services = emptyList(),
+                    imageUrl = null
+                )
+            },
+            service = response.service?.let { Service(it.id, it.type) },
+            createdAt = response.createdAt
+        )
+    }
 
     fun getAllReclamations() {
         _reclamationsState.value = Resource.Loading()
         _reclamationsStateFlow.value = Resource.Loading()
         viewModelScope.launch {
             val result = repository.getReclamations()
-            _reclamationsState.value = result
-            _reclamationsStateFlow.value = result
+            @Suppress("UNCHECKED_CAST")
+            val mappedResult: Resource<List<Reclamation>> = when (result) {
+                is Resource.Success -> Resource.Success(result.data?.map { mapToReclamation(it) } ?: emptyList())
+                is Resource.Error -> result as Resource<List<Reclamation>>
+                is Resource.Loading -> result as Resource<List<Reclamation>>
+            }
+            _reclamationsState.value = mappedResult
+            _reclamationsStateFlow.value = mappedResult
         }
     }
 
     fun getReclamationById(id: String) {
         _reclamationDetailState.value = Resource.Loading()
         viewModelScope.launch {
-            val result = repository.getReclamationById(id)
-            _reclamationDetailState.value = result
+            try {
+                val result = repository.getReclamationById(id)
+                android.util.Log.d("ReclamationViewModel", "getReclamationById result: $result")
+                @Suppress("UNCHECKED_CAST")
+                val mappedResult: Resource<Reclamation> = when (result) {
+                    is Resource.Success -> result.data?.let { Resource.Success(mapToReclamation(it)) } as? Resource<Reclamation> ?: Resource.Error("No data")
+                    is Resource.Error -> result as Resource<Reclamation>
+                    is Resource.Loading -> result as Resource<Reclamation>
+                }
+                _reclamationDetailState.value = mappedResult
+            } catch (e: Exception) {
+                android.util.Log.e("ReclamationViewModel", "Error in getReclamationById: ${e.message}", e)
+                _reclamationDetailState.value = Resource.Error("Erreur: ${e.message}")
+            }
         }
     }
 
     fun getMyReclamations() {
         _myReclamationsState.value = Resource.Loading()
         viewModelScope.launch {
-            val result = repository.getMyReclamations()
-            _myReclamationsState.value = result
+            try {
+                val result = repository.getMyReclamations()
+                android.util.Log.d("ReclamationViewModel", "getMyReclamations result: $result")
+                @Suppress("UNCHECKED_CAST")
+                val mappedResult: Resource<List<Reclamation>> = when (result) {
+                    is Resource.Success -> Resource.Success(result.data?.map { mapToReclamation(it) } ?: emptyList())
+                    is Resource.Error -> result as Resource<List<Reclamation>>
+                    is Resource.Loading -> result as Resource<List<Reclamation>>
+                }
+                _myReclamationsState.value = mappedResult
+            } catch (e: Exception) {
+                android.util.Log.e("ReclamationViewModel", "Error in getMyReclamations: ${e.message}", e)
+                _myReclamationsState.value = Resource.Error("Erreur: ${e.message}")
+            }
         }
     }
 
@@ -607,7 +709,13 @@ class ReclamationViewModel(application: Application) : AndroidViewModel(applicat
         _reclamationsState.value = Resource.Loading()
         viewModelScope.launch {
             val result = repository.getReclamationsByGarage(garageId)
-            _reclamationsState.value = result
+            @Suppress("UNCHECKED_CAST")
+            val mappedResult: Resource<List<Reclamation>> = when (result) {
+                is Resource.Success -> Resource.Success(result.data?.map { mapToReclamation(it) } ?: emptyList())
+                is Resource.Error -> result as Resource<List<Reclamation>>
+                is Resource.Loading -> result as Resource<List<Reclamation>>
+            }
+            _reclamationsState.value = mappedResult
         }
     }
 
@@ -615,7 +723,13 @@ class ReclamationViewModel(application: Application) : AndroidViewModel(applicat
         _reclamationsState.value = Resource.Loading()
         viewModelScope.launch {
             val result = repository.getReclamationsByService(serviceId)
-            _reclamationsState.value = result
+            @Suppress("UNCHECKED_CAST")
+            val mappedResult: Resource<List<Reclamation>> = when (result) {
+                is Resource.Success -> Resource.Success(result.data?.map { mapToReclamation(it) } ?: emptyList())
+                is Resource.Error -> result as Resource<List<Reclamation>>
+                is Resource.Loading -> result as Resource<List<Reclamation>>
+            }
+            _reclamationsState.value = mappedResult
         }
     }
 
@@ -694,12 +808,21 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
     fun getMyNotifications() {
         _notificationsState.value = Resource.Loading()
         viewModelScope.launch {
-            val result = repository.getMyNotifications()
-            _notificationsState.value = result
+            try {
+                val result = repository.getMyNotifications()
+                _notificationsState.value = result
 
-            // Update unread count
-            if (result is Resource.Success) {
-                _unreadCount.value = result.data?.count { !it.lu } ?: 0
+                // Update unread count
+                if (result is Resource.Success) {
+                    _unreadCount.value = result.data?.count { !it.lu } ?: 0
+                } else if (result is Resource.Error) {
+                    // Si erreur 500, afficher liste vide avec message
+                    android.util.Log.e("NotificationViewModel", "Erreur: ${result.message}")
+                    _notificationsState.value = Resource.Success(emptyList())
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("NotificationViewModel", "Exception: ${e.message}", e)
+                _notificationsState.value = Resource.Success(emptyList())
             }
         }
     }
@@ -707,12 +830,21 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
     fun getUnreadNotifications() {
         _unreadNotificationsState.value = Resource.Loading()
         viewModelScope.launch {
-            val result = repository.getUnreadNotifications()
-            _unreadNotificationsState.value = result
+            try {
+                val result = repository.getUnreadNotifications()
+                _unreadNotificationsState.value = result
 
-            // Update unread count
-            if (result is Resource.Success) {
-                _unreadCount.value = result.data?.size ?: 0
+                // Update unread count
+                if (result is Resource.Success) {
+                    _unreadCount.value = result.data?.size ?: 0
+                } else if (result is Resource.Error) {
+                    // Si erreur 500, afficher liste vide
+                    android.util.Log.e("NotificationViewModel", "Erreur: ${result.message}")
+                    _unreadNotificationsState.value = Resource.Success(emptyList())
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("NotificationViewModel", "Exception: ${e.message}", e)
+                _unreadNotificationsState.value = Resource.Success(emptyList())
             }
         }
     }
@@ -754,4 +886,3 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
         getMyNotifications()
     }
 }
-

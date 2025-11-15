@@ -310,8 +310,8 @@ data class CreateReclamationRequest(
     val type: String,
     val titre: String,
     val message: String,
-    val garageId: String? = null,
-    val serviceId: String? = null
+    val garage: String? = null,
+    val service: String? = null
 )
 
 data class UpdateReclamationRequest(
@@ -325,11 +325,12 @@ data class ReclamationResponse(
     val type: String,
     val titre: String,
     val message: String,
-    val user: UserResponse? = null,
+    @JsonAdapter(FlexibleUserDeserializer::class)
+    val user: String? = null,
     val garage: GarageResponse? = null,
     val service: ServiceResponse? = null,
-    val createdAt: Date,
-    val updatedAt: Date
+    val createdAt: Date? = null,
+    val updatedAt: Date? = null
 )
 
 // Generic Response
@@ -348,8 +349,8 @@ data class NotificationResponse(
     val document: DocumentResponse? = null,
     val lu: Boolean = false,
     val dateEcheance: Date? = null,
-    val createdAt: Date,
-    val updatedAt: Date
+    val createdAt: Date? = null,
+    val updatedAt: Date? = null
 )
 
 data class CreateNotificationRequest(
@@ -370,4 +371,3 @@ data class ErrorResponse(
     val message: List<String>,
     val error: String
 )
-

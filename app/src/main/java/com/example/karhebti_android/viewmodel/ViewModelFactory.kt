@@ -38,6 +38,9 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
             modelClass.isAssignableFrom(NotificationViewModel::class.java) -> {
                 NotificationViewModel(application) as T
             }
+            modelClass.isAssignableFrom(NotificationViewModel::class.java) -> {
+                NotificationViewModel(application) as T
+            }
             else -> throw IllegalArgumentException("Unknown ViewModel class")
         }
     }

@@ -16,7 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.karhebti_android.data.api.ReclamationResponse
+import com.example.karhebti_android.data.model.Reclamation
 import com.example.karhebti_android.data.repository.Resource
 import com.example.karhebti_android.viewmodel.ReclamationViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
@@ -36,9 +36,14 @@ fun ReclamationsScreen(
     )
 
     val myReclamationsState by reclamationViewModel.myReclamationsState.observeAsState()
+    var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
-        reclamationViewModel.getMyReclamations()
+        try {
+            reclamationViewModel.getMyReclamations()
+        } catch (e: Exception) {
+            android.util.Log.e("ReclamationsScreen", "Error fetching reclamations: ${e.message}", e)
+        }
     }
 
     Scaffold(
@@ -82,39 +87,62 @@ fun ReclamationsScreen(
                 }
                 is Resource.Success -> {
                     val reclamations = resource.data ?: emptyList()
-                    if (reclamations.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Feedback,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(64.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "Aucune réclamation",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
+                    val filteredReclamations = if (searchQuery.isBlank()) {
+                        reclamations
                     } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(reclamations) { reclamation ->
-                                ReclamationCard(
-                                    reclamation = reclamation,
-                                    onClick = { onReclamationClick(reclamation.id) }
-                                )
+                        reclamations.filter { reclamation ->
+                            reclamation.titre.contains(searchQuery, ignoreCase = true) ||
+                            reclamation.message.contains(searchQuery, ignoreCase = true) ||
+                            reclamation.type.contains(searchQuery, ignoreCase = true)
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        // Search Bar
+                        SearchBar(
+                            query = searchQuery,
+                            onQueryChange = { searchQuery = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        )
+
+                        if (filteredReclamations.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Feedback,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(64.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = if (searchQuery.isNotBlank()) "Aucune réclamation trouvée" else "Aucune réclamation",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(filteredReclamations) { reclamation ->
+                                    ReclamationCard(
+                                        reclamation = reclamation,
+                                        onClick = { onReclamationClick(reclamation.id) }
+                                    )
+                                }
                             }
                         }
                     }
@@ -153,11 +181,11 @@ fun ReclamationsScreen(
 
 @Composable
 fun ReclamationCard(
-    reclamation: ReclamationResponse,
+    reclamation: Reclamation,
     onClick: () -> Unit
 ) {
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-    val formattedDate = dateFormat.format(reclamation.createdAt)
+    val formattedDate = reclamation.createdAt?.let { dateFormat.format(it) } ?: ""
 
     ElevatedCard(
         onClick = onClick,
@@ -220,7 +248,7 @@ fun ReclamationCard(
                 maxLines = 2
             )
 
-            Divider(
+            HorizontalDivider(
                 modifier = Modifier.padding(vertical = 4.dp),
                 color = MaterialTheme.colorScheme.outlineVariant
             )
@@ -268,4 +296,38 @@ fun ReclamationCard(
             }
         }
     }
+}
+
+@Composable
+fun SearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    TextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(50.dp),
+        placeholder = { Text("Rechercher...") },
+        leadingIcon = {
+            Icon(Icons.Default.Search, contentDescription = "Rechercher")
+        },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(Icons.Default.Close, contentDescription = "Effacer")
+                }
+            }
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(8.dp),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+            unfocusedIndicatorColor = MaterialTheme.colorScheme.outlineVariant
+        )
+    )
 }

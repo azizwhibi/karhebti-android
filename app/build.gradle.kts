@@ -59,6 +59,9 @@ dependencies {
     // Lifecycle-aware state collection for Compose
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.2")
 
+    // Firebase Cloud Messaging (Push Notifications)
+    implementation("com.google.firebase:firebase-messaging:23.2.1")
+    implementation("com.google.firebase:firebase-analytics:21.3.0")
 
 
     implementation(libs.retrofit)

@@ -81,3 +81,28 @@ class FlexibleCarDeserializer : JsonDeserializer<String?> {
     }
 }
 
+/**
+ * Custom deserializer for service field that can be either a String (ID) or an object
+ */
+class FlexibleServiceDeserializer : JsonDeserializer<String?> {
+    override fun deserialize(
+        json: JsonElement?,
+        typeOfT: Type?,
+        context: JsonDeserializationContext?
+    ): String? {
+        if (json == null || json.isJsonNull) {
+            return null
+        }
+
+        return when {
+            json.isJsonPrimitive && json.asJsonPrimitive.isString -> {
+                json.asString
+            }
+            json.isJsonObject -> {
+                // Extract the _id field from the service object
+                json.asJsonObject.get("_id")?.asString
+            }
+            else -> null
+        }
+    }
+}

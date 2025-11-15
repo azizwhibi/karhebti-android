@@ -43,6 +43,7 @@ fun DocumentsScreen(
     val documentsState by documentViewModel.documentsState.observeAsState()
     var selectedFilter by remember { mutableStateOf("Tous") }
     var showDeleteDialog by remember { mutableStateOf<DocumentResponse?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         documentViewModel.getDocuments()
@@ -94,12 +95,48 @@ fun DocumentsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item { 
-                // Filter chips
+            // Search bar
+            item {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    placeholder = { Text("Rechercher un document...") },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = "Rechercher",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Effacer",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    )
+                )
+            }
+
+            // Filter chips
+            item {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(listOf("Tous", "Carte grise", "Assurance", "Visite technique", "Autre")) { filter ->
+                    items(listOf("Tous", "Carte grise", "Assurance", "Contrôle technique", "Autre")) { filter ->
                         FilterChip(
                             selected = selectedFilter == filter,
                             onClick = { selectedFilter = filter },
@@ -134,8 +171,21 @@ fun DocumentsScreen(
                     }
                     is Resource.Success -> {
                         val allDocs = state.data ?: emptyList()
-                        val filteredDocs = if (selectedFilter == "Tous") allDocs
-                        else allDocs.filter { it.type == selectedFilter.lowercase() }
+
+                        // Filtrage par type
+                        val typeFilteredDocs = if (selectedFilter == "Tous") allDocs
+                        else allDocs.filter { it.type.equals(selectedFilter, ignoreCase = true) }
+
+                        // Filtrage par recherche
+                        val filteredDocs = if (searchQuery.isEmpty()) {
+                            typeFilteredDocs
+                        } else {
+                            typeFilteredDocs.filter { doc ->
+                                doc.type.contains(searchQuery, ignoreCase = true) ||
+                                doc.description?.contains(searchQuery, ignoreCase = true) == true ||
+                                doc.etat?.contains(searchQuery, ignoreCase = true) == true
+                            }
+                        }
 
                         if (filteredDocs.isEmpty()) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -144,18 +194,29 @@ fun DocumentsScreen(
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
                                     Icon(
-                                        Icons.Default.Description,
+                                        if (searchQuery.isNotEmpty())
+                                            Icons.Default.SearchOff
+                                        else
+                                            Icons.Default.Description,
                                         contentDescription = null,
                                         modifier = Modifier.size(64.dp),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                     )
                                     Text(
-                                        "Aucun document",
+                                        if (searchQuery.isNotEmpty())
+                                            "Aucun résultat"
+                                        else if (selectedFilter != "Tous")
+                                            "Aucun document de ce type"
+                                        else
+                                            "Aucun document",
                                         style = MaterialTheme.typography.titleLarge,
                                         color = MaterialTheme.colorScheme.onBackground
                                     )
                                     Text(
-                                        "Ajoutez vos documents importants",
+                                        if (searchQuery.isNotEmpty())
+                                            "Essayez avec d'autres mots-clés"
+                                        else
+                                            "Ajoutez vos documents importants",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -359,3 +420,4 @@ fun DocumentCard(
         }
     }
 }
+

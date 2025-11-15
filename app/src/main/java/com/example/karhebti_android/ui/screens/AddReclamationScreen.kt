@@ -46,7 +46,22 @@ fun AddReclamationScreen(
     var errorMessage by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
+        android.util.Log.d("AddReclamation", "Loading garages...")
         garageViewModel.getGarages()
+    }
+
+    LaunchedEffect(garagesState) {
+        when (val state = garagesState) {
+            is Resource.Success -> {
+                android.util.Log.d("AddReclamation", "Garages loaded: ${state.data?.size} garages")
+                state.data?.forEach { garage ->
+                    android.util.Log.d("AddReclamation", "Garage: ${garage.id} - ${garage.nom}")
+                }
+            }
+            is Resource.Error -> android.util.Log.e("AddReclamation", "Error loading garages: ${state.message}")
+            is Resource.Loading -> android.util.Log.d("AddReclamation", "Loading garages...")
+            null -> android.util.Log.d("AddReclamation", "Garages state is null")
+        }
     }
 
     LaunchedEffect(createReclamationState) {
@@ -144,15 +159,22 @@ fun AddReclamationScreen(
                     expanded = expandedGarageDropdown,
                     onExpandedChange = { expandedGarageDropdown = !expandedGarageDropdown }
                 ) {
+                    val selectedGarageName = garagesState?.let { state ->
+                        (state as? Resource.Success)?.data?.find { it.id == selectedGarageId }?.nom
+                    } ?: ""
+
                     OutlinedTextField(
-                        value = garagesState?.data?.find { it.id == selectedGarageId }?.nom ?: "Sélectionner un garage",
+                        value = selectedGarageName,
                         onValueChange = {},
                         readOnly = true,
+                        placeholder = { Text("Sélectionner un garage") },
+                        label = { Text("Garage") },
                         modifier = Modifier
                             .fillMaxWidth()
                             .menuAnchor(),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedGarageDropdown) },
-                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                        isError = selectedGarageId == null
                     )
 
                     ExposedDropdownMenu(
@@ -161,14 +183,36 @@ fun AddReclamationScreen(
                     ) {
                         when (val resource = garagesState) {
                             is Resource.Success -> {
-                                resource.data?.forEach { garage ->
+                                if (resource.data.isNullOrEmpty()) {
                                     DropdownMenuItem(
-                                        text = { Text(garage.nom) },
-                                        onClick = {
-                                            selectedGarageId = garage.id
-                                            expandedGarageDropdown = false
-                                        }
+                                        text = { Text("Aucun garage disponible") },
+                                        onClick = {},
+                                        enabled = false
                                     )
+                                } else {
+                                    resource.data.forEach { garage ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Column {
+                                                    Text(
+                                                        text = garage.nom,
+                                                        style = MaterialTheme.typography.bodyLarge,
+                                                        fontWeight = FontWeight.Medium
+                                                    )
+                                                    Text(
+                                                        text = garage.adresse,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                                    )
+                                                }
+                                            },
+                                            onClick = {
+                                                selectedGarageId = garage.id
+                                                expandedGarageDropdown = false
+                                                android.util.Log.d("AddReclamation", "Selected garage: ${garage.id} - ${garage.nom}")
+                                            }
+                                        )
+                                    }
                                 }
                             }
                             is Resource.Loading -> {
@@ -178,7 +222,20 @@ fun AddReclamationScreen(
                                     enabled = false
                                 )
                             }
-                            else -> {}
+                            is Resource.Error -> {
+                                DropdownMenuItem(
+                                    text = { Text("Erreur: ${resource.message}") },
+                                    onClick = {},
+                                    enabled = false
+                                )
+                            }
+                            else -> {
+                                DropdownMenuItem(
+                                    text = { Text("Chargement...") },
+                                    onClick = {},
+                                    enabled = false
+                                )
+                            }
                         }
                     }
                 }
@@ -212,17 +269,29 @@ fun AddReclamationScreen(
             // Bouton Soumettre
             Button(
                 onClick = {
-                    if (titre.isNotBlank() && message.isNotBlank()) {
-                        reclamationViewModel.createReclamation(
-                            type = type,
-                            titre = titre,
-                            message = message,
-                            garageId = if (type == "garage") selectedGarageId else null,
-                            serviceId = null // TODO: Add service selection if needed
-                        )
-                    } else {
-                        errorMessage = "Veuillez remplir tous les champs"
-                        showErrorDialog = true
+                    when {
+                        titre.isBlank() -> {
+                            errorMessage = "Veuillez entrer un titre"
+                            showErrorDialog = true
+                        }
+                        message.isBlank() -> {
+                            errorMessage = "Veuillez entrer un message"
+                            showErrorDialog = true
+                        }
+                        type == "garage" && selectedGarageId == null -> {
+                            errorMessage = "Veuillez sélectionner un garage"
+                            showErrorDialog = true
+                        }
+                        else -> {
+                            android.util.Log.d("AddReclamation", "Creating reclamation: type=$type, titre=$titre, garageId=$selectedGarageId")
+                            reclamationViewModel.createReclamation(
+                                type = type,
+                                titre = titre,
+                                message = message,
+                                garageId = if (type == "garage") selectedGarageId else null,
+                                serviceId = null // TODO: Add service selection if needed
+                            )
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
