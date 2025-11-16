@@ -27,8 +27,6 @@ import com.example.karhebti_android.ui.theme.*
 import com.example.karhebti_android.viewmodel.CarViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
 import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.verticalScroll
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -36,7 +34,8 @@ import com.example.karhebti_android.viewmodel.CarImageViewModel
 import com.example.karhebti_android.ui.components.ImageUploadField
 import com.example.karhebti_android.ui.components.UploadProgressIndicator
 import com.example.karhebti_android.ui.components.ImageValidationError
-import com.example.karhebti_android.util.ImageUploadValidator
+import com.example.karhebti_android.data.repository.TranslationManager
+import kotlinx.coroutines.launch
 
 // Backend-Integrated VehiclesScreen with comprehensive image upload
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,6 +64,23 @@ fun VehiclesScreen(
 
     // Pending image Uri selected in the add dialog (uploaded after creation)
     var pendingImageUri by remember { mutableStateOf<Uri?>(null) }
+
+    // Translation manager setup
+    val db = com.example.karhebti_android.data.database.AppDatabase.getInstance(context.applicationContext)
+    val translationRepository = com.example.karhebti_android.data.repository.TranslationRepository(
+        apiService = com.example.karhebti_android.data.api.RetrofitClient.apiService,
+        translationDao = db.translationDao(),
+        languageCacheDao = db.languageCacheDao(),
+        languageListCacheDao = db.languageListCacheDao()
+    )
+    val translationManager = remember { TranslationManager.getInstance(translationRepository, context) }
+    val coroutineScope = rememberCoroutineScope()
+    val currentLanguage by translationManager.currentLanguage.collectAsState()
+    var vehiclesTitle by remember { mutableStateOf("Mes véhicules") }
+    var vehiclesCount by remember { mutableStateOf("") }
+    var loadingText by remember { mutableStateOf("Chargement des véhicules...") }
+    var addVehicleText by remember { mutableStateOf("Ajouter véhicule") }
+    var backText by remember { mutableStateOf("Retour") }
 
     // Load cars on screen start
     LaunchedEffect(Unit) {
@@ -102,15 +118,29 @@ fun VehiclesScreen(
         }
     }
 
+    // Update translations on language change or carsState change
+    LaunchedEffect(currentLanguage, carsState) {
+        coroutineScope.launch {
+            vehiclesTitle = translationManager.translate("vehicles_title", "Mes véhicules", currentLanguage)
+            vehiclesCount = if (carsState is Resource.Success) {
+                val n = (carsState as Resource.Success).data?.size ?: 0
+                translationManager.translate("vehicles_count", "$n véhicule(s)", currentLanguage)
+            } else ""
+            loadingText = translationManager.translate("vehicles_loading", "Chargement des véhicules...", currentLanguage)
+            addVehicleText = translationManager.translate("add_vehicle", "Ajouter véhicule", currentLanguage)
+            backText = translationManager.translate("back", "Retour", currentLanguage)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Column {
-                        Text("Mes véhicules")
+                        Text(vehiclesTitle)
                         if (carsState is Resource.Success) {
                             Text(
-                                text = "${(carsState as Resource.Success).data?.size ?: 0} véhicule(s)",
+                                text = vehiclesCount,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color.White.copy(alpha = 0.7f)
                             )
@@ -119,7 +149,7 @@ fun VehiclesScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, backText)
                     }
                 },
 
@@ -137,7 +167,7 @@ fun VehiclesScreen(
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape
             ) {
-                Icon(Icons.Default.Add, "Ajouter véhicule")
+                Icon(Icons.Default.Add, addVehicleText)
             }
         }
     ) { paddingValues ->
@@ -160,7 +190,7 @@ fun VehiclesScreen(
                         ) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                             Text(
-                                "Chargement des véhicules...",
+                                loadingText,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -575,11 +605,11 @@ fun ImageUploadDialog(
                     else -> {}
                 }
 
-                Text(
+                /*Text(
                     "Images acceptées: JPG, PNG, WebP • Taille max: 5MB",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                )
+                )*/
             }
         },
         confirmButton = {

@@ -245,9 +245,11 @@ fun VehicleDetailContent(
                 .fillMaxWidth()
                 .height(220.dp)
         ) {
+            val fullImageUrl = com.example.karhebti_android.util.ImageUrlHelper.getFullImageUrl(car.imageUrl)
             // Car image background
             AsyncImage(
-                model = car.imageUrl ?: "https://cdn-icons-png.flaticon.com/512/743/743007.png",
+
+                model = fullImageUrl ?: "https://cdn-icons-png.flaticon.com/512/743/743007.png",
                 contentDescription = null,
                 modifier = Modifier.matchParentSize(),
                 contentScale = ContentScale.Crop

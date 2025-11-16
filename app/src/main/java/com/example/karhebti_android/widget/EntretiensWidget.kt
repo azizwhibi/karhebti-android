@@ -57,7 +57,7 @@ class EntretiensWidget : AppWidgetProvider() {
             // Load data from Room database
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    val database = AppDatabase.getDatabase(context)
+                    val database = AppDatabase.getInstance(context)
                     val maintenances = database.upcomingMaintenanceDao()
                         .getUpcomingMaintenancesList(5)
 

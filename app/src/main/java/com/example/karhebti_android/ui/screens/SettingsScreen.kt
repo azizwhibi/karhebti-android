@@ -9,7 +9,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.automirrored.filled.Help
+import androidx.compose.material.icons.automirrored.filled.ContactSupport
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,16 +24,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.karhebti_android.data.repository.Resource
 import com.example.karhebti_android.ui.theme.*
 import com.example.karhebti_android.viewmodel.AuthViewModel
-//import kotlinx.coroutines.flow.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.karhebti_android.data.repository.TranslationManager
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,13 +41,67 @@ fun SettingsScreen(
 ) {
     // Get AuthViewModel to access current user data
     val context = LocalContext.current
-    val authViewModel: AuthViewModel = viewModel(
-        factory = androidx.lifecycle.viewmodel.compose.viewModel<AuthViewModel>().let {
-            androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(
-                context.applicationContext as android.app.Application
-            )
-        }
+    val authViewModel: AuthViewModel = viewModel()
+
+    // Translation manager setup
+    val db = com.example.karhebti_android.data.database.AppDatabase.getInstance(context.applicationContext)
+    val translationRepository = com.example.karhebti_android.data.repository.TranslationRepository(
+        apiService = com.example.karhebti_android.data.api.RetrofitClient.apiService,
+        translationDao = db.translationDao(),
+        languageCacheDao = db.languageCacheDao(),
+        languageListCacheDao = db.languageListCacheDao()
     )
+    val translationManager = remember { TranslationManager.getInstance(translationRepository, context) }
+    val coroutineScope = rememberCoroutineScope()
+    val currentLanguage by translationManager.currentLanguage.collectAsState()
+
+    // Translated UI strings
+    var settingsTitle by remember { mutableStateOf("Paramètres") }
+    var profileSection by remember { mutableStateOf("Profil") }
+    var userProfileText by remember { mutableStateOf("Profil utilisateur") }
+    var emailText by remember { mutableStateOf("Email") }
+    var phoneText by remember { mutableStateOf("Téléphone") }
+    var preferencesSection by remember { mutableStateOf("Préférences") }
+    var notificationsText by remember { mutableStateOf("Notifications") }
+    var languageText by remember { mutableStateOf("Langue") }
+    var securitySection by remember { mutableStateOf("Sécurité") }
+    var changePasswordText by remember { mutableStateOf("Changer mot de passe") }
+    var twoFactorText by remember { mutableStateOf("Authentification 2 facteurs") }
+    var supportSection by remember { mutableStateOf("Support") }
+    var helpCenterText by remember { mutableStateOf("Centre d'aide") }
+    var contactUsText by remember { mutableStateOf("Nous contacter") }
+    var logoutText by remember { mutableStateOf("Déconnexion") }
+    var activeMemberText by remember { mutableStateOf("Membre actif") }
+    var adminText by remember { mutableStateOf("Admin") }
+    var userText by remember { mutableStateOf("Utilisateur") }
+    var notProvidedText by remember { mutableStateOf("Non renseigné") }
+    var backText by remember { mutableStateOf("Retour") }
+
+    // Update translations when language changes
+    LaunchedEffect(currentLanguage) {
+        coroutineScope.launch {
+            settingsTitle = translationManager.translate("settings_title", "Paramètres", currentLanguage)
+            profileSection = translationManager.translate("profile_section", "Profil", currentLanguage)
+            userProfileText = translationManager.translate("user_profile", "Profil utilisateur", currentLanguage)
+            emailText = translationManager.translate("email", "Email", currentLanguage)
+            phoneText = translationManager.translate("phone", "Téléphone", currentLanguage)
+            preferencesSection = translationManager.translate("preferences_section", "Préférences", currentLanguage)
+            notificationsText = translationManager.translate("notifications", "Notifications", currentLanguage)
+            languageText = translationManager.translate("language", "Langue", currentLanguage)
+            securitySection = translationManager.translate("security_section", "Sécurité", currentLanguage)
+            changePasswordText = translationManager.translate("change_password", "Changer mot de passe", currentLanguage)
+            twoFactorText = translationManager.translate("two_factor_auth", "Authentification 2 facteurs", currentLanguage)
+            supportSection = translationManager.translate("support_section", "Support", currentLanguage)
+            helpCenterText = translationManager.translate("help_center", "Centre d'aide", currentLanguage)
+            contactUsText = translationManager.translate("contact_us", "Nous contacter", currentLanguage)
+            logoutText = translationManager.translate("logout", "Déconnexion", currentLanguage)
+            activeMemberText = translationManager.translate("active_member", "Membre actif", currentLanguage)
+            adminText = translationManager.translate("admin", "Admin", currentLanguage)
+            userText = translationManager.translate("user", "Utilisateur", currentLanguage)
+            notProvidedText = translationManager.translate("not_provided", "Non renseigné", currentLanguage)
+            backText = translationManager.translate("back", "Retour", currentLanguage)
+        }
+    }
 
     // SharedPreferences for clearing Remember Me on logout
     val prefs = remember { context.getSharedPreferences("login_prefs", android.content.Context.MODE_PRIVATE) }
@@ -55,6 +109,7 @@ fun SettingsScreen(
     var notificationsEnabled by remember { mutableStateOf(true) }
     var twoFactorEnabled by remember { mutableStateOf(false) }
     var showChangePasswordDialog by remember { mutableStateOf(false) }
+    var showLanguageDialog by remember { mutableStateOf(false) }
 
     // Get current user data
     val currentUser = authViewModel.getCurrentUser()
@@ -64,19 +119,24 @@ fun SettingsScreen(
         "Utilisateur"
     }
     val userEmail = currentUser?.email ?: "email@example.com"
-    val userPhone = currentUser?.telephone?.takeIf { it.isNotEmpty() } ?: "Non renseigné"
+    val userPhone = currentUser?.telephone?.takeIf { it.isNotEmpty() } ?: notProvidedText
     val userRole = currentUser?.role ?: "user"
 
-    // Format member since date (you can enhance this with actual registration date if available)
-    val memberSince = "Membre actif"
+    // Get current language display name
+    val languageDisplayName = when (currentLanguage) {
+        "fr" -> "Français"
+        "en" -> "English"
+        "ar" -> "العربية"
+        else -> "Français"
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Paramètres") },
+                title = { Text(settingsTitle) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, backText)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -145,7 +205,7 @@ fun SettingsScreen(
                                     color = AlertRed.copy(alpha = 0.2f)
                                 ) {
                                     Text(
-                                        text = "Admin",
+                                        text = adminText,
                                         style = MaterialTheme.typography.labelSmall,
                                         color = AlertRed,
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -157,7 +217,7 @@ fun SettingsScreen(
                                     color = AccentYellow.copy(alpha = 0.2f)
                                 ) {
                                     Text(
-                                        text = "Utilisateur",
+                                        text = userText,
                                         style = MaterialTheme.typography.labelSmall,
                                         color = AccentYellow,
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -166,7 +226,7 @@ fun SettingsScreen(
                             }
                         }
                         Text(
-                            text = memberSince,
+                            text = activeMemberText,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -176,7 +236,7 @@ fun SettingsScreen(
 
             // Profile Section
             Text(
-                text = "Profil",
+                text = profileSection,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(top = 8.dp)
@@ -184,28 +244,28 @@ fun SettingsScreen(
 
             SettingsItem(
                 icon = Icons.Default.Person,
-                title = "Profil utilisateur",
+                title = userProfileText,
                 subtitle = userFullName,
                 onClick = { /* Navigate to profile */ }
             )
 
             SettingsItem(
                 icon = Icons.Default.Email,
-                title = "Email",
+                title = emailText,
                 subtitle = userEmail,
                 onClick = { /* Edit email */ }
             )
 
             SettingsItem(
                 icon = Icons.Default.Phone,
-                title = "Téléphone",
+                title = phoneText,
                 subtitle = userPhone,
                 onClick = { /* Edit phone */ }
             )
 
             // Preferences Section
             Text(
-                text = "Préférences",
+                text = preferencesSection,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(top = 8.dp)
@@ -213,23 +273,23 @@ fun SettingsScreen(
 
             SettingsToggleItem(
                 icon = Icons.Default.Notifications,
-                title = "Notifications",
+                title = notificationsText,
                 checked = notificationsEnabled,
-                onCheckedChange = { notificationsEnabled = it },
+                onCheckedChange = { isChecked: Boolean -> notificationsEnabled = isChecked },
                 iconTint = AccentGreen
             )
 
             SettingsItem(
                 icon = Icons.Default.Language,
-                title = "Langue",
-                subtitle = "Français",
-                onClick = { /* Change language */ },
+                title = languageText,
+                subtitle = languageDisplayName,
+                onClick = { showLanguageDialog = true },
                 iconTint = AccentYellow
             )
 
             // Security Section
             Text(
-                text = "Sécurité",
+                text = securitySection,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(top = 8.dp)
@@ -237,37 +297,37 @@ fun SettingsScreen(
 
             SettingsItem(
                 icon = Icons.Default.Lock,
-                title = "Changer mot de passe",
+                title = changePasswordText,
                 onClick = { showChangePasswordDialog = true },
                 iconTint = DeepPurple
             )
 
             SettingsToggleItem(
                 icon = Icons.Default.Security,
-                title = "Authentification 2 facteurs",
+                title = twoFactorText,
                 checked = twoFactorEnabled,
-                onCheckedChange = { twoFactorEnabled = it },
+                onCheckedChange = { isChecked: Boolean -> twoFactorEnabled = isChecked },
                 iconTint = if (twoFactorEnabled) AccentGreen else TextSecondary
             )
 
             // Support Section
             Text(
-                text = "Support",
+                text = supportSection,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(top = 8.dp)
             )
 
             SettingsItem(
-                icon = Icons.Default.Help,
-                title = "Centre d'aide",
+                icon = Icons.AutoMirrored.Filled.Help,
+                title = helpCenterText,
                 onClick = { /* Open help */ },
                 iconTint = AccentGreen
             )
 
             SettingsItem(
-                icon = Icons.Default.ContactSupport,
-                title = "Nous contacter",
+                icon = Icons.AutoMirrored.Filled.ContactSupport,
+                title = contactUsText,
                 onClick = { /* Contact support */ },
                 iconTint = DeepPurple
             )
@@ -323,13 +383,13 @@ fun SettingsScreen(
                 )
             ) {
                 Icon(
-                    imageVector = Icons.Default.Logout,
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Déconnexion",
+                    text = logoutText,
                     style = MaterialTheme.typography.titleMedium,
                     color = Color.White
                 )
@@ -343,14 +403,146 @@ fun SettingsScreen(
     if (showChangePasswordDialog) {
         ChangePasswordDialog(
             authViewModel = authViewModel,
+            translationManager = translationManager,
+            currentLanguage = currentLanguage,
             onDismiss = { showChangePasswordDialog = false }
+        )
+    }
+
+    // Language Picker Dialog
+    if (showLanguageDialog) {
+        LanguagePickerDialog(
+            currentLanguage = currentLanguage,
+            translationManager = translationManager,
+            onDismiss = { showLanguageDialog = false }
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LanguagePickerDialog(
+    currentLanguage: String,
+    translationManager: TranslationManager,
+    onDismiss: () -> Unit
+) {
+    val coroutineScope = rememberCoroutineScope()
+    var selectedLanguage by remember { mutableStateOf(currentLanguage) }
+
+    // Only support French, English, and Arabic
+    val supportedLanguages = listOf(
+        LanguageOption("fr", "Français", "🇫🇷"),
+        LanguageOption("en", "English", "🇬🇧"),
+        LanguageOption("ar", "العربية", "🇸🇦")
+    )
+
+    var dialogTitle by remember { mutableStateOf("Choisir la langue") }
+    var selectText by remember { mutableStateOf("Sélectionner") }
+    var cancelText by remember { mutableStateOf("Annuler") }
+
+    LaunchedEffect(currentLanguage) {
+        coroutineScope.launch {
+            dialogTitle = translationManager.translate("choose_language", "Choisir la langue", currentLanguage)
+            selectText = translationManager.translate("select", "Sélectionner", currentLanguage)
+            cancelText = translationManager.translate("cancel", "Annuler", currentLanguage)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                dialogTitle,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                supportedLanguages.forEach { language ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { selectedLanguage = language.code },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (selectedLanguage == language.code)
+                                MaterialTheme.colorScheme.primaryContainer
+                            else
+                                MaterialTheme.colorScheme.surface
+                        ),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = if (selectedLanguage == language.code) 4.dp else 1.dp
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = language.flag,
+                                style = MaterialTheme.typography.headlineMedium
+                            )
+                            Text(
+                                text = language.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (selectedLanguage == language.code)
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                else
+                                    MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (selectedLanguage == language.code) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    coroutineScope.launch {
+                        translationManager.setLanguage(selectedLanguage)
+                        onDismiss()
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Text(selectText)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(cancelText)
+            }
+        }
+    )
+}
+
+data class LanguageOption(
+    val code: String,
+    val name: String,
+    val flag: String
+)
+
 @Composable
 fun ChangePasswordDialog(
     authViewModel: AuthViewModel,
+    translationManager: TranslationManager,
+    currentLanguage: String,
     onDismiss: () -> Unit
 ) {
     var currentPassword by remember { mutableStateOf("") }
@@ -362,6 +554,38 @@ fun ChangePasswordDialog(
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val changePasswordState by authViewModel.changePasswordState.collectAsStateWithLifecycle()
+    val coroutineScope = rememberCoroutineScope()
+
+    // Translated strings
+    var dialogTitle by remember { mutableStateOf("Changer le mot de passe") }
+    var currentPasswordLabel by remember { mutableStateOf("Mot de passe actuel") }
+    var newPasswordLabel by remember { mutableStateOf("Nouveau mot de passe") }
+    var confirmPasswordLabel by remember { mutableStateOf("Confirmer le mot de passe") }
+    var changeText by remember { mutableStateOf("Changer") }
+    var cancelText by remember { mutableStateOf("Annuler") }
+    var showText by remember { mutableStateOf("Afficher") }
+    var hideText by remember { mutableStateOf("Masquer") }
+    var allFieldsRequiredError by remember { mutableStateOf("Tous les champs sont requis") }
+    var passwordsNotMatchError by remember { mutableStateOf("Les mots de passe ne correspondent pas") }
+    var currentPasswordLengthError by remember { mutableStateOf("Le mot de passe actuel doit contenir au moins 6 caractères") }
+    var newPasswordLengthError by remember { mutableStateOf("Le nouveau mot de passe doit contenir au moins 6 caractères") }
+
+    LaunchedEffect(currentLanguage) {
+        coroutineScope.launch {
+            dialogTitle = translationManager.translate("change_password_title", "Changer le mot de passe", currentLanguage)
+            currentPasswordLabel = translationManager.translate("current_password", "Mot de passe actuel", currentLanguage)
+            newPasswordLabel = translationManager.translate("new_password", "Nouveau mot de passe", currentLanguage)
+            confirmPasswordLabel = translationManager.translate("confirm_password", "Confirmer le mot de passe", currentLanguage)
+            changeText = translationManager.translate("change", "Changer", currentLanguage)
+            cancelText = translationManager.translate("cancel", "Annuler", currentLanguage)
+            showText = translationManager.translate("show", "Afficher", currentLanguage)
+            hideText = translationManager.translate("hide", "Masquer", currentLanguage)
+            allFieldsRequiredError = translationManager.translate("all_fields_required", "Tous les champs sont requis", currentLanguage)
+            passwordsNotMatchError = translationManager.translate("passwords_not_match", "Les mots de passe ne correspondent pas", currentLanguage)
+            currentPasswordLengthError = translationManager.translate("current_password_length", "Le mot de passe actuel doit contenir au moins 6 caractères", currentLanguage)
+            newPasswordLengthError = translationManager.translate("new_password_length", "Le nouveau mot de passe doit contenir au moins 6 caractères", currentLanguage)
+        }
+    }
 
     // Handle success
     LaunchedEffect(changePasswordState) {
@@ -377,7 +601,7 @@ fun ChangePasswordDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                "Changer le mot de passe",
+                dialogTitle,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -391,13 +615,13 @@ fun ChangePasswordDialog(
                         currentPassword = it
                         errorMessage = null
                     },
-                    label = { Text("Mot de passe actuel") },
+                    label = { Text(currentPasswordLabel) },
                     visualTransformation = if (currentPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         IconButton(onClick = { currentPasswordVisible = !currentPasswordVisible }) {
                             Icon(
                                 imageVector = if (currentPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                contentDescription = if (currentPasswordVisible) "Masquer" else "Afficher"
+                                contentDescription = if (currentPasswordVisible) hideText else showText
                             )
                         }
                     },
@@ -416,13 +640,13 @@ fun ChangePasswordDialog(
                         newPassword = it
                         errorMessage = null
                     },
-                    label = { Text("Nouveau mot de passe") },
+                    label = { Text(newPasswordLabel) },
                     visualTransformation = if (newPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         IconButton(onClick = { newPasswordVisible = !newPasswordVisible }) {
                             Icon(
                                 imageVector = if (newPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                contentDescription = if (newPasswordVisible) "Masquer" else "Afficher"
+                                contentDescription = if (newPasswordVisible) hideText else showText
                             )
                         }
                     },
@@ -441,13 +665,13 @@ fun ChangePasswordDialog(
                         confirmPassword = it
                         errorMessage = null
                     },
-                    label = { Text("Confirmer le mot de passe") },
+                    label = { Text(confirmPasswordLabel) },
                     visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
                             Icon(
                                 imageVector = if (confirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                contentDescription = if (confirmPasswordVisible) "Masquer" else "Afficher"
+                                contentDescription = if (confirmPasswordVisible) hideText else showText
                             )
                         }
                     },
@@ -474,16 +698,16 @@ fun ChangePasswordDialog(
                 onClick = {
                     when {
                         currentPassword.isEmpty() || newPassword.isEmpty() || confirmPassword.isEmpty() -> {
-                            errorMessage = "Tous les champs sont requis"
+                            errorMessage = allFieldsRequiredError
                         }
                         newPassword != confirmPassword -> {
-                            errorMessage = "Les mots de passe ne correspondent pas"
+                            errorMessage = passwordsNotMatchError
                         }
                         currentPassword.length < 6 -> {
-                            errorMessage = "Le mot de passe actuel doit contenir au moins 6 caractères"
+                            errorMessage = currentPasswordLengthError
                         }
                         newPassword.length < 6 -> {
-                            errorMessage = "Le nouveau mot de passe doit contenir au moins 6 caractères"
+                            errorMessage = newPasswordLengthError
                         }
                         else -> {
                             authViewModel.changePassword(currentPassword, newPassword)
@@ -499,7 +723,7 @@ fun ChangePasswordDialog(
                         color = Color.White
                     )
                 } else {
-                    Text("Changer")
+                    Text(changeText)
                 }
             }
         },
@@ -511,72 +735,10 @@ fun ChangePasswordDialog(
                 },
                 enabled = changePasswordState !is Resource.Loading
             ) {
-                Text("Annuler")
+                Text(cancelText)
             }
         }
     )
-}
-
-@Composable
-fun SettingsItem(
-    icon: ImageVector,
-    title: String,
-    subtitle: String? = null,
-    onClick: () -> Unit,
-    iconTint: Color = DeepPurple
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(iconTint.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Icon(
-                imageVector = Icons.Filled.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
 }
 
 @Composable
@@ -636,10 +798,65 @@ fun SettingsToggleItem(
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun SettingsScreenPreview() {
-    KarhebtiandroidTheme {
-        SettingsScreen()
+fun SettingsItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String? = null,
+    onClick: () -> Unit,
+    iconTint: Color = DeepPurple
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(iconTint.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }

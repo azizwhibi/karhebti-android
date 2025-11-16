@@ -32,16 +32,18 @@ import com.example.karhebti_android.viewmodel.GarageViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
 import com.example.karhebti_android.viewmodel.EntretiensFilterViewModel
 import com.example.karhebti_android.util.effectiveDateSafe
+import com.example.karhebti_android.data.repository.TranslationManager
 import java.text.SimpleDateFormat
 import androidx.compose.ui.draw.clip
 import java.util.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
+import java.util.Locale
 
 
 
-// Backend-Integrated EntretiensScreen
+// Backend-Integrated EntretiensScreen with Translation Support
 // All maintenance data from API, Create/Delete operations call backend
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +75,60 @@ fun EntretiensScreen(
         }
     )
 
+    // Translation manager setup
+    val db = com.example.karhebti_android.data.database.AppDatabase.getInstance(context.applicationContext)
+    val translationRepository = com.example.karhebti_android.data.repository.TranslationRepository(
+        apiService = com.example.karhebti_android.data.api.RetrofitClient.apiService,
+        translationDao = db.translationDao(),
+        languageCacheDao = db.languageCacheDao(),
+        languageListCacheDao = db.languageListCacheDao()
+    )
+    val translationManager = remember { TranslationManager.getInstance(translationRepository, context) }
+    val coroutineScope = rememberCoroutineScope()
+    val currentLanguage by translationManager.currentLanguage.collectAsState()
+
+    // Translated UI strings
+    var maintenanceTitle by remember { mutableStateOf("Entretiens") }
+    var backText by remember { mutableStateOf("Retour") }
+    var addMaintenanceText by remember { mutableStateOf("Ajouter entretien") }
+    var upcomingTabText by remember { mutableStateOf("À venir") }
+    var historyTabText by remember { mutableStateOf("Historique") }
+    var searchPlaceholder by remember { mutableStateOf("Rechercher") }
+    var clearText by remember { mutableStateOf("Effacer") }
+    var allText by remember { mutableStateOf("Tous") }
+    var urgentText by remember { mutableStateOf("Urgent") }
+    var soonText by remember { mutableStateOf("Bientôt") }
+    var plannedText by remember { mutableStateOf("Prévu") }
+    var sortByText by remember { mutableStateOf("Trier") }
+    var dateText by remember { mutableStateOf("Date") }
+    var costText by remember { mutableStateOf("Coût") }
+    var mileageText by remember { mutableStateOf("Kilométrage") }
+    var createdText by remember { mutableStateOf("Créé") }
+    var noMaintenanceText by remember { mutableStateOf("Aucun entretien") }
+
+    // Update translations when language changes
+    LaunchedEffect(currentLanguage) {
+        coroutineScope.launch {
+            maintenanceTitle = translationManager.translate("maintenance_title", "Entretiens", currentLanguage)
+            backText = translationManager.translate("back", "Retour", currentLanguage)
+            addMaintenanceText = translationManager.translate("add_maintenance", "Ajouter entretien", currentLanguage)
+            upcomingTabText = translationManager.translate("upcoming", "À venir", currentLanguage)
+            historyTabText = translationManager.translate("history", "Historique", currentLanguage)
+            searchPlaceholder = translationManager.translate("search", "Rechercher", currentLanguage)
+            clearText = translationManager.translate("clear", "Effacer", currentLanguage)
+            allText = translationManager.translate("all", "Tous", currentLanguage)
+            urgentText = translationManager.translate("urgent", "Urgent", currentLanguage)
+            soonText = translationManager.translate("soon", "Bientôt", currentLanguage)
+            plannedText = translationManager.translate("planned", "Prévu", currentLanguage)
+            sortByText = translationManager.translate("sort_by", "Trier", currentLanguage)
+            dateText = translationManager.translate("date", "Date", currentLanguage)
+            costText = translationManager.translate("cost", "Coût", currentLanguage)
+            mileageText = translationManager.translate("mileage", "Kilométrage", currentLanguage)
+            createdText = translationManager.translate("created", "Créé", currentLanguage)
+            noMaintenanceText = translationManager.translate("no_maintenance", "Aucun entretien", currentLanguage)
+        }
+    }
+
     // Observe states
     val maintenancesState by maintenanceViewModel.maintenancesState.observeAsState()
     val createMaintenanceState by maintenanceViewModel.createMaintenanceState.observeAsState()
@@ -82,14 +138,14 @@ fun EntretiensScreen(
     val filterState by filterViewModel.maintenancesState.collectAsState()
 
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("À venir", "Historique")
+    val tabs = listOf(upcomingTabText, historyTabText)
     var showAddDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<MaintenanceResponse?>(null) }
     val scope = rememberCoroutineScope()
 
     // Local UI state for search & sort controls (bound to viewModel SavedStateHandle)
     var searchText by remember { mutableStateOf(filterViewModel.searchQuery) }
-    var selectedUrgency by remember { mutableStateOf("Tous") }
+    var selectedUrgency by remember { mutableStateOf(allText) }
     var sortField by remember { mutableStateOf(filterViewModel.sortField) }
     var sortOrder by remember { mutableStateOf(filterViewModel.sortOrder) }
 
@@ -129,10 +185,10 @@ fun EntretiensScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Entretiens") },
+                title = { Text(maintenanceTitle) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, backText)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -149,7 +205,7 @@ fun EntretiensScreen(
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape
             ) {
-                Icon(Icons.Default.Add, "Ajouter entretien")
+                Icon(Icons.Default.Add, addMaintenanceText)
             }
         }
     ) { paddingValues ->
@@ -187,12 +243,12 @@ fun EntretiensScreen(
                     value = searchText,
                     onValueChange = { searchText = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Rechercher") },
+                    placeholder = { Text(searchPlaceholder) },
                     singleLine = true,
                     trailingIcon = {
                         if (searchText.isNotBlank()) {
                             IconButton(onClick = { searchText = "" }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Effacer")
+                                Icon(Icons.Default.Clear, contentDescription = clearText)
                             }
                         }
                     }
@@ -214,10 +270,10 @@ fun EntretiensScreen(
                         Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.padding(start = 6.dp))
                     }
                     DropdownMenu(expanded = statusExpanded, onDismissRequest = { statusExpanded = false }) {
-                        DropdownMenuItem(text = { Text("Tous") }, onClick = { selectedUrgency = "Tous"; statusExpanded = false })
-                        DropdownMenuItem(text = { Text("Urgent") }, onClick = { selectedUrgency = "Urgent"; statusExpanded = false })
-                        DropdownMenuItem(text = { Text("Bientôt") }, onClick = { selectedUrgency = "Bientôt"; statusExpanded = false })
-                        DropdownMenuItem(text = { Text("Prévu") }, onClick = { selectedUrgency = "Prévu"; statusExpanded = false })
+                        DropdownMenuItem(text = { Text(allText) }, onClick = { selectedUrgency = allText; statusExpanded = false })
+                        DropdownMenuItem(text = { Text(urgentText) }, onClick = { selectedUrgency = urgentText; statusExpanded = false })
+                        DropdownMenuItem(text = { Text(soonText) }, onClick = { selectedUrgency = soonText; statusExpanded = false })
+                        DropdownMenuItem(text = { Text(plannedText) }, onClick = { selectedUrgency = plannedText; statusExpanded = false })
                     }
                 }
 
@@ -230,17 +286,20 @@ fun EntretiensScreen(
                         // compute label to avoid unnecessary Elvis on non-nullable type
                         val sortLabel = when (sortField) {
                             "" -> "-"
-                            "dueAt" -> "Date"
+                            "dueAt" -> dateText
+                            "cout" -> costText
+                            "mileage" -> mileageText
+                            "createdAt" -> createdText
                             else -> sortField
                         }
-                        Text("Trier: $sortLabel")
+                        Text("$sortByText: $sortLabel")
                         Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null, modifier = Modifier.padding(start = 6.dp))
                     }
                     DropdownMenu(expanded = sortExpanded, onDismissRequest = { sortExpanded = false }) {
-                        DropdownMenuItem(text = { Text("Date (dueAt)") }, onClick = { sortField = "dueAt"; sortExpanded = false })
-                        DropdownMenuItem(text = { Text("Coût (cout)") }, onClick = { sortField = "cout"; sortExpanded = false })
-                        DropdownMenuItem(text = { Text("Kilométrage (mileage)") }, onClick = { sortField = "mileage"; sortExpanded = false })
-                        DropdownMenuItem(text = { Text("Créé (createdAt)") }, onClick = { sortField = "createdAt"; sortExpanded = false })
+                        DropdownMenuItem(text = { Text("$dateText (dueAt)") }, onClick = { sortField = "dueAt"; sortExpanded = false })
+                        DropdownMenuItem(text = { Text("$costText (cout)") }, onClick = { sortField = "cout"; sortExpanded = false })
+                        DropdownMenuItem(text = { Text("$mileageText (mileage)") }, onClick = { sortField = "mileage"; sortExpanded = false })
+                        DropdownMenuItem(text = { Text("$createdText (createdAt)") }, onClick = { sortField = "createdAt"; sortExpanded = false })
                     }
                 }
 
@@ -268,13 +327,13 @@ fun EntretiensScreen(
                         } ?: false
 
                         if (!dateMatches) false
-                        else if (selectedUrgency == "Tous") true
+                        else if (selectedUrgency == allText) true
                         else {
                             val daysUntil = effective?.let { ((it.time - now.time) / (1000 * 60 * 60 * 24)).toInt() } ?: Int.MAX_VALUE
                             when (selectedUrgency) {
-                                "Urgent" -> daysUntil in 0..7
-                                "Bientôt" -> daysUntil in 8..30
-                                "Prévu" -> daysUntil > 30
+                                urgentText -> daysUntil in 0..7
+                                soonText -> daysUntil in 8..30
+                                plannedText -> daysUntil > 30
                                 else -> true
                             }
                         }
@@ -331,7 +390,7 @@ fun EntretiensScreen(
                                     tint = TextSecondary.copy(alpha = 0.5f)
                                 )
                                 Text(
-                                    if (selectedTab == 0) "Aucun entretien à venir" else "Aucun historique",
+                                    if (selectedTab == 0) noMaintenanceText else "Aucun historique",
                                     style = MaterialTheme.typography.titleLarge,
                                     color = TextPrimary
                                 )
@@ -401,13 +460,13 @@ fun EntretiensScreen(
                                 val isUpcoming = selectedTab == 0
                                 val dateMatches = if (isUpcoming) date.after(now) || date == now else date.before(now)
                                 if (!dateMatches) false
-                                else if (selectedUrgency == "Tous") true
+                                else if (selectedUrgency == allText) true
                                 else {
                                     val daysUntil = ((date.time - now.time) / (1000 * 60 * 60 * 24)).toInt()
                                     when (selectedUrgency) {
-                                        "Urgent" -> daysUntil in 0..7
-                                        "Bientôt" -> daysUntil in 8..30
-                                        "Prévu" -> daysUntil > 30
+                                        urgentText -> daysUntil in 0..7
+                                        soonText -> daysUntil in 8..30
+                                        plannedText -> daysUntil > 30
                                         else -> true
                                     }
                                 }
@@ -430,7 +489,7 @@ fun EntretiensScreen(
                                             tint = TextSecondary.copy(alpha = 0.5f)
                                         )
                                         Text(
-                                            if (selectedTab == 0) "Aucun entretien à venir" else "Aucun historique",
+                                            if (selectedTab == 0) noMaintenanceText else "Aucun historique",
                                             style = MaterialTheme.typography.titleLarge,
                                             color = TextPrimary
                                         )

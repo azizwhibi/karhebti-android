@@ -210,7 +210,7 @@ class MaintenanceRepositoryImpl(
 ) {
     constructor(context: Context) : this(
         RetrofitClient.apiService,
-        AppDatabase.getDatabase(context)
+        AppDatabase.getInstance(context)
     )
 
     private val dao = database.upcomingMaintenanceDao()

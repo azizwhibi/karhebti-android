@@ -112,7 +112,9 @@ data class CarResponse(
 // Maintenance DTOs
 data class CreateMaintenanceRequest(
     val type: String, // vidange, révision, réparation
+    val title: String, // vidange, révision, réparation
     val date: String, // ISO 8601 format
+    val dueAt: String, // ISO 8601 format
     val cout: Double,
     val garage: String, // Garage ID
     val voiture: String // Car ID
@@ -435,4 +437,57 @@ data class GarageRecommendation(
 data class VerifySignupOtpRequest(
     val email: String,
     val code: String
+)
+
+// ==================== TRANSLATION API MODELS ====================
+
+// Translation API DTOs
+data class TranslateRequest(
+    val text: List<String>,  // Can send multiple strings
+    val targetLanguage: String,
+    val sourceLanguage: String? = null
+)
+
+data class TranslateResponse(
+    val translations: List<String>
+)
+
+data class BatchTranslateItem(
+    val key: String,
+    val text: String
+)
+
+data class BatchTranslateRequest(
+    val items: List<BatchTranslateItem>,
+    val targetLanguage: String,
+    val sourceLanguage: String? = null
+)
+
+data class BatchTranslateResponse(
+    val translations: Map<String, String>
+)
+
+data class Language(
+    val code: String,
+    val name: String,
+    val nativeName: String
+)
+
+data class LanguagesResponse(
+    val languages: List<Language>
+)
+
+data class CachedTranslationsResponse(
+    val translations: Map<String, String>,
+    val count: Int
+)
+
+// Local model for Room database
+data class TranslationEntity(
+    val id: String = "",
+    val key: String,
+    val languageCode: String,
+    val originalText: String,
+    val translatedText: String,
+    val updatedAt: Long = System.currentTimeMillis()
 )

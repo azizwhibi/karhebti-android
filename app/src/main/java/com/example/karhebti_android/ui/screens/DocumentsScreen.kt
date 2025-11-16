@@ -25,6 +25,9 @@ import com.example.karhebti_android.data.api.DocumentResponse
 import com.example.karhebti_android.data.repository.Resource
 import com.example.karhebti_android.viewmodel.DocumentViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
+import com.example.karhebti_android.data.repository.TranslationManager
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.collectAsState
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -38,8 +41,50 @@ fun DocumentsScreen(
         factory = ViewModelFactory(context.applicationContext as android.app.Application)
     )
 
+    // Translation manager setup
+    val db = com.example.karhebti_android.data.database.AppDatabase.getInstance(context.applicationContext)
+    val translationRepository = com.example.karhebti_android.data.repository.TranslationRepository(
+        apiService = com.example.karhebti_android.data.api.RetrofitClient.apiService,
+        translationDao = db.translationDao(),
+        languageCacheDao = db.languageCacheDao(),
+        languageListCacheDao = db.languageListCacheDao()
+    )
+    val translationManager = remember { TranslationManager.getInstance(translationRepository, context) }
+    val coroutineScope = rememberCoroutineScope()
+    val currentLanguage by translationManager.currentLanguage.collectAsState()
+
+    // Translated UI strings
+    var documentsTitle by remember { mutableStateOf("Documents") }
+    var backText by remember { mutableStateOf("Retour") }
+    var refreshText by remember { mutableStateOf("Actualiser") }
+    var addDocumentText by remember { mutableStateOf("Ajouter document") }
+    var allText by remember { mutableStateOf("Tous") }
+    var registrationText by remember { mutableStateOf("Carte grise") }
+    var insuranceText by remember { mutableStateOf("Assurance") }
+    var inspectionText by remember { mutableStateOf("Visite technique") }
+    var otherText by remember { mutableStateOf("Autre") }
+    var loadingText by remember { mutableStateOf("Chargement des documents...") }
+    var noDocumentsText by remember { mutableStateOf("Aucun document") }
+
+    // Update translations when language changes
+    LaunchedEffect(currentLanguage) {
+        coroutineScope.launch {
+            documentsTitle = translationManager.translate("documents_title", "Documents", currentLanguage)
+            backText = translationManager.translate("back", "Retour", currentLanguage)
+            refreshText = translationManager.translate("refresh", "Actualiser", currentLanguage)
+            addDocumentText = translationManager.translate("add_document", "Ajouter document", currentLanguage)
+            allText = translationManager.translate("all", "Tous", currentLanguage)
+            registrationText = translationManager.translate("registration", "Carte grise", currentLanguage)
+            insuranceText = translationManager.translate("insurance", "Assurance", currentLanguage)
+            inspectionText = translationManager.translate("inspection", "Visite technique", currentLanguage)
+            otherText = translationManager.translate("other", "Autre", currentLanguage)
+            loadingText = translationManager.translate("documents_loading", "Chargement des documents...", currentLanguage)
+            noDocumentsText = translationManager.translate("no_documents", "Aucun document", currentLanguage)
+        }
+    }
+
     val documentsState by documentViewModel.documentsState.observeAsState()
-    var selectedFilter by remember { mutableStateOf("Tous") }
+    var selectedFilter by remember { mutableStateOf(allText) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<DocumentResponse?>(null) }
 
@@ -50,12 +95,12 @@ fun DocumentsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Documents") },
+                title = { Text(documentsTitle) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Retour",
+                            contentDescription = backText,
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -64,7 +109,7 @@ fun DocumentsScreen(
                     IconButton(onClick = { documentViewModel.getDocuments() }) {
                         Icon(
                             Icons.Default.Refresh,
-                            contentDescription = "Actualiser",
+                            contentDescription = refreshText,
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -81,7 +126,7 @@ fun DocumentsScreen(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Ajouter document")
+                Icon(Icons.Default.Add, contentDescription = addDocumentText)
             }
         }
     ) { paddingValues ->
@@ -101,7 +146,7 @@ fun DocumentsScreen(
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(listOf("Tous", "Carte grise", "Assurance", "Visite technique", "Autre")) { filter ->
+                    items(listOf(allText, registrationText, insuranceText, inspectionText, otherText)) { filter ->
                         FilterChip(
                             selected = selectedFilter == filter,
                             onClick = { selectedFilter = filter },
@@ -126,7 +171,7 @@ fun DocumentsScreen(
                             ) {
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                                 Text(
-                                    "Chargement des documents...",
+                                    loadingText,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -134,7 +179,7 @@ fun DocumentsScreen(
                     }
                     is Resource.Success -> {
                         val allDocs = state.data ?: emptyList()
-                        val filteredDocs = if (selectedFilter == "Tous") allDocs
+                        val filteredDocs = if (selectedFilter == allText) allDocs
                         else allDocs.filter { it.type == selectedFilter.lowercase().replace(" ", "_") }
 
                         if (filteredDocs.isEmpty()) {
@@ -150,26 +195,16 @@ fun DocumentsScreen(
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                     )
                                     Text(
-                                        "Aucun document",
+                                        noDocumentsText,
                                         style = MaterialTheme.typography.titleLarge,
-                                        color = MaterialTheme.colorScheme.onBackground
-                                    )
-                                    Text(
-                                        "Ajoutez vos documents importants",
-                                        style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
                         } else {
-                            LazyColumn(
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                items(filteredDocs, key = { it.id }) { document ->
-                                    DocumentCard(
-                                        document = document,
-                                        onDelete = { showDeleteDialog = document }
-                                    )
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                items(filteredDocs) { doc ->
+                                    DocumentCard(doc)
                                 }
                             }
                         }
@@ -187,25 +222,14 @@ fun DocumentsScreen(
                                     tint = MaterialTheme.colorScheme.error
                                 )
                                 Text(
-                                    "Erreur de chargement",
+                                    "Erreur",
                                     style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.onBackground
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     state.message ?: "Une erreur est survenue",
-                                    style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Button(
-                                    onClick = { documentViewModel.getDocuments() },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary
-                                    )
-                                ) {
-                                    Icon(Icons.Default.Refresh, contentDescription = null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("Réessayer")
-                                }
                             }
                         }
                     }
@@ -244,120 +268,58 @@ fun DocumentsScreen(
 }
 
 @Composable
-fun DocumentCard(
-    document: DocumentResponse,
-    onDelete: () -> Unit
-) {
-    var showMenu by remember { mutableStateOf(false) }
+fun DocumentCard(document: DocumentResponse) {
     val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
 
-    val now = Date()
-    val daysUntilExpiry = ((document.dateExpiration.time - now.time) / (1000 * 60 * 60 * 24)).toInt()
-
-    val (statusLabel, statusColor) = when {
-        daysUntilExpiry < 0 -> "Expiré" to MaterialTheme.colorScheme.error
-        daysUntilExpiry <= 30 -> "Expire bientôt" to MaterialTheme.colorScheme.tertiary
-        else -> "Valide" to MaterialTheme.colorScheme.secondary
-    }
-
-    Card(
+    ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { /* navigate to details */ },
-        colors = CardDefaults.cardColors(
+            .clickable { /* Handle document click */ },
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Description,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Column {
-                    Text(
-                        text = document.type.replaceFirstChar { it.uppercase() },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Expire le ${dateFormat.format(document.dateExpiration)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                AssistChip(
-                    onClick = {},
-                    label = { Text(statusLabel, style = MaterialTheme.typography.labelSmall) },
-                    colors = AssistChipDefaults.assistChipColors(
-                        containerColor = statusColor.copy(alpha = 0.2f),
-                        labelColor = statusColor
-                    )
+                Icon(
+                    Icons.Default.Description,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-
-                Box {
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(
-                            Icons.Default.MoreVert,
-                            contentDescription = "Menu",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    "Supprimer",
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            },
-                            onClick = {
-                                showMenu = false
-                                onDelete()
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        )
-                    }
-                }
             }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    document.type.uppercase(),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Ajouté le ${dateFormat.format(document.createdAt)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

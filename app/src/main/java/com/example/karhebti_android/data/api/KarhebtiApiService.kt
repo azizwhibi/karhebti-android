@@ -256,4 +256,25 @@ interface KarhebtiApiService {
         @Query("longitude") longitude: Double? = null,
         @Query("rayon") rayon: Double? = null
     ): Response<List<GarageRecommendation>>
+
+    // ==================== TRANSLATION API ====================
+
+    @POST("api/translation/translate")
+    suspend fun translateText(@Body request: TranslateRequest): Response<TranslateResponse>
+
+    @POST("api/translation/batch")
+    suspend fun batchTranslate(@Body request: BatchTranslateRequest): Response<BatchTranslateResponse>
+
+    @GET("api/translation/languages")
+    suspend fun getLanguages(): Response<LanguagesResponse>
+
+    @GET("api/translation/cached/{languageCode}")
+    suspend fun getCachedTranslations(
+        @Path("languageCode") languageCode: String
+    ): Response<CachedTranslationsResponse>
+
+    @DELETE("api/translation/cache")
+    suspend fun clearTranslationCache(
+        @Query("languageCode") languageCode: String? = null
+    ): Response<MessageResponse>
 }

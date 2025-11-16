@@ -317,7 +317,7 @@ class MaintenanceRepository(private val apiService: KarhebtiApiService = Retrofi
         voiture: String
     ): Resource<MaintenanceResponse> = withContext(Dispatchers.IO) {
         try {
-            val request = CreateMaintenanceRequest(type, date, cout, garage, voiture)
+            val request = CreateMaintenanceRequest(type = type, title = type, date, dueAt = date, cout, garage, voiture)
             val response = apiService.createMaintenance(request)
 
             if (response.isSuccessful && response.body() != null) {

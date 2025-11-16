@@ -28,6 +28,9 @@ import com.example.karhebti_android.viewmodel.DocumentViewModel
 import com.example.karhebti_android.viewmodel.GarageViewModel
 import com.example.karhebti_android.viewmodel.MaintenanceViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
+import com.example.karhebti_android.data.repository.TranslationManager
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.collectAsState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +66,58 @@ fun HomeScreen(
     val maintenanceCount by maintenanceViewModel.maintenanceCount.collectAsState()
     val garageCount by garageViewModel.garageCount.collectAsState()
     val documentCount by documentViewModel.documentCount.collectAsState()
+
+    // Translation manager setup
+    val db = com.example.karhebti_android.data.database.AppDatabase.getInstance(context.applicationContext)
+    val translationRepository = com.example.karhebti_android.data.repository.TranslationRepository(
+        apiService = com.example.karhebti_android.data.api.RetrofitClient.apiService,
+        translationDao = db.translationDao(),
+        languageCacheDao = db.languageCacheDao(),
+        languageListCacheDao = db.languageListCacheDao()
+    )
+    val translationManager = remember { TranslationManager.getInstance(translationRepository, context) }
+    val coroutineScope = rememberCoroutineScope()
+    val currentLanguage by translationManager.currentLanguage.collectAsState()
+
+    // Translated UI strings
+    var welcomeText by remember { mutableStateOf("Bonjour") }
+    var alertsTitle by remember { mutableStateOf("Alertes importantes") }
+    var revisionTitle by remember { mutableStateOf("Révision à prévoir") }
+    var revisionDescription by remember { mutableStateOf("Vidange + Filtre à huile") }
+    var revisionDeadline by remember { mutableStateOf("Dans 15 jours ou 500 km") }
+    var urgentText by remember { mutableStateOf("URGENT") }
+    var scheduleText by remember { mutableStateOf("Planifier") }
+    var fuelLowText by remember { mutableStateOf("Niveau carburant bas") }
+    var fuelDetail by remember { mutableStateOf("15% restant · Autonomie 45 km") }
+    var quickActionsTitle by remember { mutableStateOf("Actions rapides") }
+    var vehiclesLabel by remember { mutableStateOf("Véhicules") }
+    var maintenanceLabel by remember { mutableStateOf("Entretien") }
+    var documentsLabel by remember { mutableStateOf("Documents") }
+    var garagesLabel by remember { mutableStateOf("Garages") }
+    var overviewTitle by remember { mutableStateOf("Aperçu") }
+    var settingsDescription by remember { mutableStateOf("Paramètres") }
+
+    // Update translations when language changes
+    LaunchedEffect(currentLanguage) {
+        coroutineScope.launch {
+            welcomeText = translationManager.translate("hello", "Bonjour", currentLanguage)
+            alertsTitle = translationManager.translate("important_alerts", "Alertes importantes", currentLanguage)
+            revisionTitle = translationManager.translate("revision_needed", "Révision à prévoir", currentLanguage)
+            revisionDescription = translationManager.translate("oil_change_filter", "Vidange + Filtre à huile", currentLanguage)
+            revisionDeadline = translationManager.translate("in_15_days", "Dans 15 jours ou 500 km", currentLanguage)
+            urgentText = translationManager.translate("urgent", "URGENT", currentLanguage)
+            scheduleText = translationManager.translate("schedule", "Planifier", currentLanguage)
+            fuelLowText = translationManager.translate("low_fuel", "Niveau carburant bas", currentLanguage)
+            fuelDetail = translationManager.translate("fuel_detail", "15% restant · Autonomie 45 km", currentLanguage)
+            quickActionsTitle = translationManager.translate("quick_actions", "Actions rapides", currentLanguage)
+            vehiclesLabel = translationManager.translate("vehicles", "Véhicules", currentLanguage)
+            maintenanceLabel = translationManager.translate("maintenance", "Entretien", currentLanguage)
+            documentsLabel = translationManager.translate("documents", "Documents", currentLanguage)
+            garagesLabel = translationManager.translate("garages", "Garages", currentLanguage)
+            overviewTitle = translationManager.translate("overview", "Aperçu", currentLanguage)
+            settingsDescription = translationManager.translate("settings", "Paramètres", currentLanguage)
+        }
+    }
 
     // Load data on first composition
     LaunchedEffect(Unit) {
@@ -124,7 +179,7 @@ fun HomeScreen(
                     IconButton(onClick = onSettingsClick) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = "Paramètres",
+                            contentDescription = settingsDescription,
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -143,7 +198,7 @@ fun HomeScreen(
         ) {
             // Personalized Welcome Message
             Text(
-                text = "Bonjour, $userFirstName 👋",
+                text = "$welcomeText, $userFirstName 👋",
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.Bold
@@ -151,7 +206,7 @@ fun HomeScreen(
 
             // Alertes importantes Section
             Text(
-                text = "Alertes importantes",
+                text = alertsTitle,
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.SemiBold
@@ -159,22 +214,26 @@ fun HomeScreen(
 
             // Révision à prévoir Card
             AlertCard(
-                title = "Révision à prévoir",
-                description = "Vidange + Filtre à huile",
-                deadline = "Dans 15 jours ou 500 km",
-                urgency = "URGENT",
+                title = revisionTitle,
+                description = revisionDescription,
+                deadline = revisionDeadline,
+                urgency = urgentText,
                 urgencyColor = AlertRed,
+                scheduleButtonText = scheduleText,
                 onActionClick = { /* Handle planifier */ }
             )
 
             // Niveau carburant bas Card
-            FuelAlertCard()
+            FuelAlertCard(
+                fuelLowTitle = fuelLowText,
+                fuelDetail = fuelDetail
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             // Quick Actions
             Text(
-                text = "Actions rapides",
+                text = quickActionsTitle,
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.SemiBold
@@ -186,13 +245,13 @@ fun HomeScreen(
             ) {
                 QuickActionButton(
                     icon = Icons.Default.DriveEta,
-                    label = "Véhicules",
+                    label = vehiclesLabel,
                     onClick = onVehiclesClick,
                     modifier = Modifier.weight(1f)
                 )
                 QuickActionButton(
                     icon = Icons.Default.Build,
-                    label = "Entretien",
+                    label = maintenanceLabel,
                     onClick = onEntretiensClick,
                     modifier = Modifier.weight(1f)
                 )
@@ -204,13 +263,13 @@ fun HomeScreen(
             ) {
                 QuickActionButton(
                     icon = Icons.Default.Article,
-                    label = "Documents",
+                    label = documentsLabel,
                     onClick = onDocumentsClick,
                     modifier = Modifier.weight(1f)
                 )
                 QuickActionButton(
                     icon = Icons.Default.Store,
-                    label = "Garages",
+                    label = garagesLabel,
                     onClick = onGaragesClick,
                     modifier = Modifier.weight(1f)
                 )
@@ -220,7 +279,7 @@ fun HomeScreen(
 
             // Overview Chips - Now with dynamic counters
             Text(
-                text = "Aperçu",
+                text = overviewTitle,
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.SemiBold
@@ -232,13 +291,13 @@ fun HomeScreen(
             ) {
                 OverviewChip(
                     count = carCount.toString(),
-                    label = "Véhicules",
+                    label = vehiclesLabel,
                     color = DeepPurple,
                     modifier = Modifier.weight(1f)
                 )
                 OverviewChip(
                     count = maintenanceCount.toString(),
-                    label = "Entretiens",
+                    label = maintenanceLabel,
                     color = AccentGreen,
                     modifier = Modifier.weight(1f)
                 )
@@ -250,13 +309,13 @@ fun HomeScreen(
             ) {
                 OverviewChip(
                     count = documentCount.toString(),
-                    label = "Documents",
+                    label = documentsLabel,
                     color = AccentYellow,
                     modifier = Modifier.weight(1f)
                 )
                 OverviewChip(
                     count = garageCount.toString(),
-                    label = "Garages",
+                    label = garagesLabel,
                     color = LightPurple,
                     modifier = Modifier.weight(1f)
                 )
@@ -272,6 +331,7 @@ fun AlertCard(
     deadline: String,
     urgency: String,
     urgencyColor: Color,
+    scheduleButtonText: String = "Planifier",
     onActionClick: () -> Unit
 ) {
     ElevatedCard(
@@ -351,7 +411,7 @@ fun AlertCard(
                 }
 
                 TextButton(onClick = onActionClick) {
-                    Text("Planifier", color = MaterialTheme.colorScheme.primary)
+                    Text(scheduleButtonText, color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -359,7 +419,10 @@ fun AlertCard(
 }
 
 @Composable
-fun FuelAlertCard() {
+fun FuelAlertCard(
+    fuelLowTitle: String = "Niveau carburant bas",
+    fuelDetail: String = "15% restant · Autonomie 45 km"
+) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
@@ -392,13 +455,13 @@ fun FuelAlertCard() {
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Niveau carburant bas",
+                    text = fuelLowTitle,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "15% restant · Autonomie 45 km",
+                    text = fuelDetail,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
