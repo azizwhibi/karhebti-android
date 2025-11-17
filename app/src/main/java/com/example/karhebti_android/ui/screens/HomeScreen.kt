@@ -39,7 +39,11 @@ fun HomeScreen(
     onEntretiensClick: () -> Unit = {},
     onDocumentsClick: () -> Unit = {},
     onGaragesClick: () -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    onMarketplaceClick: () -> Unit = {},
+    onMyListingsClick: () -> Unit = {},
+    onConversationsClick: () -> Unit = {},
+    onPendingSwipesClick: () -> Unit = {}
 ) {
     // Get ViewModels
     val context = LocalContext.current
@@ -317,6 +321,53 @@ fun HomeScreen(
                     count = garageCount.toString(),
                     label = garagesLabel,
                     color = LightPurple,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Marketplace Section
+            Text(
+                text = "🚗 Car Marketplace",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            // Marketplace Quick Actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                QuickActionButton(
+                    icon = Icons.Default.Explore,
+                    label = "Browse Cars",
+                    onClick = onMarketplaceClick,
+                    modifier = Modifier.weight(1f)
+                )
+                QuickActionButton(
+                    icon = Icons.Default.Sell,
+                    label = "My Listings",
+                    onClick = onMyListingsClick,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                QuickActionButton(
+                    icon = Icons.Default.Chat,
+                    label = "Conversations",
+                    onClick = onConversationsClick,
+                    modifier = Modifier.weight(1f)
+                )
+                QuickActionButton(
+                    icon = Icons.Default.Notifications,
+                    label = "Requests",
+                    onClick = onPendingSwipesClick,
                     modifier = Modifier.weight(1f)
                 )
             }

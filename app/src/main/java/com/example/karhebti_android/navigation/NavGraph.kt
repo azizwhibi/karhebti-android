@@ -44,6 +44,14 @@ sealed class Screen(val route: String) {
     object Documents : Screen("documents")
     object Garages : Screen("garages")
     object Settings : Screen("settings")
+    // Marketplace screens
+    object MarketplaceBrowse : Screen("marketplace_browse")
+    object MyListings : Screen("my_listings")
+    object Conversations : Screen("conversations")
+    object Chat : Screen("chat/{conversationId}") {
+        fun createRoute(conversationId: String) = "chat/$conversationId"
+    }
+    object PendingSwipes : Screen("pending_swipes")
 }
 
 @Composable
@@ -189,7 +197,11 @@ fun NavGraph(
                 onEntretiensClick = { navController.navigate(Screen.Entretiens.route) },
                 onDocumentsClick = { navController.navigate(Screen.Documents.route) },
                 onGaragesClick = { navController.navigate(Screen.Garages.route) },
-                onSettingsClick = { navController.navigate(Screen.Settings.route) }
+                onSettingsClick = { navController.navigate(Screen.Settings.route) },
+                onMarketplaceClick = { navController.navigate(Screen.MarketplaceBrowse.route) },
+                onMyListingsClick = { navController.navigate(Screen.MyListings.route) },
+                onConversationsClick = { navController.navigate(Screen.Conversations.route) },
+                onPendingSwipesClick = { navController.navigate(Screen.PendingSwipes.route) }
             )
         }
 
@@ -246,6 +258,49 @@ fun NavGraph(
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
                     }
+                }
+            )
+        }
+
+        // Marketplace navigation
+        composable(Screen.MarketplaceBrowse.route) {
+            MarketplaceBrowseScreen(
+                onBackClick = { navController.popBackStack() },
+                onNavigateToChat = { conversationId ->
+                    navController.navigate(Screen.Chat.createRoute(conversationId))
+                }
+            )
+        }
+
+        composable(Screen.MyListings.route) {
+            MyListingsScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Conversations.route) {
+            ConversationsScreen(
+                onBackClick = { navController.popBackStack() },
+                onConversationClick = { conversationId ->
+                    navController.navigate(Screen.Chat.createRoute(conversationId))
+                }
+            )
+        }
+
+        composable(Screen.Chat.route) { backStackEntry ->
+            val conversationId = backStackEntry.arguments?.getString("conversationId")
+            requireNotNull(conversationId) { "conversationId parameter wasn't found. Please make sure it's set!" }
+            ChatScreen(
+                conversationId = conversationId,
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.PendingSwipes.route) {
+            PendingSwipesScreen(
+                onBackClick = { navController.popBackStack() },
+                onNavigateToChat = { conversationId ->
+                    navController.navigate(Screen.Chat.createRoute(conversationId))
                 }
             )
         }

@@ -89,6 +89,11 @@ class TokenManager(context: Context) {
             null
         }
     }
+
+    // Get current user ID
+    fun getUserId(): String? {
+        return getUser()?.id ?: (getToken()?.let { getUserIdFromToken(it) })
+    }
 }
 
 data class UserData(

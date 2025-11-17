@@ -277,4 +277,67 @@ interface KarhebtiApiService {
     suspend fun clearTranslationCache(
         @Query("languageCode") languageCode: String? = null
     ): Response<MessageResponse>
+
+    // ==================== MARKETPLACE / SWIPE FEATURE ====================
+
+    // Cars - Marketplace
+    @GET("cars/marketplace/available")
+    suspend fun getAvailableCars(): Response<List<MarketplaceCarResponse>>
+
+    @POST("cars/{id}/list-for-sale")
+    suspend fun listCarForSale(
+        @Path("id") id: String,
+        @Body request: ListCarForSaleRequest
+    ): Response<MarketplaceCarResponse>
+
+    @POST("cars/{id}/unlist")
+    suspend fun unlistCar(@Path("id") id: String): Response<MarketplaceCarResponse>
+
+    // Swipes
+    @POST("swipes")
+    suspend fun createSwipe(@Body request: CreateSwipeRequest): Response<SwipeResponse>
+
+    @POST("swipes/{id}/accept")
+    suspend fun acceptSwipe(@Path("id") id: String): Response<SwipeStatusResponse>
+
+    @POST("swipes/{id}/decline")
+    suspend fun declineSwipe(@Path("id") id: String): Response<SwipeStatusResponse>
+
+    @GET("swipes/my-swipes")
+    suspend fun getMySwipes(): Response<MySwipesResponse>
+
+    @GET("swipes/pending")
+    suspend fun getPendingSwipes(): Response<List<SwipeResponse>>
+
+    // Conversations
+    @GET("conversations")
+    suspend fun getConversations(): Response<List<ConversationResponse>>
+
+    @GET("conversations/{id}")
+    suspend fun getConversation(@Path("id") id: String): Response<ConversationResponse>
+
+    @GET("conversations/{id}/messages")
+    suspend fun getMessages(@Path("id") id: String): Response<List<ChatMessage>>
+
+    @POST("conversations/{id}/messages")
+    suspend fun sendMessage(
+        @Path("id") id: String,
+        @Body request: SendMessageRequest
+    ): Response<ChatMessage>
+
+    @POST("conversations/{id}/mark-read")
+    suspend fun markConversationAsRead(@Path("id") id: String): Response<MessageResponse>
+
+    // Notifications
+    @GET("notifications")
+    suspend fun getNotifications(): Response<List<NotificationResponse>>
+
+    @GET("notifications/unread-count")
+    suspend fun getUnreadNotificationCount(): Response<UnreadCountResponse>
+
+    @POST("notifications/{id}/mark-read")
+    suspend fun markNotificationAsRead(@Path("id") id: String): Response<NotificationResponse>
+
+    @POST("notifications/mark-all-read")
+    suspend fun markAllNotificationsAsRead(): Response<MessageResponse>
 }

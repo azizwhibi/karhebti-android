@@ -491,3 +491,164 @@ data class TranslationEntity(
     val translatedText: String,
     val updatedAt: Long = System.currentTimeMillis()
 )
+
+// ==================== MARKETPLACE / SWIPE FEATURE DTOs ====================
+
+// Car listing for marketplace
+data class MarketplaceCarResponse(
+    @SerializedName("_id")
+    val id: String,
+    val marque: String,
+    val modele: String,
+    val annee: Int,
+    val immatriculation: String,
+    val typeCarburant: String,
+    val kilometrage: Int? = null,
+    val statut: String? = null,
+    val imageUrl: String? = null,
+    val price: Double? = null,
+    val description: String? = null,
+    val isForSale: Boolean = false,
+    @JsonAdapter(FlexibleUserDeserializer::class)
+    val user: String? = null,
+    val ownerName: String? = null,
+    val ownerPhone: String? = null,
+    val createdAt: Date,
+    val updatedAt: Date
+)
+
+// Swipe request
+data class CreateSwipeRequest(
+    val carId: String,
+    val direction: String // "left" or "right"
+)
+
+// Swipe response
+data class SwipeResponse(
+    @SerializedName("_id")
+    val id: String,
+    @JsonAdapter(FlexibleCarDeserializer::class)
+    val carId: String,
+    @SerializedName("userId")
+    @JsonAdapter(FlexibleUserDeserializer::class)
+    val buyerId: String,
+    @JsonAdapter(FlexibleUserDeserializer::class)
+    val sellerId: String,
+    val direction: String,
+    val status: String, // "pending", "accepted", "declined"
+    val createdAt: Date
+)
+
+// Response when seller accepts/declines
+data class SwipeStatusResponse(
+    @SerializedName("_id")
+    val id: String,
+    val status: String,
+    val conversationId: String? = null,
+    val message: String
+)
+
+// My swipes list
+data class MySwipesResponse(
+    val sent: List<SwipeResponse>,
+    val received: List<SwipeResponse>
+)
+
+// Conversation response
+data class ConversationResponse(
+    @SerializedName("_id")
+    val id: String,
+    @JsonAdapter(FlexibleCarDeserializer::class)
+    val carId: String,
+    @JsonAdapter(FlexibleUserDeserializer::class)
+    val buyerId: String,
+    @JsonAdapter(FlexibleUserDeserializer::class)
+    val sellerId: String,
+    val participants: List<String>,
+    val lastMessage: String? = null,
+    val lastMessageAt: Date? = null,
+    val unreadCount: Int = 0,
+    val carDetails: MarketplaceCarResponse? = null,
+    val otherUser: UserResponse? = null,
+    val createdAt: Date,
+    val updatedAt: Date
+)
+
+// Chat message
+data class ChatMessage(
+    @SerializedName("_id")
+    val id: String,
+    val conversationId: String,
+    val senderId: String,
+    val content: String,
+    val isRead: Boolean = false,
+    val createdAt: Date
+)
+
+// Send message request
+data class SendMessageRequest(
+    val content: String
+)
+
+// Notification response
+data class NotificationResponse(
+    @SerializedName("_id")
+    val id: String,
+    val userId: String,
+    val type: String, // "swipe_right", "swipe_accepted", "swipe_declined", "new_message"
+    val title: String,
+    val message: String,
+    val data: Map<String, Any>? = null,
+    val isRead: Boolean = false,
+    val createdAt: Date
+)
+
+// Unread count
+data class UnreadCountResponse(
+    val count: Int
+)
+
+// List car for sale request
+data class ListCarForSaleRequest(
+    val price: Double,
+    val description: String? = null
+)
+
+// WebSocket message types
+data class WsJoinConversation(
+    val conversationId: String
+)
+
+data class WsLeaveConversation(
+    val conversationId: String
+)
+
+data class WsSendMessage(
+    val conversationId: String,
+    val content: String
+)
+
+data class WsTyping(
+    val conversationId: String
+)
+
+data class WsMessageReceived(
+    val event: String = "new_message",
+    val data: ChatMessage
+)
+
+data class WsNotificationReceived(
+    val event: String = "notification",
+    val data: NotificationResponse
+)
+
+data class WsUserTyping(
+    val event: String = "user_typing",
+    val userId: String,
+    val conversationId: String
+)
+
+data class WsUserStatus(
+    val event: String, // "user_online" or "user_offline"
+    val userId: String
+)
