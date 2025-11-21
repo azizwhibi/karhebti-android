@@ -176,10 +176,12 @@ class CarRepository(private val apiService: KarhebtiApiService = RetrofitClient.
         modele: String,
         annee: Int,
         immatriculation: String,
-        typeCarburant: String
+        typeCarburant: String,
+        kilometrage: Int? = null
     ): Resource<CarResponse> = withContext(Dispatchers.IO) {
         try {
             android.util.Log.d("CarRepository", "Creating car: $marque $modele $annee $immatriculation $typeCarburant")
+            // Create car without kilometrage first
             val request = CreateCarRequest(marque, modele, annee, immatriculation, typeCarburant)
             val response = apiService.createCar(request)
 
@@ -189,8 +191,26 @@ class CarRepository(private val apiService: KarhebtiApiService = RetrofitClient.
             android.util.Log.d("CarRepository", "Response body: ${response.body()}")
 
             if (response.isSuccessful && response.body() != null) {
-                android.util.Log.d("CarRepository", "Success: Car created - ${response.body()}")
-                Resource.Success(response.body()!!)
+                val createdCar = response.body()!!
+                android.util.Log.d("CarRepository", "Success: Car created - $createdCar")
+
+                // If kilometrage was provided, update the car with it
+                if (kilometrage != null && kilometrage > 0) {
+                    android.util.Log.d("CarRepository", "Updating car with kilometrage: $kilometrage")
+                    val updateRequest = UpdateCarRequest(kilometrage = kilometrage)
+                    val updateResponse = apiService.updateCar(createdCar.id, updateRequest)
+
+                    if (updateResponse.isSuccessful && updateResponse.body() != null) {
+                        android.util.Log.d("CarRepository", "Success: Car updated with kilometrage")
+                        Resource.Success(updateResponse.body()!!)
+                    } else {
+                        // Car was created but kilometrage update failed - still return success
+                        android.util.Log.w("CarRepository", "Car created but kilometrage update failed")
+                        Resource.Success(createdCar)
+                    }
+                } else {
+                    Resource.Success(createdCar)
+                }
             } else {
                 val errorBody = response.errorBody()?.string()
                 val errorMsg = "Erreur lors de la création: ${response.code()} - $errorBody"

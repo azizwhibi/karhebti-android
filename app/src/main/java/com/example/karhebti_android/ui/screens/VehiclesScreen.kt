@@ -310,8 +310,8 @@ fun VehiclesScreen(
     if (showAddDialog) {
         AddVehicleDialog(
             onDismiss = { showAddDialog = false },
-            onAdd = { marque, modele, annee, immatriculation, typeCarburant ->
-                carViewModel.createCar(marque, modele, annee, immatriculation, typeCarburant)
+            onAdd = { marque, modele, annee, immatriculation, typeCarburant, kilometrage ->
+                carViewModel.createCar(marque, modele, annee, immatriculation, typeCarburant, kilometrage)
             },
             createState = createCarState,
             uploadState = uploadState,
@@ -643,7 +643,7 @@ fun ImageUploadDialog(
 @Composable
 fun AddVehicleDialog(
     onDismiss: () -> Unit,
-    onAdd: (String, String, Int, String, String) -> Unit,
+    onAdd: (String, String, Int, String, String, Int?) -> Unit,
     createState: Resource<CarResponse>?,
     uploadState: Resource<CarResponse>?,
     isUploading: Boolean,
@@ -653,6 +653,7 @@ fun AddVehicleDialog(
     var modele by remember { mutableStateOf("") }
     var annee by remember { mutableStateOf("") }
     var immatriculation by remember { mutableStateOf("") }
+    var kilometrage by remember { mutableStateOf("") }
     var typeCarburant by remember { mutableStateOf("Essence") }
     var expanded by remember { mutableStateOf(false) }
     val selectedImageUri = remember { mutableStateOf<Uri?>(null) }
@@ -701,6 +702,15 @@ fun AddVehicleDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                OutlinedTextField(
+                    value = kilometrage,
+                    onValueChange = { kilometrage = it.filter { c -> c.isDigit() } },
+                    label = { Text("Kilométrage") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Ex: 50000") }
+                )
+
                 ExposedDropdownMenuBox(
                     expanded = expanded,
                     onExpandedChange = { expanded = !expanded }
@@ -710,7 +720,7 @@ fun AddVehicleDialog(
                         onValueChange = {},
                         label = { Text("Type de carburant") },
                         readOnly = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
                     )
                     ExposedDropdownMenu(
                         expanded = expanded,
@@ -777,7 +787,8 @@ fun AddVehicleDialog(
             Button(
                 onClick = {
                     val yearInt = annee.toIntOrNull() ?: 0
-                    onAdd(marque, modele, yearInt, immatriculation, typeCarburant)
+                    val kmInt = kilometrage.toIntOrNull()
+                    onAdd(marque, modele, yearInt, immatriculation, typeCarburant, kmInt)
                 },
                 enabled = marque.isNotEmpty() && modele.isNotEmpty() && annee.isNotEmpty() && immatriculation.isNotEmpty() && createState !is Resource.Loading,
                 colors = ButtonDefaults.buttonColors(containerColor = DeepPurple)

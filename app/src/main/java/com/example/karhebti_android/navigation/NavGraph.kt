@@ -64,6 +64,11 @@ fun NavGraph(
         factory = ViewModelFactory(context.applicationContext as Application)
     )
 
+    // CRITICAL: Create a SHARED MarketplaceViewModel that persists across navigation
+    val marketplaceViewModel: com.example.karhebti_android.viewmodel.MarketplaceViewModel = viewModel(
+        factory = ViewModelFactory(context.applicationContext as Application)
+    )
+
     var pendingSignupPerform by remember { mutableStateOf(false) }
     val authState by authViewModel.authState.observeAsState()
 

@@ -5,6 +5,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,12 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.karhebti_android.data.api.ChatMessage
 import com.example.karhebti_android.data.preferences.TokenManager
 import com.example.karhebti_android.data.repository.Resource
-import com.example.karhebti_android.viewmodel.MarketplaceViewModel
-import com.example.karhebti_android.viewmodel.ViewModelFactory
+import com.example.karhebti_android.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -28,14 +28,14 @@ import java.util.*
 @Composable
 fun ChatScreen(
     conversationId: String,
-    onBackClick: () -> Unit,
-    viewModel: MarketplaceViewModel = viewModel(
-        factory = ViewModelFactory(LocalContext.current.applicationContext as android.app.Application)
-    )
+    onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
     val currentUserId = tokenManager.getUserId()
+
+    // Use singleton ChatViewModel
+    val viewModel = remember { ChatViewModel.getInstance(context.applicationContext as android.app.Application) }
 
     val conversation by viewModel.currentConversation.observeAsState()
     val messages by viewModel.messages.observeAsState()
@@ -48,8 +48,12 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
-    // Load conversation and messages
+    // Track message count for auto-scroll detection
+    var lastMessageCount by remember { mutableStateOf(0) }
+
+    // Load conversation and messages on first launch
     LaunchedEffect(conversationId) {
+        android.util.Log.d("ChatScreen", "Loading conversation: $conversationId")
         viewModel.loadConversation(conversationId)
         viewModel.loadMessages(conversationId)
         viewModel.connectWebSocket()
@@ -57,13 +61,59 @@ fun ChatScreen(
         viewModel.markConversationAsRead(conversationId)
     }
 
-    // Scroll to bottom when new message arrives
-    LaunchedEffect(messages, realtimeMessage) {
+    // Auto-scroll when new messages arrive
+    LaunchedEffect(messages) {
         val messageList = (messages as? Resource.Success)?.data
-        if (!messageList.isNullOrEmpty()) {
-            scope.launch {
-                listState.animateScrollToItem(messageList.size - 1)
+        val newCount = messageList?.size ?: 0
+
+        if (newCount > 0) {
+            if (lastMessageCount == 0) {
+                // Initial load - scroll to bottom
+                lastMessageCount = newCount
+                android.util.Log.d("ChatScreen", "📨 Initial load: $newCount messages")
+                scope.launch {
+                    listState.scrollToItem(newCount - 1)
+                }
+            } else if (newCount > lastMessageCount) {
+                // New messages detected - animate scroll
+                android.util.Log.d("ChatScreen", "🆕 New messages! $lastMessageCount → $newCount")
+                lastMessageCount = newCount
+                scope.launch {
+                    listState.animateScrollToItem(newCount - 1)
+                }
             }
+        }
+    }
+
+    // Handle real-time message via WebSocket - IMPROVED
+    LaunchedEffect(realtimeMessage) {
+        realtimeMessage?.let { newMessage ->
+            android.util.Log.d("ChatScreen", "⚡ Real-time message received: ${newMessage.id} for conversation: ${newMessage.conversationId}")
+            android.util.Log.d("ChatScreen", "Current conversation: $conversationId")
+
+            if (newMessage.conversationId == conversationId) {
+                android.util.Log.d("ChatScreen", "✅ Message is for current conversation, handling...")
+
+                // Wait a bit for ViewModel to add the message to the list
+                kotlinx.coroutines.delay(50)
+
+                // Force scroll to bottom
+                val messageList = (messages as? Resource.Success)?.data
+                if (!messageList.isNullOrEmpty()) {
+                    android.util.Log.d("ChatScreen", "Scrolling to message ${messageList.size}")
+                    scope.launch {
+                        listState.animateScrollToItem(messageList.size - 1)
+                    }
+                } else {
+                    android.util.Log.w("ChatScreen", "⚠️ Message list is empty or null after receiving real-time message")
+                }
+            } else {
+                android.util.Log.d("ChatScreen", "Message is for different conversation: ${newMessage.conversationId}")
+            }
+
+            // Don't clear immediately - let it stay for a bit to ensure UI processes it
+            kotlinx.coroutines.delay(500)
+            viewModel.clearRealtimeMessage()
         }
     }
 
@@ -89,7 +139,7 @@ fun ChatScreen(
                 title = {
                     Column {
                         Text(
-                            text = (conversation as? Resource.Success)?.data?.otherUser?.let {
+                            text = (conversation as? Resource.Success)?.data?.getOtherUser(currentUserId ?: "")?.let {
                                 "${it.nom} ${it.prenom}"
                             } ?: "Chat",
                             style = MaterialTheme.typography.titleMedium
@@ -111,7 +161,7 @@ fun ChatScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -126,7 +176,7 @@ fun ChatScreen(
                 .padding(padding)
         ) {
             // Car info card
-            (conversation as? Resource.Success)?.data?.carDetails?.let { car ->
+            (conversation as? Resource.Success)?.data?.car?.let { car ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -280,7 +330,7 @@ fun ChatScreen(
                         },
                         enabled = messageText.isNotBlank()
                     ) {
-                        Icon(Icons.Default.Send, "Send")
+                        Icon(Icons.AutoMirrored.Filled.Send, "Send")
                     }
                 }
             }

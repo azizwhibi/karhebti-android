@@ -11,14 +11,12 @@ import com.google.gson.GsonBuilder
 import java.util.concurrent.TimeUnit
 
 object ApiConfig {
-    const val BASE_URL = "http://10.0.2.2:27017/" // For Android Emulator
-    // Use "http://localhost:27017/" for physical device on same network
-    const val MONGODB_URL = "mongodb://localhost:27017/karhebti"
+    const val BASE_URL = "http://192.168.1.190:27017/" // MongoDB URL
+    const val MONGODB_URL = "mongodb://192.168.1.190:27017/karhebti"
 }
 
 object RetrofitClient {
-    private const val BASE_URL = "http://10.0.2.2:3000/" // For Android Emulator
-    // Use "http://localhost:3000/" for physical device on same network
+    private const val BASE_URL = "http://192.168.1.190:3000/" // Backend API URL
 
     private var context: Context? = null
     private var retrofit: Retrofit? = null
@@ -78,6 +76,8 @@ object RetrofitClient {
         val gson = GsonBuilder()
             .setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
             .setLenient()
+            // Note: FlexibleUserObjectDeserializer and FlexibleCarObjectDeserializer are applied
+            // via @JsonAdapter annotations on specific fields in ConversationResponse, not globally
             .create()
 
         retrofit = Retrofit.Builder()

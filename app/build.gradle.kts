@@ -71,6 +71,9 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.java-websocket:Java-WebSocket:1.5.4")
 
+    // Socket.IO client for real-time communication
+    implementation("io.socket:socket.io-client:2.1.0")
+
     // Accompanist for pager (swipe cards)
     implementation("com.google.accompanist:accompanist-pager:0.32.0")
     implementation("com.google.accompanist:accompanist-pager-indicators:0.32.0")

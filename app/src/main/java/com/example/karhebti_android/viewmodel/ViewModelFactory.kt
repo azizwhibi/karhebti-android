@@ -33,6 +33,7 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
                 UserViewModel(application) as T
             }
             modelClass.isAssignableFrom(MarketplaceViewModel::class.java) -> {
+                // Create a NEW instance for each screen - no singleton!
                 MarketplaceViewModel(application) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class")

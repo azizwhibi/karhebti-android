@@ -18,6 +18,9 @@ class MarketplaceViewModel(application: Application) : AndroidViewModel(applicat
         MarketplaceRepository(RetrofitClient.apiService, tokenManager.getToken() ?: "")
     }
 
+    // Flag to track WebSocket connection status
+    private var isWebSocketInitialized = false
+
     // Available cars for browsing
     private val _availableCars = MutableLiveData<Resource<List<MarketplaceCarResponse>>>()
     val availableCars: LiveData<Resource<List<MarketplaceCarResponse>>> = _availableCars
@@ -53,6 +56,9 @@ class MarketplaceViewModel(application: Application) : AndroidViewModel(applicat
     // Real-time messages (from WebSocket)
     private val _realtimeMessage = MutableLiveData<ChatMessage>()
     val realtimeMessage: LiveData<ChatMessage> = _realtimeMessage
+
+    // Keep track of the last message ID to force UI updates
+    private var lastMessageId: String = ""
 
     // Notifications
     private val _notifications = MutableLiveData<Resource<List<NotificationResponse>>>()
@@ -173,9 +179,25 @@ class MarketplaceViewModel(application: Application) : AndroidViewModel(applicat
             val result = repository.sendMessage(conversationId, content)
             // Immediately add the message to the local list for instant feedback
             if (result is Resource.Success && result.data != null) {
+                android.util.Log.d("MarketplaceViewModel", "✅ Message sent successfully: ${result.data.id}")
                 val currentMessages = _messages.value?.data?.toMutableList() ?: mutableListOf()
-                currentMessages.add(result.data)
-                _messages.value = Resource.Success(currentMessages)
+
+                // Check if message already exists to avoid duplicates
+                if (!currentMessages.any { it.id == result.data.id }) {
+                    currentMessages.add(result.data)
+                    android.util.Log.d("MarketplaceViewModel", "Adding sent message to list, new count: ${currentMessages.size}")
+
+                    // CRITICAL: Create new list instance to force LiveData update
+                    val newList = ArrayList(currentMessages)
+                    _messages.value = Resource.Success(newList)
+
+                    // Also trigger with postValue for safety
+                    _messages.postValue(Resource.Success(newList))
+                } else {
+                    android.util.Log.d("MarketplaceViewModel", "Message already exists in list, skipping")
+                }
+            } else {
+                android.util.Log.e("MarketplaceViewModel", "❌ Failed to send message")
             }
         }
     }
@@ -221,15 +243,54 @@ class MarketplaceViewModel(application: Application) : AndroidViewModel(applicat
     // ==================== WEBSOCKET ====================
 
     fun connectWebSocket() {
+        if (isWebSocketInitialized) {
+            android.util.Log.d("MarketplaceViewModel", "WebSocket already initialized, skipping")
+            return
+        }
+
+        android.util.Log.d("MarketplaceViewModel", "Initializing WebSocket for the first time")
+        isWebSocketInitialized = true
+
         repository.initWebSocket(
             onMessageReceived = { message ->
+                android.util.Log.d("MarketplaceViewModel", "WebSocket received message: ${message.id} for conversation: ${message.conversationId}, content: ${message.content}")
+
+                // ALWAYS update realtime message to trigger UI refresh
+                lastMessageId = message.id
                 _realtimeMessage.postValue(message)
-                // Add to messages list
-                val currentMessages = _messages.value?.data?.toMutableList() ?: mutableListOf()
-                currentMessages.add(message)
-                _messages.postValue(Resource.Success(currentMessages))
+
+                // Add message to list and force UI update
+                val currentConvId = _currentConversation.value?.data?.id
+                android.util.Log.d("MarketplaceViewModel", "Current conversation ID: $currentConvId, Message conversation: ${message.conversationId}")
+
+                // Add message to list if it matches current conversation
+                if (message.conversationId == currentConvId) {
+                    android.util.Log.d("MarketplaceViewModel", "Adding message to list")
+                    val currentMessages = _messages.value?.data?.toMutableList() ?: mutableListOf()
+
+                    // Check if message already exists to avoid duplicates
+                    if (!currentMessages.any { it.id == message.id }) {
+                        currentMessages.add(message)
+                        android.util.Log.d("MarketplaceViewModel", "Message added, new count: ${currentMessages.size}")
+                        // CRITICAL: Create new list instance to force LiveData update
+                        val newList = ArrayList(currentMessages)
+                        _messages.postValue(Resource.Success(newList))
+
+                        // ALSO force a value change by posting null then the new value
+                        viewModelScope.launch {
+                            _messages.value = Resource.Success(newList)
+                        }
+                    } else {
+                        android.util.Log.d("MarketplaceViewModel", "Message already exists, skipping")
+                    }
+                } else if (currentConvId != null) {
+                    // Message for different conversation, reload conversation list
+                    android.util.Log.d("MarketplaceViewModel", "Message for different conversation, reloading conversations")
+                    loadConversations()
+                }
             },
             onNotificationReceived = { notification ->
+                android.util.Log.d("MarketplaceViewModel", "Received notification: ${notification.type}")
                 _realtimeNotification.postValue(notification)
                 loadUnreadCount()
             },
@@ -240,7 +301,15 @@ class MarketplaceViewModel(application: Application) : AndroidViewModel(applicat
                 // Handle user online/offline status if needed
             },
             onConnectionChanged = { isConnected ->
+                android.util.Log.d("MarketplaceViewModel", "WebSocket connection status: $isConnected")
                 _isWebSocketConnected.postValue(isConnected)
+
+                // DISABLED: HTTP Polling fallback - WebSocket is stable enough
+                // If we need polling, we'll add it as an explicit user action
+                if (!isConnected) {
+                    android.util.Log.w("MarketplaceViewModel", "⚠️ WebSocket disconnected - Relying on reconnection")
+                    // Note: WebSocket will auto-reconnect, no need for polling
+                }
             }
         )
     }
@@ -261,8 +330,62 @@ class MarketplaceViewModel(application: Application) : AndroidViewModel(applicat
         repository.sendTypingIndicator(conversationId)
     }
 
+    // ==================== HTTP POLLING (WebSocket Fallback) ====================
+
+    private fun enableHttpPolling() {
+        android.util.Log.d("MarketplaceViewModel", "🔄 Enabling HTTP Polling for real-time updates")
+
+        repository.initPolling { message ->
+            android.util.Log.d("MarketplaceViewModel", "Polling received message: ${message.id}")
+            _realtimeMessage.postValue(message)
+
+            val currentConvId = _currentConversation.value?.data?.id
+            if (message.conversationId == currentConvId) {
+                val currentMessages = _messages.value?.data?.toMutableList() ?: mutableListOf()
+                if (!currentMessages.any { it.id == message.id }) {
+                    currentMessages.add(message)
+                    _messages.postValue(Resource.Success(currentMessages))
+                }
+            }
+        }
+
+        // Start observing polling messages
+        viewModelScope.launch {
+            repository.getPollingMessages()?.collect { message ->
+                message?.let {
+                    android.util.Log.d("MarketplaceViewModel", "📨 Polling detected new message: ${it.id}")
+                    _realtimeMessage.postValue(it)
+
+                    val currentConvId = _currentConversation.value?.data?.id
+                    if (it.conversationId == currentConvId) {
+                        val currentMessages = _messages.value?.data?.toMutableList() ?: mutableListOf()
+                        if (!currentMessages.any { msg -> msg.id == it.id }) {
+                            currentMessages.add(it)
+                            android.util.Log.d("MarketplaceViewModel", "✅ Message added via polling, new count: ${currentMessages.size}")
+                            _messages.postValue(Resource.Success(currentMessages))
+                        }
+                    }
+
+                    // Reload conversations to update unread counts
+                    loadConversations()
+                }
+            }
+        }
+    }
+
+    fun startPollingForConversation(conversationId: String) {
+        android.util.Log.d("MarketplaceViewModel", "🔄 Starting polling for conversation: $conversationId")
+        repository.startPollingConversation(conversationId)
+    }
+
+    fun stopPollingForConversation() {
+        android.util.Log.d("MarketplaceViewModel", "⏹️ Stopping polling")
+        repository.stopPollingConversation()
+    }
+
     override fun onCleared() {
         super.onCleared()
-        disconnectWebSocket()
+        repository.disconnectWebSocket()
+        repository.cleanupPolling()
     }
 }

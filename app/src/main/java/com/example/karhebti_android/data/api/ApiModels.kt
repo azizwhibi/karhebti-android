@@ -76,6 +76,8 @@ data class CreateCarRequest(
     val annee: Int,
     val immatriculation: String,
     val typeCarburant: String
+    // Note: kilometrage should NOT be included in car creation
+    // It should only be updated after creation via UpdateCarRequest
 )
 
 data class UpdateCarRequest(
@@ -103,6 +105,11 @@ data class CarResponse(
     val prochainEntretien: String? = null,
     val joursProchainEntretien: Int? = null,
     val imageUrl: String? = null,
+    val price: Double? = null,
+    val description: String? = null,
+    @SerializedName("forSale")
+    val isForSale: Boolean = false,
+    val saleStatus: String? = null,
     @JsonAdapter(FlexibleUserDeserializer::class)
     val user: String? = null, // Can be either user ID string or user object
     val createdAt: Date,
@@ -225,10 +232,10 @@ data class PartResponse(
 
 // Image Upload DTOs
 data class ImageMeta(
-    val width: Int,
-    val height: Int,
-    val format: String,
-    val size: Int
+    val width: Int? = null,
+    val height: Int? = null,
+    val format: String? = null,
+    val size: Int? = null
 )
 
 data class CarImageResponse(
@@ -506,15 +513,21 @@ data class MarketplaceCarResponse(
     val kilometrage: Int? = null,
     val statut: String? = null,
     val imageUrl: String? = null,
+    val images: List<String>? = null,
+    val imageMeta: ImageMeta? = null,
     val price: Double? = null,
     val description: String? = null,
+    @SerializedName("forSale")
     val isForSale: Boolean = false,
+    val saleStatus: String? = null,
     @JsonAdapter(FlexibleUserDeserializer::class)
     val user: String? = null,
     val ownerName: String? = null,
     val ownerPhone: String? = null,
-    val createdAt: Date,
-    val updatedAt: Date
+    val createdAt: Date? = null,
+    val updatedAt: Date? = null,
+    @SerializedName("__v")
+    val version: Int? = null
 )
 
 // Swipe request
@@ -527,17 +540,25 @@ data class CreateSwipeRequest(
 data class SwipeResponse(
     @SerializedName("_id")
     val id: String,
-    @JsonAdapter(FlexibleCarDeserializer::class)
-    val carId: String,
+    @SerializedName("carId")
+    @JsonAdapter(FlexibleCarObjectDeserializer::class)
+    val carDetails: MarketplaceCarResponse? = null,
     @SerializedName("userId")
-    @JsonAdapter(FlexibleUserDeserializer::class)
-    val buyerId: String,
-    @JsonAdapter(FlexibleUserDeserializer::class)
-    val sellerId: String,
-    val direction: String,
-    val status: String, // "pending", "accepted", "declined"
-    val createdAt: Date
-)
+    @JsonAdapter(FlexibleUserObjectDeserializer::class)
+    val buyerDetails: UserResponse? = null,
+    @JsonAdapter(FlexibleUserObjectDeserializer::class)
+    val sellerId: UserResponse? = null,
+    val direction: String? = null,
+    val status: String? = null, // "pending", "accepted", "declined"
+    val createdAt: Date? = null,
+    @SerializedName("__v")
+    val version: Int? = null
+) {
+    // Helper properties for backward compatibility
+    val carId: String? get() = carDetails?.id
+    val buyerId: String? get() = buyerDetails?.id
+    val sellerDetails: UserResponse? get() = sellerId
+}
 
 // Response when seller accepts/declines
 data class SwipeStatusResponse(
@@ -558,21 +579,41 @@ data class MySwipesResponse(
 data class ConversationResponse(
     @SerializedName("_id")
     val id: String,
-    @JsonAdapter(FlexibleCarDeserializer::class)
-    val carId: String,
-    @JsonAdapter(FlexibleUserDeserializer::class)
-    val buyerId: String,
-    @JsonAdapter(FlexibleUserDeserializer::class)
-    val sellerId: String,
-    val participants: List<String>,
+    @JsonAdapter(FlexibleCarObjectDeserializer::class)
+    val carId: MarketplaceCarResponse? = null,
+    @JsonAdapter(FlexibleUserObjectDeserializer::class)
+    val buyerId: UserResponse? = null,
+    @JsonAdapter(FlexibleUserObjectDeserializer::class)
+    val sellerId: UserResponse? = null,
+    val participants: List<String>? = null,
+    val status: String? = null,
+    val messages: List<Any>? = null, // Can be message objects or IDs
     val lastMessage: String? = null,
     val lastMessageAt: Date? = null,
-    val unreadCount: Int = 0,
+    val unreadCount: Int? = null,
+    val unreadCountBuyer: Int? = null,
+    val unreadCountSeller: Int? = null,
     val carDetails: MarketplaceCarResponse? = null,
     val otherUser: UserResponse? = null,
-    val createdAt: Date,
-    val updatedAt: Date
-)
+    val createdAt: Date? = null,
+    val updatedAt: Date? = null,
+    @SerializedName("__v")
+    val version: Int? = null
+) {
+    // Helper property to get the car (prioritizes carId over carDetails)
+    val car: MarketplaceCarResponse?
+        get() = carId ?: carDetails
+
+    // Helper property to determine which user is "other" based on current user
+    fun getOtherUser(currentUserId: String): UserResponse? {
+        return when {
+            otherUser != null -> otherUser
+            buyerId?.id == currentUserId -> sellerId
+            sellerId?.id == currentUserId -> buyerId
+            else -> buyerId ?: sellerId // Fallback to any available user
+        }
+    }
+}
 
 // Chat message
 data class ChatMessage(

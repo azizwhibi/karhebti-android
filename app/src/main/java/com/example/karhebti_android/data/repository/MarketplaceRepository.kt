@@ -3,6 +3,8 @@ package com.example.karhebti_android.data.repository
 import android.util.Log
 import com.example.karhebti_android.data.api.*
 import com.example.karhebti_android.data.websocket.ChatWebSocketClient
+import com.example.karhebti_android.data.polling.ChatPollingService
+import kotlinx.coroutines.flow.StateFlow
 
 class MarketplaceRepository(
     private val apiService: KarhebtiApiService,
@@ -10,63 +12,91 @@ class MarketplaceRepository(
 ) {
     companion object {
         private const val TAG = "MarketplaceRepository"
+
+        // Singleton WebSocket client - shared across all repository instances
+        @Volatile
+        private var sharedWebSocketClient: ChatWebSocketClient? = null
+
+        // Singleton Polling service - shared across all repository instances
+        @Volatile
+        private var sharedPollingService: ChatPollingService? = null
+
+        private val webSocketLock = Any()
     }
 
     // WebSocket client instance
     private var webSocketClient: ChatWebSocketClient? = null
 
+    // HTTP Polling service (fallback when WebSocket fails)
+    private var pollingService: ChatPollingService? = null
+
     // ==================== CARS ====================
 
     suspend fun getAvailableCars(): Resource<List<MarketplaceCarResponse>> {
         return try {
+            Log.d(TAG, "Fetching available cars...")
             val response = apiService.getAvailableCars()
+            Log.d(TAG, "Response code: ${response.code()}")
             if (response.isSuccessful && response.body() != null) {
-                Resource.Success(response.body()!!)
+                val cars = response.body()!!
+                Log.d(TAG, "✓ Successfully fetched ${cars.size} available cars")
+                cars.forEachIndexed { index, car ->
+                    Log.d(TAG, "Car $index: ${car.marque} ${car.modele} (${car.annee}) - forSale: ${car.isForSale}, saleStatus: ${car.saleStatus}")
+                }
+                Resource.Success(cars)
             } else {
                 val errorMsg = response.errorBody()?.string() ?: "Unknown error"
-                Log.e(TAG, "Error fetching available cars: $errorMsg")
-                Resource.Error(errorMsg)
+                Log.e(TAG, "Error fetching available cars: Code=${response.code()}, Error=$errorMsg")
+                Resource.Error("Failed to fetch cars: $errorMsg")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Exception fetching available cars", e)
+            Log.e(TAG, "Exception fetching available cars: ${e.javaClass.simpleName}", e)
+            Log.e(TAG, "Exception message: ${e.message}")
+            Log.e(TAG, "Exception stacktrace:", e)
             Resource.Error(e.message ?: "Network error")
         }
     }
 
     suspend fun listCarForSale(carId: String, price: Double, description: String?): Resource<MarketplaceCarResponse> {
         return try {
+            Log.d(TAG, "Listing car for sale: carId=$carId, price=$price")
             val request = ListCarForSaleRequest(price, description)
             val response = apiService.listCarForSale(carId, request)
+            Log.d(TAG, "Response code: ${response.code()}")
             if (response.isSuccessful && response.body() != null) {
+                Log.d(TAG, "✓ Successfully listed car for sale")
                 Resource.Success(response.body()!!)
             } else {
                 val errorMsg = response.errorBody()?.string() ?: "Unknown error"
-                Log.e(TAG, "Error listing car for sale: $errorMsg")
-                Resource.Error(errorMsg)
+                Log.e(TAG, "Error listing car for sale: Code=${response.code()}, Error=$errorMsg")
+                Resource.Error("Failed to list car: $errorMsg")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Exception listing car for sale", e)
+            Log.e(TAG, "Exception listing car for sale: ${e.javaClass.simpleName}", e)
+            Log.e(TAG, "Exception message: ${e.message}")
             Resource.Error(e.message ?: "Network error")
         }
     }
 
     suspend fun unlistCar(carId: String): Resource<MarketplaceCarResponse> {
         return try {
+            Log.d(TAG, "Unlisting car: carId=$carId")
             val response = apiService.unlistCar(carId)
+            Log.d(TAG, "Response code: ${response.code()}")
             if (response.isSuccessful && response.body() != null) {
+                Log.d(TAG, "✓ Successfully unlisted car")
                 Resource.Success(response.body()!!)
             } else {
                 val errorMsg = response.errorBody()?.string() ?: "Unknown error"
-                Log.e(TAG, "Error unlisting car: $errorMsg")
-                Resource.Error(errorMsg)
+                Log.e(TAG, "Error unlisting car: Code=${response.code()}, Error=$errorMsg")
+                Resource.Error("Failed to unlist car: $errorMsg")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Exception unlisting car", e)
+            Log.e(TAG, "Exception unlisting car: ${e.javaClass.simpleName}", e)
+            Log.e(TAG, "Exception message: ${e.message}")
             Resource.Error(e.message ?: "Network error")
         }
     }
-
-    // ==================== SWIPES ====================
 
     suspend fun createSwipe(carId: String, direction: String): Resource<SwipeResponse> {
         return try {
@@ -135,16 +165,25 @@ class MarketplaceRepository(
 
     suspend fun getPendingSwipes(): Resource<List<SwipeResponse>> {
         return try {
+            Log.d(TAG, "Fetching pending swipes...")
             val response = apiService.getPendingSwipes()
+            Log.d(TAG, "Response code: ${response.code()}")
             if (response.isSuccessful && response.body() != null) {
-                Resource.Success(response.body()!!)
+                val swipes = response.body()!!
+                Log.d(TAG, "✓ Successfully fetched ${swipes.size} pending swipes")
+                swipes.forEachIndexed { index, swipe ->
+                    Log.d(TAG, "Swipe $index: buyerId=${swipe.buyerId}, status=${swipe.status}, carId=${swipe.carId}")
+                }
+                Resource.Success(swipes)
             } else {
                 val errorMsg = response.errorBody()?.string() ?: "Unknown error"
-                Log.e(TAG, "Error fetching pending swipes: $errorMsg")
-                Resource.Error(errorMsg)
+                Log.e(TAG, "Error fetching pending swipes: Code=${response.code()}, Error=$errorMsg")
+                Resource.Error("Failed to fetch pending swipes: $errorMsg")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Exception fetching pending swipes", e)
+            Log.e(TAG, "Exception fetching pending swipes: ${e.javaClass.simpleName}", e)
+            Log.e(TAG, "Exception message: ${e.message}")
+            Log.e(TAG, "Exception stacktrace:", e)
             Resource.Error(e.message ?: "Network error")
         }
     }
@@ -153,16 +192,25 @@ class MarketplaceRepository(
 
     suspend fun getConversations(): Resource<List<ConversationResponse>> {
         return try {
+            Log.d(TAG, "Fetching conversations...")
             val response = apiService.getConversations()
+            Log.d(TAG, "Response code: ${response.code()}")
             if (response.isSuccessful && response.body() != null) {
-                Resource.Success(response.body()!!)
+                val conversations = response.body()!!
+                Log.d(TAG, "✓ Successfully fetched ${conversations.size} conversations")
+                conversations.forEachIndexed { index, conv ->
+                    Log.d(TAG, "Conversation $index: id=${conv.id}, lastMessage=${conv.lastMessage?.take(30)}, unreadCount=${conv.unreadCount}")
+                }
+                Resource.Success(conversations)
             } else {
                 val errorMsg = response.errorBody()?.string() ?: "Unknown error"
-                Log.e(TAG, "Error fetching conversations: $errorMsg")
-                Resource.Error(errorMsg)
+                Log.e(TAG, "Error fetching conversations: Code=${response.code()}, Error=$errorMsg")
+                Resource.Error("Failed to fetch conversations: $errorMsg")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Exception fetching conversations", e)
+            Log.e(TAG, "Exception fetching conversations: ${e.javaClass.simpleName}", e)
+            Log.e(TAG, "Exception message: ${e.message}")
+            Log.e(TAG, "Exception stacktrace:", e)
             Resource.Error(e.message ?: "Network error")
         }
     }
@@ -307,14 +355,19 @@ class MarketplaceRepository(
         onUserStatus: (String, Boolean) -> Unit,
         onConnectionChanged: (Boolean) -> Unit
     ) {
-        webSocketClient = ChatWebSocketClient(
-            token = token,
-            onMessageReceived = onMessageReceived,
-            onNotificationReceived = onNotificationReceived,
-            onUserTyping = onUserTyping,
-            onUserStatus = onUserStatus,
-            onConnectionChanged = onConnectionChanged
-        )
+        // Use the shared WebSocket client instance
+        val client = sharedWebSocketClient ?: synchronized(webSocketLock) {
+            sharedWebSocketClient ?: ChatWebSocketClient(
+                token = token,
+                onMessageReceived = onMessageReceived,
+                onNotificationReceived = onNotificationReceived,
+                onUserTyping = onUserTyping,
+                onUserStatus = onUserStatus,
+                onConnectionChanged = onConnectionChanged
+            ).also { sharedWebSocketClient = it }
+        }
+
+        webSocketClient = client
         webSocketClient?.connect()
     }
 
@@ -341,5 +394,39 @@ class MarketplaceRepository(
 
     fun isWebSocketConnected(): Boolean {
         return webSocketClient?.isConnected() ?: false
+    }
+
+    // ==================== POLLING (HTTP Fallback) ====================
+
+    fun initPolling(
+        onMessageReceived: (ChatMessage) -> Unit
+    ) {
+        // Use the shared Polling service instance
+        val service = sharedPollingService ?: synchronized(webSocketLock) {
+            sharedPollingService ?: ChatPollingService(
+                apiService = apiService,
+                pollingIntervalMs = 3000L // Poll every 3 seconds
+            ).also { sharedPollingService = it }
+        }
+
+        pollingService = service
+        Log.d(TAG, "🔄 Initializing HTTP Polling service")
+    }
+
+    fun startPollingConversation(conversationId: String) {
+        pollingService?.startPolling(conversationId)
+    }
+
+    fun stopPollingConversation() {
+        pollingService?.stopPolling()
+    }
+
+    fun getPollingMessages(): StateFlow<ChatMessage?>? {
+        return pollingService?.newMessages
+    }
+
+    fun cleanupPolling() {
+        pollingService?.cleanup()
+        pollingService = null
     }
 }

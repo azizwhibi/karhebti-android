@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,10 +37,30 @@ fun PendingSwipesScreen(
 
     var showChatDialog by remember { mutableStateOf(false) }
     var chatConversationId by remember { mutableStateOf<String?>(null) }
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+    var loadingTimeout by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadPendingSwipes()
         viewModel.connectWebSocket()
+    }
+
+    // Consolidated timeout handler - handles both timeout trigger and reset
+    LaunchedEffect(pendingSwipes) {
+        when (pendingSwipes) {
+            is Resource.Loading -> {
+                // Start timeout timer
+                kotlinx.coroutines.delay(10000) // 10 seconds
+                if (pendingSwipes is Resource.Loading) {
+                    loadingTimeout = true
+                }
+            }
+            else -> {
+                // Reset timeout when state changes from loading
+                loadingTimeout = false
+            }
+        }
     }
 
     // Handle swipe response result
@@ -50,8 +71,16 @@ fun PendingSwipesScreen(
                 if (result?.status == "accepted" && result.conversationId != null) {
                     chatConversationId = result.conversationId
                     showChatDialog = true
+                } else if (result?.status == "declined") {
+                    // Just reload the list for decline
                 }
                 // Reload pending swipes
+                viewModel.loadPendingSwipes()
+            }
+            is Resource.Error -> {
+                errorMessage = (swipeResponseResult as Resource.Error).message ?: "Failed to process request"
+                showErrorDialog = true
+                // Reload to reset UI
                 viewModel.loadPendingSwipes()
             }
             else -> {}
@@ -79,7 +108,7 @@ fun PendingSwipesScreen(
                 title = { Text("Pending Requests") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 actions = {
@@ -95,13 +124,52 @@ fun PendingSwipesScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            when (pendingSwipes) {
-                is Resource.Loading -> {
+            when {
+                loadingTimeout -> {
+                    // Show timeout error
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = null,
+                            modifier = Modifier.size(80.dp),
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "Connection Timeout",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Unable to load pending requests. Please check your internet connection.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(onClick = {
+                            loadingTimeout = false
+                            viewModel.loadPendingSwipes()
+                        }) {
+                            Icon(Icons.Default.Refresh, null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Retry")
+                        }
+                    }
+                }
+                pendingSwipes is Resource.Loading -> {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
-                is Resource.Success -> {
+                pendingSwipes is Resource.Success -> {
                     val swipes = (pendingSwipes as Resource.Success).data ?: emptyList()
                     if (swipes.isEmpty()) {
                         Column(
@@ -140,6 +208,7 @@ fun PendingSwipesScreen(
                             items(swipes) { swipe ->
                                 PendingSwipeCard(
                                     swipe = swipe,
+                                    isProcessing = swipeResponseResult is Resource.Loading,
                                     onAccept = { viewModel.acceptSwipe(swipe.id) },
                                     onDecline = { viewModel.declineSwipe(swipe.id) }
                                 )
@@ -147,7 +216,7 @@ fun PendingSwipesScreen(
                         }
                     }
                 }
-                is Resource.Error -> {
+                pendingSwipes is Resource.Error -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -166,6 +235,13 @@ fun PendingSwipesScreen(
                             "Error loading requests",
                             style = MaterialTheme.typography.headlineSmall
                         )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            (pendingSwipes as Resource.Error).message ?: "Unknown error",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
                         Spacer(modifier = Modifier.height(24.dp))
                         Button(onClick = { viewModel.loadPendingSwipes() }) {
                             Icon(Icons.Default.Refresh, null)
@@ -174,7 +250,11 @@ fun PendingSwipesScreen(
                         }
                     }
                 }
-                else -> {}
+                else -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
             }
 
             // Chat dialog
@@ -206,6 +286,28 @@ fun PendingSwipesScreen(
                     }
                 )
             }
+
+            // Error dialog
+            if (showErrorDialog) {
+                AlertDialog(
+                    onDismissRequest = { showErrorDialog = false },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(48.dp)
+                        )
+                    },
+                    title = { Text("Error") },
+                    text = { Text(errorMessage) },
+                    confirmButton = {
+                        Button(onClick = { showErrorDialog = false }) {
+                            Text("OK")
+                        }
+                    }
+                )
+            }
         }
     }
 }
@@ -213,10 +315,19 @@ fun PendingSwipesScreen(
 @Composable
 fun PendingSwipeCard(
     swipe: SwipeResponse,
+    isProcessing: Boolean,
     onAccept: () -> Unit,
     onDecline: () -> Unit
 ) {
-    var isProcessing by remember { mutableStateOf(false) }
+    var isProcessingState by remember { mutableStateOf(false) }
+
+    // Get buyer name and car name from the populated details
+    val buyerName = swipe.buyerDetails?.let { "${it.prenom} ${it.nom}" } ?: "Someone"
+    val carName = swipe.carDetails?.let { "${it.marque} ${it.modele}" } ?: "your car"
+
+    // Format date
+    val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+    val dateText = swipe.createdAt?.let { dateFormat.format(it) } ?: "Unknown date"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -240,17 +351,12 @@ fun PendingSwipeCard(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Someone is interested!",
+                        "$buyerName is interested in your $carName",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        "Buyer ID: ${swipe.buyerId.take(8.coerceAtMost(swipe.buyerId.length))}...",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        formatSwipeTime(swipe.createdAt),
+                        dateText,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -264,10 +370,7 @@ fun PendingSwipeCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedButton(
-                    onClick = {
-                        isProcessing = true
-                        onDecline()
-                    },
+                    onClick = onDecline,
                     modifier = Modifier.weight(1f),
                     enabled = !isProcessing,
                     colors = ButtonDefaults.outlinedButtonColors(
@@ -280,14 +383,19 @@ fun PendingSwipeCard(
                 }
 
                 Button(
-                    onClick = {
-                        isProcessing = true
-                        onAccept()
-                    },
+                    onClick = onAccept,
                     modifier = Modifier.weight(1f),
                     enabled = !isProcessing
                 ) {
-                    Icon(Icons.Default.Check, null, modifier = Modifier.size(20.dp))
+                    if (isProcessing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Default.Check, null, modifier = Modifier.size(20.dp))
+                    }
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Accept")
                 }

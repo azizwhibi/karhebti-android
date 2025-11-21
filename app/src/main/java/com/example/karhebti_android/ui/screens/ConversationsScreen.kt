@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,11 +15,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.karhebti_android.data.api.ConversationResponse
+import com.example.karhebti_android.data.preferences.TokenManager
 import com.example.karhebti_android.data.repository.Resource
-import com.example.karhebti_android.viewmodel.MarketplaceViewModel
-import com.example.karhebti_android.viewmodel.ViewModelFactory
+import com.example.karhebti_android.viewmodel.ChatViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -26,31 +26,51 @@ import java.util.*
 @Composable
 fun ConversationsScreen(
     onBackClick: () -> Unit,
-    onConversationClick: (String) -> Unit,
-    viewModel: MarketplaceViewModel = viewModel(
-        factory = ViewModelFactory(LocalContext.current.applicationContext as android.app.Application)
-    )
+    onConversationClick: (String) -> Unit
 ) {
+    val context = LocalContext.current
+    // Use singleton ChatViewModel
+    val viewModel = remember { ChatViewModel.getInstance(context.applicationContext as android.app.Application) }
+
     val conversations by viewModel.conversations.observeAsState()
-    val realtimeNotification by viewModel.realtimeNotification.observeAsState()
+    val realtimeMessage by viewModel.realtimeMessage.observeAsState()
+
+    var isRefreshing by remember { mutableStateOf(false) }
+    var loadingTimeout by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadConversations()
         viewModel.connectWebSocket()
     }
 
-    // Reload conversations when new message notification arrives
-    LaunchedEffect(realtimeNotification) {
-        realtimeNotification?.let {
-            if (it.type == "new_message") {
-                viewModel.loadConversations()
+    // Consolidated timeout handler
+    LaunchedEffect(conversations) {
+        when (conversations) {
+            is Resource.Loading -> {
+                kotlinx.coroutines.delay(10000) // 10 seconds
+                if (conversations is Resource.Loading) {
+                    loadingTimeout = true
+                }
             }
+            else -> {
+                loadingTimeout = false
+                isRefreshing = false
+            }
+        }
+    }
+
+    // Reload conversations when new message is received
+    LaunchedEffect(realtimeMessage) {
+        realtimeMessage?.let {
+            android.util.Log.d("ConversationsScreen", "New message received, reloading conversations")
+            viewModel.loadConversations()
         }
     }
 
     DisposableEffect(Unit) {
         onDispose {
-            viewModel.disconnectWebSocket()
+            // Don't disconnect WebSocket here since it's a singleton
+            // It will stay connected for the ChatScreen
         }
     }
 
@@ -60,11 +80,15 @@ fun ConversationsScreen(
                 title = { Text("My Conversations") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.loadConversations() }) {
+                    IconButton(onClick = {
+                        isRefreshing = true
+                        loadingTimeout = false
+                        viewModel.loadConversations()
+                    }) {
                         Icon(Icons.Default.Refresh, "Refresh")
                     }
                 }
@@ -76,15 +100,54 @@ fun ConversationsScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            when (conversations) {
-                is Resource.Loading -> {
+            when {
+                loadingTimeout -> {
+                    // Show timeout error
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = null,
+                            modifier = Modifier.size(80.dp),
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "Connection Timeout",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Unable to load conversations. Please check your internet connection.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(onClick = {
+                            loadingTimeout = false
+                            isRefreshing = true
+                            viewModel.loadConversations()
+                        }) {
+                            Icon(Icons.Default.Refresh, null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Retry")
+                        }
+                    }
+                }
+                conversations is Resource.Loading && !isRefreshing -> {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
-                is Resource.Success -> {
-                    @Suppress("UNCHECKED_CAST")
-                    val conversationList = (conversations as Resource.Success<List<ConversationResponse>>).data ?: emptyList()
+                conversations is Resource.Success -> {
+                    val conversationList = (conversations as Resource.Success).data ?: emptyList()
                     if (conversationList.isEmpty()) {
                         Column(
                             modifier = Modifier
@@ -107,10 +170,22 @@ fun ConversationsScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                "Start browsing cars to connect with sellers",
+                                "Accept a pending request to start chatting with buyers",
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(
+                                onClick = {
+                                    isRefreshing = true
+                                    viewModel.loadConversations()
+                                }
+                            ) {
+                                Icon(Icons.Default.Refresh, null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Refresh")
+                            }
                         }
                     } else {
                         LazyColumn(
@@ -123,12 +198,14 @@ fun ConversationsScreen(
                                     conversation = conversation,
                                     onClick = { onConversationClick(conversation.id) }
                                 )
-                                HorizontalDivider()
+                                if (index < conversationList.size - 1) {
+                                    HorizontalDivider()
+                                }
                             }
                         }
                     }
                 }
-                is Resource.Error -> {
+                conversations is Resource.Error -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -149,19 +226,37 @@ fun ConversationsScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            (conversations as? Resource.Error)?.message ?: "Unknown error",
+                            (conversations as Resource.Error).message ?: "Unknown error",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(24.dp))
-                        Button(onClick = { viewModel.loadConversations() }) {
+                        Button(onClick = {
+                            isRefreshing = true
+                            viewModel.loadConversations()
+                        }) {
                             Icon(Icons.Default.Refresh, null)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Retry")
                         }
                     }
                 }
-                else -> {}
+                else -> {
+                    // Initial state - show loading
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+            }
+
+            // Show loading indicator at top when refreshing
+            if (isRefreshing && conversations !is Resource.Loading) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter)
+                )
             }
         }
     }
@@ -172,6 +267,10 @@ fun ConversationItem(
     conversation: ConversationResponse,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    val tokenManager = remember { TokenManager(context) }
+    val currentUserId = tokenManager.getUserId()
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -208,17 +307,18 @@ fun ConversationItem(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                // Other user name
+                // Other user name - use helper method
+                val otherUser = conversation.getOtherUser(currentUserId ?: "")
                 Text(
-                    text = conversation.otherUser?.let { "${it.nom} ${it.prenom}" } ?: "Unknown",
+                    text = otherUser?.let { "${it.nom} ${it.prenom}" } ?: "Unknown User",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                // Car details
-                conversation.carDetails?.let { car ->
+                // Car details - use helper property
+                conversation.car?.let { car ->
                     Text(
                         text = "${car.marque} ${car.modele} (${car.annee})",
                         style = MaterialTheme.typography.bodySmall,
@@ -262,13 +362,13 @@ fun ConversationItem(
                 }
 
                 // Unread badge
-                if (conversation.unreadCount > 0) {
+                if ((conversation.unreadCount ?: 0) > 0) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Badge(
                         containerColor = MaterialTheme.colorScheme.primary
                     ) {
                         Text(
-                            text = if (conversation.unreadCount > 99) "99+" else conversation.unreadCount.toString(),
+                            text = if ((conversation.unreadCount ?: 0) > 99) "99+" else (conversation.unreadCount ?: 0).toString(),
                             style = MaterialTheme.typography.labelSmall
                         )
                     }

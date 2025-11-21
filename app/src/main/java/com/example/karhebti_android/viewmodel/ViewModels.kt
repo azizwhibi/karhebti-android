@@ -240,10 +240,10 @@ class CarViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refresh() = getMyCars()
 
-    fun createCar(marque: String, modele: String, annee: Int, immatriculation: String, typeCarburant: String) {
+    fun createCar(marque: String, modele: String, annee: Int, immatriculation: String, typeCarburant: String, kilometrage: Int? = null) {
         _createCarState.value = Resource.Loading()
         viewModelScope.launch {
-            val result = repository.createCar(marque, modele, annee, immatriculation, typeCarburant)
+            val result = repository.createCar(marque, modele, annee, immatriculation, typeCarburant, kilometrage)
             _createCarState.value = result
 
             if (result is Resource.Success) {

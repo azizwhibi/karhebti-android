@@ -2,6 +2,7 @@ package com.example.karhebti_android.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,7 +13,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.karhebti_android.data.api.MarketplaceCarResponse
 import com.example.karhebti_android.data.repository.Resource
 import com.example.karhebti_android.ui.components.SwipeableCarCard
 import com.example.karhebti_android.viewmodel.MarketplaceViewModel
@@ -34,11 +34,30 @@ fun MarketplaceBrowseScreen(
     var currentIndex by remember { mutableStateOf(0) }
     var showMatchDialog by remember { mutableStateOf(false) }
     var matchedConversationId by remember { mutableStateOf<String?>(null) }
+    var isSwipeInProgress by remember { mutableStateOf(false) }
+    var loadingTimeout by remember { mutableStateOf(false) }
 
     // Load available cars on first composition
     LaunchedEffect(Unit) {
         viewModel.loadAvailableCars()
         viewModel.connectWebSocket()
+    }
+
+    // Consolidated timeout handler - handles both timeout trigger and reset
+    LaunchedEffect(availableCars) {
+        when (availableCars) {
+            is Resource.Loading -> {
+                // Start timeout timer
+                kotlinx.coroutines.delay(10000) // 10 seconds
+                if (availableCars is Resource.Loading) {
+                    loadingTimeout = true
+                }
+            }
+            else -> {
+                // Reset timeout when state changes from loading
+                loadingTimeout = false
+            }
+        }
     }
 
     // Handle real-time notifications for swipe acceptance
@@ -55,11 +74,18 @@ fun MarketplaceBrowseScreen(
     LaunchedEffect(swipeResult) {
         when (swipeResult) {
             is Resource.Success -> {
-                // Move to next card
-                currentIndex++
+                // Move to next card after successful swipe
+                if (isSwipeInProgress) {
+                    currentIndex++
+                    isSwipeInProgress = false
+                }
             }
             is Resource.Error -> {
-                // Handle error
+                // Handle error - still move to next card
+                if (isSwipeInProgress) {
+                    currentIndex++
+                    isSwipeInProgress = false
+                }
             }
             else -> {}
         }
@@ -77,7 +103,7 @@ fun MarketplaceBrowseScreen(
                 title = { Text("Browse Cars") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 actions = {
@@ -93,15 +119,55 @@ fun MarketplaceBrowseScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            when (availableCars) {
-                is Resource.Loading -> {
+            when {
+                loadingTimeout -> {
+                    // Show timeout error
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = null,
+                            modifier = Modifier.size(80.dp),
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "Connection Timeout",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Unable to load cars. Please check your internet connection.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(onClick = {
+                            loadingTimeout = false
+                            currentIndex = 0
+                            viewModel.loadAvailableCars()
+                        }) {
+                            Icon(Icons.Default.Refresh, null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Retry")
+                        }
+                    }
+                }
+                availableCars is Resource.Loading -> {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
-                is Resource.Success -> {
-                    @Suppress("UNCHECKED_CAST")
-                    val cars = (availableCars as Resource.Success<List<MarketplaceCarResponse>>).data ?: emptyList()
+                availableCars is Resource.Success -> {
+                    val carsState = availableCars as Resource.Success
+                    val cars = carsState.data ?: emptyList()
 
                     if (cars.isEmpty() || currentIndex >= cars.size) {
                         // No more cars
@@ -120,15 +186,16 @@ fun MarketplaceBrowseScreen(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                "That's all for now!",
+                                if (currentIndex == 0) "No cars available" else "That's all for now!",
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                "Check back later for more cars",
+                                if (currentIndex == 0) "There are no cars listed for sale at the moment" else "Check back later for more cars",
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
                             Spacer(modifier = Modifier.height(24.dp))
                             Button(onClick = {
@@ -152,9 +219,11 @@ fun MarketplaceBrowseScreen(
                                 car = cars[currentIndex],
                                 onSwipeLeft = {
                                     viewModel.swipeLeft(cars[currentIndex].id)
+                                    isSwipeInProgress = true
                                 },
                                 onSwipeRight = {
                                     viewModel.swipeRight(cars[currentIndex].id)
+                                    isSwipeInProgress = true
                                 }
                             )
                         }
@@ -170,6 +239,7 @@ fun MarketplaceBrowseScreen(
                                 onClick = {
                                     if (currentIndex < cars.size) {
                                         viewModel.swipeLeft(cars[currentIndex].id)
+                                        isSwipeInProgress = true
                                     }
                                 },
                                 containerColor = MaterialTheme.colorScheme.error
@@ -181,6 +251,7 @@ fun MarketplaceBrowseScreen(
                                 onClick = {
                                     if (currentIndex < cars.size) {
                                         viewModel.swipeRight(cars[currentIndex].id)
+                                        isSwipeInProgress = true
                                     }
                                 },
                                 containerColor = MaterialTheme.colorScheme.primary
@@ -204,7 +275,8 @@ fun MarketplaceBrowseScreen(
                         }
                     }
                 }
-                is Resource.Error -> {
+                availableCars is Resource.Error -> {
+                    val errorState = availableCars as Resource.Error
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -221,23 +293,31 @@ fun MarketplaceBrowseScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             "Error loading cars",
-                            style = MaterialTheme.typography.headlineSmall
+                            style = MaterialTheme.typography.headlineMedium
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            (availableCars as Resource.Error).message ?: "Failed to load cars",
+                            errorState.message ?: "Unknown error",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(24.dp))
-                        Button(onClick = { viewModel.loadAvailableCars() }) {
+                        Button(onClick = {
+                            currentIndex = 0
+                            viewModel.loadAvailableCars()
+                        }) {
                             Icon(Icons.Default.Refresh, null)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Retry")
                         }
                     }
                 }
-                else -> {}
+                else -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
             }
 
             // Match dialog
