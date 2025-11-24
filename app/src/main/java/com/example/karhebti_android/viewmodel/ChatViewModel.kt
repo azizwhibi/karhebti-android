@@ -10,6 +10,7 @@ import com.example.karhebti_android.data.preferences.TokenManager
 import com.example.karhebti_android.data.repository.ChatRepository
 import com.example.karhebti_android.data.repository.Resource
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 
 /**
  * Singleton ChatViewModel - manages all chat-related functionality
@@ -37,7 +38,7 @@ class ChatViewModel private constructor(application: Application) : AndroidViewM
     private val _currentConversation = MutableLiveData<Resource<ConversationResponse>>()
     val currentConversation: LiveData<Resource<ConversationResponse>> = _currentConversation
 
-    // Messages for current conversation
+    // Messages for current conversation - Using mutableStateListOf would be better but LiveData for compatibility
     private val _messages = MutableLiveData<Resource<List<ChatMessage>>>()
     val messages: LiveData<Resource<List<ChatMessage>>> = _messages
 
@@ -57,8 +58,19 @@ class ChatViewModel private constructor(application: Application) : AndroidViewM
     private val _isWebSocketConnected = MutableLiveData<Boolean>()
     val isWebSocketConnected: LiveData<Boolean> = _isWebSocketConnected
 
+    // Notifications (moved from MarketplaceViewModel)
+    private val _realtimeNotification = MutableLiveData<NotificationResponse>()
+    val realtimeNotification: LiveData<NotificationResponse> = _realtimeNotification
+
     // Track if WebSocket is initialized
     private var isWebSocketInitialized = false
+
+    // Cache of messages to prevent race conditions
+    private val messageCache = mutableMapOf<String, MutableList<ChatMessage>>()
+    private val messageCacheLock = Any()
+
+    // Keep track of the last message ID to force UI updates
+    private var lastMessageId: String = ""
 
     init {
         android.util.Log.d("ChatViewModel", "ChatViewModel singleton instance created")
@@ -91,7 +103,16 @@ class ChatViewModel private constructor(application: Application) : AndroidViewM
     fun loadMessages(conversationId: String) {
         viewModelScope.launch {
             _messages.value = Resource.Loading()
-            _messages.value = repository.getMessages(conversationId)
+            val result = repository.getMessages(conversationId)
+
+            // Initialize cache with loaded messages
+            if (result is Resource.Success && result.data != null) {
+                synchronized(messageCacheLock) {
+                    messageCache[conversationId] = result.data.toMutableList()
+                }
+            }
+
+            _messages.value = result
         }
     }
 
@@ -100,12 +121,8 @@ class ChatViewModel private constructor(application: Application) : AndroidViewM
             val result = repository.sendMessage(conversationId, content)
             if (result is Resource.Success && result.data != null) {
                 android.util.Log.d("ChatViewModel", "✅ Message sent successfully: ${result.data.id}")
-                // Add message to local list for instant feedback
-                val currentMessages = _messages.value?.data?.toMutableList() ?: mutableListOf()
-                if (!currentMessages.any { it.id == result.data.id }) {
-                    currentMessages.add(result.data)
-                    _messages.value = Resource.Success(ArrayList(currentMessages))
-                }
+                // Add message to cache and update UI immediately
+                addMessageToList(conversationId, result.data)
             }
         }
     }
@@ -119,9 +136,16 @@ class ChatViewModel private constructor(application: Application) : AndroidViewM
     // ==================== WEBSOCKET ====================
 
     fun connectWebSocket() {
-        if (isWebSocketInitialized) {
-            android.util.Log.d("ChatViewModel", "WebSocket already initialized")
+        // CRITICAL FIX: Check if WebSocket is actually connected, not just initialized
+        if (isWebSocketInitialized && _isWebSocketConnected.value == true) {
+            android.util.Log.d("ChatViewModel", "WebSocket already connected and active")
             return
+        }
+
+        // If initialized but not connected, force reconnection
+        if (isWebSocketInitialized && _isWebSocketConnected.value != true) {
+            android.util.Log.d("ChatViewModel", "⚠️ WebSocket was initialized but disconnected, forcing reconnection")
+            disconnectWebSocket()
         }
 
         android.util.Log.d("ChatViewModel", "Initializing WebSocket connection")
@@ -129,91 +153,133 @@ class ChatViewModel private constructor(application: Application) : AndroidViewM
 
         repository.initWebSocket(
             onMessageReceived = { message ->
-                android.util.Log.d("ChatViewModel", "📨 WebSocket message received: ${message.id} for conversation: ${message.conversationId}")
+                android.util.Log.d("ChatViewModel", "📨 ========================================")
+                android.util.Log.d("ChatViewModel", "📨 WebSocket message received in ViewModel")
+                android.util.Log.d("ChatViewModel", "📨 Message ID: ${message.id}")
+                android.util.Log.d("ChatViewModel", "📨 Conversation: ${message.conversationId}")
+                android.util.Log.d("ChatViewModel", "📨 Sender: ${message.senderId}")
+                android.util.Log.d("ChatViewModel", "📨 Content: ${message.content}")
+                android.util.Log.d("ChatViewModel", "📨 ========================================")
 
-                // CRITICAL FIX: Always update realtime message first
-                _realtimeMessage.postValue(message)
+                // CRITICAL: Track last message ID
+                lastMessageId = message.id
 
-                // Get current conversation ID
-                val currentConvId = _currentConversation.value?.data?.id
-                android.util.Log.d("ChatViewModel", "Current conversation: $currentConvId, Message conversation: ${message.conversationId}")
+                // CRITICAL FIX: Use viewModelScope to ensure proper threading
+                viewModelScope.launch(Dispatchers.Main) {
+                    // Update realtime message trigger
+                    _realtimeMessage.value = message
 
-                // Add to messages list if it's for the current conversation
-                if (message.conversationId == currentConvId) {
-                    android.util.Log.d("ChatViewModel", "✅ Message is for current conversation, adding to list")
-                    val currentMessages = _messages.value?.data?.toMutableList() ?: mutableListOf()
+                    // Add to message list immediately
+                    addMessageToList(message.conversationId, message)
 
-                    // Check for duplicates
-                    if (!currentMessages.any { it.id == message.id }) {
-                        currentMessages.add(message)
-                        android.util.Log.d("ChatViewModel", "Added message to list. Total messages: ${currentMessages.size}")
-
-                        // Use postValue to ensure UI thread update
-                        _messages.postValue(Resource.Success(ArrayList(currentMessages)))
-
-                        // ALSO update on main thread for immediate UI refresh
-                        viewModelScope.launch {
-                            _messages.value = Resource.Success(ArrayList(currentMessages))
-                        }
-                    } else {
-                        android.util.Log.d("ChatViewModel", "⚠️ Message already exists in list, skipping duplicate")
-                    }
-                } else {
-                    android.util.Log.d("ChatViewModel", "Message is for different conversation (${message.conversationId} vs $currentConvId)")
+                    // Reload conversations list to update last message
+                    launch { loadConversations() }
                 }
-
-                // Reload conversations list to update last message and unread counts
-                loadConversations()
             },
             onNotificationReceived = { notification ->
                 android.util.Log.d("ChatViewModel", "🔔 Notification received: ${notification.type}")
 
-                // CRITICAL FIX: When we receive a "new_message" notification,
-                // reload the messages for the current conversation
-                if (notification.type == "new_message") {
-                    val conversationId = notification.data?.get("conversationId") as? String
-                    val currentConvId = _currentConversation.value?.data?.id
+                viewModelScope.launch(Dispatchers.Main) {
+                    // Post notification for UI to handle
+                    _realtimeNotification.postValue(notification)
 
-                    android.util.Log.d("ChatViewModel", "New message notification for conversation: $conversationId (current: $currentConvId)")
+                    // Handle new message notifications
+                    if (notification.type == "new_message") {
+                        val conversationId = notification.data?.get("conversationId") as? String
+                        val currentConvId = _currentConversation.value?.data?.id
 
-                    if (conversationId != null && conversationId == currentConvId) {
-                        android.util.Log.d("ChatViewModel", "🔄 Reloading messages due to notification")
-                        // Reload messages to get the new message
-                        viewModelScope.launch {
-                            val result = repository.getMessages(conversationId)
-                            if (result is Resource.Success) {
-                                _messages.postValue(result)
-                                android.util.Log.d("ChatViewModel", "✅ Messages reloaded: ${result.data?.size} messages")
+                        android.util.Log.d("ChatViewModel", "New message notification for conversation: $conversationId (current: $currentConvId)")
+
+                        // Reload messages if needed (backup mechanism)
+                        if (conversationId != null && conversationId == currentConvId) {
+                            android.util.Log.d("ChatViewModel", "🔄 Reloading messages due to notification")
+                            launch {
+                                val result = repository.getMessages(conversationId)
+                                if (result is Resource.Success) {
+                                    synchronized(messageCacheLock) {
+                                        messageCache[conversationId] = result.data?.toMutableList() ?: mutableListOf()
+                                    }
+                                    _messages.value = result
+                                    android.util.Log.d("ChatViewModel", "✅ Messages reloaded: ${result.data?.size} messages")
+                                }
                             }
                         }
-                    }
 
-                    // Always reload conversations list
-                    loadConversations()
+                        // Always reload conversations list
+                        launch { loadConversations() }
+                    }
                 }
             },
             onUserTyping = { userId, conversationId ->
-                _userTyping.postValue(Pair(userId, conversationId))
+                viewModelScope.launch(Dispatchers.Main) {
+                    _userTyping.value = Pair(userId, conversationId)
 
-                // Clear typing indicator after 3 seconds
-                viewModelScope.launch {
-                    kotlinx.coroutines.delay(3000)
-                    if (_userTyping.value?.first == userId && _userTyping.value?.second == conversationId) {
-                        _userTyping.postValue(null)
+                    // Clear typing indicator after 3 seconds
+                    launch {
+                        kotlinx.coroutines.delay(3000)
+                        if (_userTyping.value?.first == userId && _userTyping.value?.second == conversationId) {
+                            _userTyping.value = null
+                        }
                     }
                 }
             },
             onConnectionChanged = { isConnected ->
-                android.util.Log.d("ChatViewModel", "WebSocket connection: $isConnected")
-                _isWebSocketConnected.postValue(isConnected)
+                android.util.Log.d("ChatViewModel", "WebSocket connection status changed: $isConnected")
+                viewModelScope.launch(Dispatchers.Main) {
+                    _isWebSocketConnected.value = isConnected
+
+                    if (!isConnected) {
+                        android.util.Log.w("ChatViewModel", "⚠️ WebSocket disconnected - Will auto-reconnect")
+                    }
+                }
             }
         )
+    }
+
+    /**
+     * CRITICAL: Thread-safe method to add messages to the list
+     */
+    private fun addMessageToList(conversationId: String, message: ChatMessage) {
+        synchronized(messageCacheLock) {
+            val currentConvId = _currentConversation.value?.data?.id
+
+            // Initialize cache if needed
+            if (!messageCache.containsKey(conversationId)) {
+                val existingMessages = (_messages.value as? Resource.Success)?.data?.toMutableList() ?: mutableListOf()
+                messageCache[conversationId] = existingMessages
+            }
+
+            val cachedMessages = messageCache[conversationId]!!
+
+            // Check for duplicates by ID
+            val isDuplicate = cachedMessages.any { it.id == message.id }
+
+            if (!isDuplicate) {
+                cachedMessages.add(message)
+                android.util.Log.d("ChatViewModel", "✅ Added message ${message.id} to cache. Total: ${cachedMessages.size}")
+
+                // Update LiveData on main thread if this is the current conversation
+                if (conversationId == currentConvId) {
+                    // Create new list to trigger LiveData observers
+                    val newList = ArrayList(cachedMessages)
+                    _messages.value = Resource.Success(newList)
+
+                    // ALSO force a value change by posting to ensure UI update
+                    _messages.postValue(Resource.Success(newList))
+
+                    android.util.Log.d("ChatViewModel", "✅ Updated LiveData with ${newList.size} messages")
+                }
+            } else {
+                android.util.Log.d("ChatViewModel", "⚠️ Duplicate message ${message.id} ignored")
+            }
+        }
     }
 
     fun disconnectWebSocket() {
         android.util.Log.d("ChatViewModel", "Disconnecting WebSocket")
         repository.disconnectWebSocket()
         isWebSocketInitialized = false
+        _isWebSocketConnected.value = false
     }
 
     fun joinConversation(conversationId: String) {

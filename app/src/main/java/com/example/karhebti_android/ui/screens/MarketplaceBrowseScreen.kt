@@ -40,7 +40,7 @@ fun MarketplaceBrowseScreen(
     // Load available cars on first composition
     LaunchedEffect(Unit) {
         viewModel.loadAvailableCars()
-        viewModel.connectWebSocket()
+
     }
 
     // Consolidated timeout handler - handles both timeout trigger and reset
@@ -93,7 +93,7 @@ fun MarketplaceBrowseScreen(
 
     DisposableEffect(Unit) {
         onDispose {
-            viewModel.disconnectWebSocket()
+
         }
     }
 

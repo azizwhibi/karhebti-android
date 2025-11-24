@@ -43,7 +43,7 @@ fun PendingSwipesScreen(
 
     LaunchedEffect(Unit) {
         viewModel.loadPendingSwipes()
-        viewModel.connectWebSocket()
+       // viewModel.connectWebSocket()
     }
 
     // Consolidated timeout handler - handles both timeout trigger and reset
@@ -98,7 +98,7 @@ fun PendingSwipesScreen(
 
     DisposableEffect(Unit) {
         onDispose {
-            viewModel.disconnectWebSocket()
+           // viewModel.disconnectWebSocket()
         }
     }
 

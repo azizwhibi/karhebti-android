@@ -142,26 +142,36 @@ class ChatRepository private constructor(
         onConnectionChanged: (Boolean) -> Unit
     ) {
         synchronized(webSocketLock) {
-            if (sharedWebSocketClient != null) {
-                Log.d(TAG, "WebSocket already initialized, reusing existing client")
+            // CRITICAL FIX: Check if WebSocket exists AND is connected
+            if (sharedWebSocketClient != null && sharedWebSocketClient?.isConnected() == true) {
+                Log.d(TAG, "✅ WebSocket already connected, reusing existing client")
                 return
             }
 
-            Log.d(TAG, "Creating new WebSocket client")
+            // If WebSocket exists but not connected, clean it up first
+            if (sharedWebSocketClient != null && sharedWebSocketClient?.isConnected() == false) {
+                Log.d(TAG, "⚠️ WebSocket exists but disconnected, cleaning up...")
+                sharedWebSocketClient?.disconnect()
+                sharedWebSocketClient = null
+            }
+
+            Log.d(TAG, "🔄 Creating new WebSocket client")
             sharedWebSocketClient = ChatWebSocketClient(
                 token = token,
                 onMessageReceived = onMessageReceived,
-                onNotificationReceived = onNotificationReceived, // Now properly passed
+                onNotificationReceived = onNotificationReceived,
                 onUserTyping = onUserTyping,
                 onUserStatus = { _, _ -> }, // Not needed
                 onConnectionChanged = onConnectionChanged
             )
             sharedWebSocketClient?.connect()
+            Log.d(TAG, "✅ WebSocket connection initiated")
         }
     }
 
     fun disconnectWebSocket() {
         synchronized(webSocketLock) {
+            Log.d(TAG, "Disconnecting WebSocket...")
             sharedWebSocketClient?.disconnect()
             sharedWebSocketClient = null
             Log.d(TAG, "WebSocket disconnected and cleared")
@@ -169,14 +179,31 @@ class ChatRepository private constructor(
     }
 
     fun joinConversation(conversationId: String) {
-        sharedWebSocketClient?.joinConversation(conversationId)
+        val client = sharedWebSocketClient
+        if (client?.isConnected() == true) {
+            client.joinConversation(conversationId)
+            Log.d(TAG, "✅ Joined conversation: $conversationId")
+        } else {
+            Log.w(TAG, "⚠️ Cannot join conversation - WebSocket not connected")
+        }
     }
 
     fun leaveConversation(conversationId: String) {
-        sharedWebSocketClient?.leaveConversation(conversationId)
+        val client = sharedWebSocketClient
+        if (client?.isConnected() == true) {
+            client.leaveConversation(conversationId)
+            Log.d(TAG, "✅ Left conversation: $conversationId")
+        } else {
+            Log.w(TAG, "⚠️ Cannot leave conversation - WebSocket not connected")
+        }
     }
 
     fun sendTypingIndicator(conversationId: String) {
-        sharedWebSocketClient?.sendTypingIndicator(conversationId)
+        val client = sharedWebSocketClient
+        if (client?.isConnected() == true) {
+            client.sendTypingIndicator(conversationId)
+        } else {
+            Log.w(TAG, "⚠️ Cannot send typing indicator - WebSocket not connected")
+        }
     }
 }

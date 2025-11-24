@@ -37,43 +37,47 @@ class ChatWebSocketClient(
             Log.d(TAG, "Namespace: $NAMESPACE")
             Log.d(TAG, "Token (first 20 chars): ${token.take(20)}...")
 
-            val options = IO.Options().apply {
-                // Authentication
-                extraHeaders = mapOf("Authorization" to listOf("Bearer $token"))
-
-                // Connection settings
-                reconnection = true
-                reconnectionAttempts = 5
-                reconnectionDelay = 1000
-                reconnectionDelayMax = 5000
-                timeout = 10000
-
-                // Transport settings
-                transports = arrayOf("websocket", "polling") // Try websocket first, fallback to polling
+            // CRITICAL: Extract user ID from JWT token
+            var userId: String? = null
+            try {
+                val parts = token.split(".")
+                if (parts.size >= 2) {
+                    val payload = String(android.util.Base64.decode(parts[1], android.util.Base64.URL_SAFE))
+                    val jsonObject = JSONObject(payload)
+                    userId = jsonObject.optString("sub")
+                    Log.d(TAG, "✅ Extracted userId from token: $userId")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to extract userId from token: ${e.message}")
             }
 
-            // Connect to the /chat namespace
-            val fullUrl = "$SERVER_URL$NAMESPACE"
-            Log.d(TAG, "Full URL: $fullUrl")
+            // Configure Socket.IO options
+            val opts = IO.Options().apply {
+                // Authentication
+                extraHeaders = mapOf("Authorization" to listOf("Bearer $token"))
+                reconnection = true
+                reconnectionDelay = 1000
+                reconnectionDelayMax = 5000
+                reconnectionAttempts = Integer.MAX_VALUE
+                timeout = 10000
+                transports = arrayOf("websocket", "polling")
+            }
 
-            socket = IO.socket(fullUrl, options)
+            // Create socket instance
+            socket = IO.socket("$SERVER_URL$NAMESPACE", opts)
 
-            // Connection event listeners
+            // Register event listeners
             socket?.on(Socket.EVENT_CONNECT, onConnect)
             socket?.on(Socket.EVENT_DISCONNECT, onDisconnect)
             socket?.on(Socket.EVENT_CONNECT_ERROR, onConnectError)
-
-            // Chat event listeners - LISTEN TO ALL POSSIBLE EVENT NAMES
             socket?.on("new_message", onNewMessage)
-            socket?.on("message", onNewMessage)  // Alternative event name
-            socket?.on("chat_message", onNewMessage)  // Another alternative
             socket?.on("notification", onNotification)
             socket?.on("user_typing", onUserTypingEvent)
             socket?.on("user_online", onUserOnline)
             socket?.on("user_offline", onUserOffline)
             socket?.on("joined_conversation", onJoinedConversation)
 
-            // DEBUG: Listen to ALL events
+            // DEBUG: Listen to ALL events (optional wildcard listener)
             socket?.on("*") { args ->
                 Log.d(TAG, "🔔 Wildcard event received with ${args.size} args")
                 args.forEachIndexed { index, arg ->
@@ -81,6 +85,7 @@ class ChatWebSocketClient(
                 }
             }
 
+            // Initiate connection
             socket?.connect()
             Log.d(TAG, "Socket.IO connect() called")
 

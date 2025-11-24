@@ -48,70 +48,67 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
-    // Track message count for auto-scroll detection
-    var lastMessageCount by remember { mutableStateOf(0) }
+    // CRITICAL FIX: Create a derived state that forces recomposition
+    val messageList = remember(messages) {
+        (messages as? Resource.Success)?.data ?: emptyList()
+    }
+
+    // Track message count with derived state
+    val messageCount = messageList.size
 
     // Load conversation and messages on first launch
     LaunchedEffect(conversationId) {
-        android.util.Log.d("ChatScreen", "Loading conversation: $conversationId")
+        android.util.Log.d("ChatScreen", "🚀 Loading conversation: $conversationId")
         viewModel.loadConversation(conversationId)
         viewModel.loadMessages(conversationId)
+
+        // CRITICAL FIX: Always try to connect WebSocket when screen is opened
+        // This ensures reconnection even if navigating back
         viewModel.connectWebSocket()
+
+        // Small delay to ensure WebSocket is connected before joining
+        kotlinx.coroutines.delay(500)
         viewModel.joinConversation(conversationId)
         viewModel.markConversationAsRead(conversationId)
     }
 
-    // Auto-scroll when new messages arrive
-    LaunchedEffect(messages) {
-        val messageList = (messages as? Resource.Success)?.data
-        val newCount = messageList?.size ?: 0
+    // CRITICAL FIX: Monitor connection status and rejoin if reconnected
+    LaunchedEffect(isConnected) {
+        if (isConnected) {
+            android.util.Log.d("ChatScreen", "✅ WebSocket connected, ensuring we're in room: $conversationId")
+            // Small delay to ensure connection is stable
+            kotlinx.coroutines.delay(300)
+            viewModel.joinConversation(conversationId)
+        } else {
+            android.util.Log.w("ChatScreen", "⚠️ WebSocket disconnected")
+        }
+    }
 
-        if (newCount > 0) {
-            if (lastMessageCount == 0) {
-                // Initial load - scroll to bottom
-                lastMessageCount = newCount
-                android.util.Log.d("ChatScreen", "📨 Initial load: $newCount messages")
-                scope.launch {
-                    listState.scrollToItem(newCount - 1)
-                }
-            } else if (newCount > lastMessageCount) {
-                // New messages detected - animate scroll
-                android.util.Log.d("ChatScreen", "🆕 New messages! $lastMessageCount → $newCount")
-                lastMessageCount = newCount
-                scope.launch {
-                    listState.animateScrollToItem(newCount - 1)
-                }
+    // CRITICAL FIX: Scroll to bottom when message count changes
+    LaunchedEffect(messageCount) {
+        if (messageCount > 0) {
+            android.util.Log.d("ChatScreen", "📨 Message count changed to: $messageCount, scrolling to bottom")
+            // Use a small delay to ensure the list is rendered
+            kotlinx.coroutines.delay(100)
+            scope.launch {
+                listState.animateScrollToItem(messageCount - 1)
             }
         }
     }
 
-    // Handle real-time message via WebSocket - IMPROVED
+    // CRITICAL FIX: Also trigger on realtime message for immediate feedback
     LaunchedEffect(realtimeMessage) {
-        realtimeMessage?.let { newMessage ->
-            android.util.Log.d("ChatScreen", "⚡ Real-time message received: ${newMessage.id} for conversation: ${newMessage.conversationId}")
-            android.util.Log.d("ChatScreen", "Current conversation: $conversationId")
-
-            if (newMessage.conversationId == conversationId) {
-                android.util.Log.d("ChatScreen", "✅ Message is for current conversation, handling...")
-
-                // Wait a bit for ViewModel to add the message to the list
-                kotlinx.coroutines.delay(50)
-
-                // Force scroll to bottom
-                val messageList = (messages as? Resource.Success)?.data
-                if (!messageList.isNullOrEmpty()) {
-                    android.util.Log.d("ChatScreen", "Scrolling to message ${messageList.size}")
+        realtimeMessage?.let { message ->
+            if (message.conversationId == conversationId) {
+                android.util.Log.d("ChatScreen", "⚡ Real-time message for current conversation, scrolling...")
+                kotlinx.coroutines.delay(150)
+                if (messageList.isNotEmpty()) {
                     scope.launch {
                         listState.animateScrollToItem(messageList.size - 1)
                     }
-                } else {
-                    android.util.Log.w("ChatScreen", "⚠️ Message list is empty or null after receiving real-time message")
                 }
-            } else {
-                android.util.Log.d("ChatScreen", "Message is for different conversation: ${newMessage.conversationId}")
             }
-
-            // Don't clear immediately - let it stay for a bit to ensure UI processes it
+            // Clear after processing
             kotlinx.coroutines.delay(500)
             viewModel.clearRealtimeMessage()
         }
@@ -129,6 +126,7 @@ fun ChatScreen(
 
     DisposableEffect(Unit) {
         onDispose {
+            android.util.Log.d("ChatScreen", "Leaving conversation: $conversationId")
             viewModel.leaveConversation(conversationId)
         }
     }
@@ -232,8 +230,7 @@ fun ChatScreen(
                         )
                     }
                     is Resource.Success -> {
-                        @Suppress("UNCHECKED_CAST")
-                        val messageList = (messages as Resource.Success<List<ChatMessage>>).data ?: emptyList()
+                        // CRITICAL FIX: Use the derived messageList state
                         if (messageList.isEmpty()) {
                             Column(
                                 modifier = Modifier
@@ -261,13 +258,17 @@ fun ChatScreen(
                                 )
                             }
                         } else {
+                            // CRITICAL FIX: Use key parameter to ensure proper recomposition
                             LazyColumn(
                                 state = listState,
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                items(messageList.size) { index ->
+                                items(
+                                    count = messageList.size,
+                                    key = { index -> messageList[index].id }
+                                ) { index ->
                                     val message = messageList[index]
                                     MessageBubble(
                                         message = message,
