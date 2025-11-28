@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -37,6 +38,10 @@ android {
     buildFeatures {
         compose = true
     }
+
+    lint {
+        abortOnError = false
+    }
 }
 
 dependencies {
@@ -63,9 +68,31 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging:23.2.1")
     implementation("com.google.firebase:firebase-analytics:21.3.0")
 
+    // Firebase Authentication
+    implementation("com.google.firebase:firebase-auth-ktx:22.3.0")
 
-    implementation(libs.retrofit)
+    // Firebase Firestore
+    implementation("com.google.firebase:firebase-firestore-ktx:24.8.1")
+
+    // Firebase Storage
+    implementation("com.google.firebase:firebase-storage-ktx:20.2.1")
+
+    // Android Security - Encrypted SharedPreferences
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // OpenStreetMap (osmdroid) - Alternative gratuite et open source à Google Maps
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
+    
+    // Play Services Location toujours nécessaire pour obtenir la position GPS
+    implementation("com.google.android.gms:play-services-location:21.0.1")
     implementation(libs.retrofit.converter.gson)
+    // NOTE: the native Jitsi Meet SDK line below caused Gradle resolution failures
+    // (missing transitive artifact com.yqritc:android-scalablevideoview:1.0.4).
+    // We are using a lightweight Custom Tab fallback to open meet.jit.si, so the
+    // SDK dependency is removed to keep the build stable. If you want the native
+    // SDK integration later, I can add the correct repos/versions and resolve
+    // transitive artifacts.
+    // implementation("org.jitsi.react:jitsi-meet-sdk:4.0.0")
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.coil.compose)

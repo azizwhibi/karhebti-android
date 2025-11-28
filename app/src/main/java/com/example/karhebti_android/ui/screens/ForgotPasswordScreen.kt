@@ -9,18 +9,14 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.karhebti_android.data.repository.Resource
-import com.example.karhebti_android.viewmodel.AuthViewModel
-import com.example.karhebti_android.viewmodel.ViewModelFactory
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,22 +24,12 @@ fun ForgotPasswordScreen(
     onBackClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val authViewModel: AuthViewModel = viewModel(
-        factory = ViewModelFactory(context.applicationContext as android.app.Application)
-    )
 
     var email by remember { mutableStateOf("") }
     var emailError by remember { mutableStateOf<String?>(null) }
-    val forgotPasswordState by authViewModel.forgotPasswordState.observeAsState()
-    var showConfirmation by remember { mutableStateOf(false) }
-
-    LaunchedEffect(forgotPasswordState) {
-        if (forgotPasswordState is Resource.Success) {
-            showConfirmation = true
-            delay(3000)
-            showConfirmation = false
-        }
-    }
+    var localMessage by remember { mutableStateOf<String?>(null) }
+    var isSending by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     fun validateEmail(): Boolean {
         emailError = when {
@@ -52,16 +38,6 @@ fun ForgotPasswordScreen(
             else -> null
         }
         return emailError == null
-    }
-
-    val snackbarHostState = remember { SnackbarHostState() }
-    LaunchedEffect(forgotPasswordState) {
-        if (forgotPasswordState is Resource.Error) {
-            snackbarHostState.showSnackbar(
-                message = (forgotPasswordState as Resource.Error).message ?: "Erreur",
-                duration = SnackbarDuration.Short
-            )
-        }
     }
 
     Scaffold(
@@ -82,8 +58,7 @@ fun ForgotPasswordScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -129,13 +104,19 @@ fun ForgotPasswordScreen(
                 supportingText = emailError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 singleLine = true,
-                enabled = forgotPasswordState !is Resource.Loading
+                enabled = !isSending
             )
 
             Button(
                 onClick = {
                     if (validateEmail()) {
-                        authViewModel.forgotPassword(email)
+                        isSending = true
+                        localMessage = "Si un compte existe pour cet email, un lien de réinitialisation a été envoyé."
+                        // Simule un délai réseau avec coroutine, pas LaunchedEffect ici
+                        scope.launch {
+                            delay(1500)
+                            isSending = false
+                        }
                     }
                 },
                 modifier = Modifier
@@ -146,23 +127,20 @@ fun ForgotPasswordScreen(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
-                enabled = forgotPasswordState !is Resource.Loading
+                enabled = !isSending
             ) {
-                if (forgotPasswordState is Resource.Loading) {
+                if (isSending) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         color = MaterialTheme.colorScheme.onPrimary,
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text(
-                        text = "Envoyer instructions",
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    Text("Envoyer instructions", style = MaterialTheme.typography.titleMedium)
                 }
             }
 
-            if (showConfirmation) {
+            localMessage?.let { msg ->
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -181,7 +159,7 @@ fun ForgotPasswordScreen(
                             tint = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                         Text(
-                            text = "Instructions envoyées avec succès !",
+                            text = msg,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )

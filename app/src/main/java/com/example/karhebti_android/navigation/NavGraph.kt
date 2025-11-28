@@ -1,10 +1,13 @@
 package com.example.karhebti_android.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.karhebti_android.ui.screens.*
+import com.example.karhebti_android.ui.screens.BreakdownSOSScreen
 
 sealed class Screen(val route: String) {
     object Login : Screen("login")
@@ -38,6 +41,14 @@ sealed class Screen(val route: String) {
     object EditReclamation : Screen("edit_reclamation/{reclamationId}") {
         fun createRoute(reclamationId: String) = "edit_reclamation/$reclamationId"
     }
+    object AddDocumentChoice : Screen("add_document_choice")
+    object OCRDocumentScan : Screen("ocr_document_scan")
+    object SOS : Screen("sos")
+    object SOSStatus : Screen("sos_status/{breakdownId}/{type}/{latitude}/{longitude}") {
+        fun createRoute(breakdownId: String?, type: String, latitude: Double, longitude: Double) = 
+            "sos_status/${breakdownId ?: "null"}/$type/$latitude/$longitude"
+    }
+    object SOSHistory : Screen("sos_history")
 }
 
 @Composable
@@ -118,7 +129,7 @@ fun NavGraph(
                 onDocumentClick = { documentId ->
                     navController.navigate(Screen.DocumentDetail.createRoute(documentId))
                 },
-                onAddDocumentClick = { navController.navigate(Screen.AddDocument.route) }
+                onAddDocumentClick = { navController.navigate(Screen.AddDocumentChoice.route) }
             )
         }
 
@@ -160,7 +171,8 @@ fun NavGraph(
                     }
                 },
                 onReclamationsClick = { navController.navigate(Screen.Reclamations.route) },
-                onNotificationsClick = { navController.navigate(Screen.Notifications.route) }
+                onNotificationsClick = { navController.navigate(Screen.Notifications.route) },
+                onSOSClick = { navController.navigate(Screen.SOS.route) } // <-- navigation SOS
             )
         }
 
@@ -208,6 +220,115 @@ fun NavGraph(
                 onReclamationUpdated = { navController.popBackStack() }
             )
         }
+
+        composable(Screen.AddDocumentChoice.route) {
+            AddDocumentChoiceScreen(
+                onBackClick = { navController.popBackStack() },
+                onOcrClick = { navController.navigate(Screen.OCRDocumentScan.route) },
+                onManualEntryClick = { navController.navigate(Screen.AddDocument.route) }
+            )
+        }
+
+        composable(Screen.OCRDocumentScan.route) {
+            OCRDocumentScanScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.SOS.route) {
+            BreakdownSOSScreen(
+                onBackClick = { navController.popBackStack() },
+                onHistoryClick = { navController.navigate(Screen.SOSHistory.route) },
+                onSOSSuccess = { breakdownId, type, lat, lon ->
+                    navController.navigate(Screen.SOSStatus.createRoute(breakdownId, type, lat, lon)) {
+                        popUpTo(Screen.SOS.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+        
+        composable(Screen.SOSHistory.route) {
+            // Create a local Retrofit + Repo + ViewModelFactory so we can instantiate BreakdownViewModel
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val retrofitLocal = androidx.compose.runtime.remember {
+                val logging = okhttp3.logging.HttpLoggingInterceptor().apply { level = okhttp3.logging.HttpLoggingInterceptor.Level.BODY }
+                val client = okhttp3.OkHttpClient.Builder()
+                    .addInterceptor(com.example.karhebti_android.data.api.AuthInterceptor(context))
+                    .addInterceptor(logging)
+                    .build()
+                retrofit2.Retrofit.Builder()
+                    .baseUrl("http://10.0.2.2:3000/")
+                    .client(client)
+                    .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
+                    .build()
+            }
+            val apiLocal = retrofitLocal.create(com.example.karhebti_android.network.BreakdownsApi::class.java)
+            val repoLocal = com.example.karhebti_android.repository.BreakdownsRepository(apiLocal)
+            val factoryLocal = com.example.karhebti_android.viewmodel.BreakdownViewModelFactory(repoLocal)
+            val viewModel: com.example.karhebti_android.viewmodel.BreakdownViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = factoryLocal)
+
+             // Collect UI state
+             val uiState by viewModel.uiState.collectAsState(initial = com.example.karhebti_android.viewmodel.BreakdownUiState.Idle)
+
+             // Map BreakdownResponse data to HistoryItem list for the screen
+             val items: List<HistoryItem> = when (uiState) {
+                is com.example.karhebti_android.viewmodel.BreakdownUiState.Success -> {
+                    val data = (uiState as com.example.karhebti_android.viewmodel.BreakdownUiState.Success).data
+                    if (data is List<*>) {
+                        data.filterIsInstance<com.example.karhebti_android.data.BreakdownResponse>().map { b ->
+                            HistoryItem(
+                                id = b.id,
+                                type = b.type,
+                                status = b.status,
+                                date = b.createdAt ?: "-",
+                                latitude = b.latitude,
+                                longitude = b.longitude
+                            )
+                        }
+                    } else emptyList()
+                }
+                else -> emptyList()
+            }
+
+            val callContext = context // capture LocalContext.current once
+
+            BreakdownHistoryScreen(
+                items = items,
+                isLoading = uiState is com.example.karhebti_android.viewmodel.BreakdownUiState.Loading,
+                onRefresh = { viewModel.fetchAllBreakdowns() },
+                onBackClick = { navController.popBackStack() },
+                onCall = { roomId ->
+                    // Start the JitsiCallActivity using captured context
+                    val intent = com.example.karhebti_android.jitsi.JitsiCallActivity.createIntent(callContext, roomId)
+                    callContext.startActivity(intent)
+                }
+            )
+
+            // Trigger initial load (fetch user breakdowns). If you have a cached userId, pass it here.
+            // For simplicity we'll try to fetch all breakdowns (server must filter by auth). Use viewModel.fetchUserBreakdowns(userId) if you have an id.
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                // Fetch all breakdowns (backend should return only user's breakdowns when authenticated)
+                viewModel.fetchAllBreakdowns()
+            }
+        }
+
+        composable(Screen.SOSStatus.route) { backStackEntry ->
+            val breakdownId = backStackEntry.arguments?.getString("breakdownId")?.takeIf { it != "null" }
+            val type = backStackEntry.arguments?.getString("type") ?: ""
+            val latitude = backStackEntry.arguments?.getString("latitude")?.toDoubleOrNull() ?: 0.0
+            val longitude = backStackEntry.arguments?.getString("longitude")?.toDoubleOrNull() ?: 0.0
+            
+            SOSStatusScreen(
+                breakdownId = breakdownId,
+                type = type,
+                latitude = latitude,
+                longitude = longitude,
+                onBackClick = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
     }
 }
-

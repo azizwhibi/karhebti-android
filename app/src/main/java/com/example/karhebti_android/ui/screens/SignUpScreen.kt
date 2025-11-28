@@ -23,7 +23,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.karhebti_android.data.repository.Resource
+import com.example.karhebti_android.viewmodel.AuthUiState
 import com.example.karhebti_android.viewmodel.AuthViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
 
@@ -55,11 +55,11 @@ fun SignUpScreen(
     var passwordError by remember { mutableStateOf<String?>(null) }
     var confirmPasswordError by remember { mutableStateOf<String?>(null) }
 
-    val authState by authViewModel.authState.observeAsState()
+    val authState by authViewModel.authState.observeAsState(AuthUiState.Idle)
 
     LaunchedEffect(authState) {
         when (authState) {
-            is Resource.Success -> onSignUpSuccess()
+            is AuthUiState.Success -> onSignUpSuccess()
             else -> {}
         }
     }
@@ -124,9 +124,9 @@ fun SignUpScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(authState) {
-        if (authState is Resource.Error) {
+        if (authState is AuthUiState.Error) {
             snackbarHostState.showSnackbar(
-                message = (authState as Resource.Error).message ?: "Erreur d'inscription",
+                message = (authState as AuthUiState.Error).message ?: "Erreur d'inscription",
                 duration = SnackbarDuration.Short
             )
         }
@@ -195,7 +195,7 @@ fun SignUpScreen(
                     isError = nomError != null,
                     supportingText = nomError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                     singleLine = true,
-                    enabled = authState !is Resource.Loading
+                    enabled = authState !is AuthUiState.Loading
                 )
 
                 OutlinedTextField(
@@ -219,7 +219,7 @@ fun SignUpScreen(
                     isError = prenomError != null,
                     supportingText = prenomError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                     singleLine = true,
-                    enabled = authState !is Resource.Loading
+                    enabled = authState !is AuthUiState.Loading
                 )
 
                 OutlinedTextField(
@@ -244,7 +244,7 @@ fun SignUpScreen(
                     supportingText = emailError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     singleLine = true,
-                    enabled = authState !is Resource.Loading
+                    enabled = authState !is AuthUiState.Loading
                 )
 
                 OutlinedTextField(
@@ -269,7 +269,7 @@ fun SignUpScreen(
                     supportingText = telephoneError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     singleLine = true,
-                    enabled = authState !is Resource.Loading
+                    enabled = authState !is AuthUiState.Loading
                 )
 
                 OutlinedTextField(
@@ -304,7 +304,7 @@ fun SignUpScreen(
                         }
                     },
                     singleLine = true,
-                    enabled = authState !is Resource.Loading
+                    enabled = authState !is AuthUiState.Loading
                 )
 
                 OutlinedTextField(
@@ -339,13 +339,16 @@ fun SignUpScreen(
                         }
                     },
                     singleLine = true,
-                    enabled = authState !is Resource.Loading
+                    enabled = authState !is AuthUiState.Loading
                 )
 
                 Button(
                     onClick = {
                         if (validateAll()) {
-                            authViewModel.signup(nom, prenom, email, telephone, password)
+                            // TODO: implémenter un vrai endpoint /auth/signup côté backend
+                            // Pour l’instant, on peut soit appeler onLoginClick() pour rediriger vers login,
+                            // soit simplement afficher un message.
+                            onLoginClick()
                         }
                     },
                     modifier = Modifier
@@ -356,9 +359,9 @@ fun SignUpScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
-                    enabled = authState !is Resource.Loading
+                    enabled = authState !is AuthUiState.Loading
                 ) {
-                    if (authState is Resource.Loading) {
+                    if (authState is AuthUiState.Loading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
                             color = MaterialTheme.colorScheme.onPrimary,

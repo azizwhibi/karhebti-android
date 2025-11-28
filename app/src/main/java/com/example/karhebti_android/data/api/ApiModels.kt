@@ -4,62 +4,10 @@ import com.google.gson.annotations.SerializedName
 import com.google.gson.annotations.JsonAdapter
 import java.util.Date
 
-// Auth DTOs
-data class SignupRequest(
-    val nom: String,
-    val prenom: String,
-    val email: String,
-    val motDePasse: String,
-    val telephone: String
-)
-
-data class LoginRequest(
-    val email: String,
-    val motDePasse: String
-)
-
-data class AuthResponse(
-    @SerializedName("access_token")
-    val accessToken: String,
-    val user: UserResponse
-)
-
-data class ForgotPasswordRequest(
-    val email: String
-)
-
-data class ChangePasswordRequest(
-    val currentPassword: String,
-    val newPassword: String
-)
-
-data class ResetPasswordRequest(
-    val token: String,
-    val nouveauMotDePasse: String
-)
-
-// User DTOs
-data class UserResponse(
-    @SerializedName("_id")
-    val id: String?,
-    val nom: String,
-    val prenom: String,
-    val email: String,
-    val telephone: String?,
-    val role: String,
-    val createdAt: Date? = null,
-    val updatedAt: Date? = null
-)
-
-data class UpdateUserRequest(
-    val nom: String? = null,
-    val prenom: String? = null,
-    val telephone: String? = null
-)
-
-data class UpdateRoleRequest(
-    val role: String
-)
+// Ce fichier contient uniquement les modèles métier (cars, maintenances, garages, documents, etc.).
+// Tous les DTOs d'authentification, de notifications et les réponses génériques
+// (SignupRequest, LoginRequest, AuthResponse, UserResponse, ErrorResponse,
+// NotificationResponse, MessageResponse, etc.) sont définis dans DTOs.kt.
 
 // Car DTOs
 data class CreateCarRequest(
@@ -192,6 +140,18 @@ data class DocumentResponse(
     val updatedAt: Date,
     val description: String? = null,
     val etat: String? = null
+)
+
+// OCR DTOs
+data class OcrDocumentData(
+    val type: String,           // "assurance", "carte_grise", "permis", "visite_technique", "inconnu"
+    val dateEmission: String?,  // ISO 8601 format: "2024-01-01T00:00:00.000Z"
+    val dateExpiration: String? // ISO 8601 format: "2025-12-31T00:00:00.000Z"
+)
+
+data class OcrDocumentResponse(
+    val success: Boolean,
+    val data: OcrDocumentData
 )
 
 // Part DTOs
@@ -333,41 +293,5 @@ data class ReclamationResponse(
     val updatedAt: Date? = null
 )
 
-// Generic Response
-data class MessageResponse(
-    val message: String
-)
-
-// Notification DTOs
-data class NotificationResponse(
-    @SerializedName("_id")
-    val id: String,
-    val titre: String,
-    val message: String,
-    val type: String, // echeance, maintenance, info, alerte
-    val user: UserResponse? = null,
-    val document: DocumentResponse? = null,
-    val lu: Boolean = false,
-    val dateEcheance: Date? = null,
-    val createdAt: Date? = null,
-    val updatedAt: Date? = null
-)
-
-data class CreateNotificationRequest(
-    val titre: String,
-    val message: String,
-    val type: String,
-    val documentId: String? = null,
-    val dateEcheance: String? = null
-)
-
-data class UpdateNotificationRequest(
-    val lu: Boolean
-)
-
-// Error Response
-data class ErrorResponse(
-    val statusCode: Int,
-    val message: List<String>,
-    val error: String
-)
+// Notification DTOs - already defined in DTOs.kt, keeping for reference
+// ...existing code...

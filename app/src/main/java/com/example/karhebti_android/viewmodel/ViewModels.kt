@@ -9,6 +9,7 @@ import com.example.karhebti_android.data.api.*
 import com.example.karhebti_android.data.model.Reclamation
 import com.example.karhebti_android.data.model.Garage
 import com.example.karhebti_android.data.model.Service
+import com.example.karhebti_android.data.notifications.FCMTokenService
 import com.example.karhebti_android.data.preferences.TokenManager
 import com.example.karhebti_android.data.preferences.UserData
 import com.example.karhebti_android.data.repository.*
@@ -16,6 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 
 // Data class for counters
 data class AppCounters(
@@ -25,114 +27,81 @@ data class AppCounters(
     val documents: Int = 0
 )
 
+// Simple sealed class pour représenter l'état d'auth dans le ViewModel
+sealed class AuthUiState {
+    object Idle : AuthUiState()
+    object Loading : AuthUiState()
+    data class Success(val data: AuthResponse) : AuthUiState()
+    data class Error(val message: String) : AuthUiState()
+}
+
 // Auth ViewModel
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = AuthRepository()
+    private val authRepository = AuthRepository(
+        authApiService = RetrofitClient.authApiService,
+        context = application.applicationContext
+    )
     private val tokenManager = TokenManager.getInstance(application)
 
-    private val _authState = MutableLiveData<Resource<AuthResponse>>()
-    val authState: LiveData<Resource<AuthResponse>> = _authState
-
-    private val _forgotPasswordState = MutableLiveData<Resource<MessageResponse>>()
-    val forgotPasswordState: LiveData<Resource<MessageResponse>> = _forgotPasswordState
-
-    private val _changePasswordState = MutableStateFlow<Resource<MessageResponse>?>(null)
-    val changePasswordState: StateFlow<Resource<MessageResponse>?> = _changePasswordState.asStateFlow()
+    private val _authState = MutableLiveData<AuthUiState>(AuthUiState.Idle)
+    val authState: LiveData<AuthUiState> = _authState
 
     init {
         tokenManager.initializeToken()
     }
 
     fun login(email: String, password: String) {
-        _authState.value = Resource.Loading()
+        _authState.value = AuthUiState.Loading
         viewModelScope.launch {
-            try {
-                android.util.Log.d("AuthViewModel", "Starting login for: $email")
-                val result = repository.login(email, password)
-                android.util.Log.d("AuthViewModel", "Login result: $result")
-                _authState.value = result
-
-                if (result is Resource.Success) {
-                    android.util.Log.d("AuthViewModel", "Login successful, saving token...")
-                    try {
-                        val userData = result.data!!
-                        android.util.Log.d("AuthViewModel", "User data received: ${userData.user}")
-
-                        tokenManager.saveToken(userData.accessToken)
-                        tokenManager.saveUser(UserData(
-                            id = userData.user.id,
-                            email = userData.user.email,
-                            nom = userData.user.nom,
-                            prenom = userData.user.prenom,
-                            role = userData.user.role,
-                            telephone = userData.user.telephone ?: ""
-                        ))
-                        android.util.Log.d("AuthViewModel", "Token and user saved successfully")
-                    } catch (e: Exception) {
-                        android.util.Log.e("AuthViewModel", "Error saving token/user: ${e.message}", e)
-                        _authState.value = Resource.Error("Erreur lors de la sauvegarde: ${e.message}")
+            authRepository.login(email, password).collect { result ->
+                result.fold(
+                    onSuccess = { authResponse ->
+                        try {
+                            // Sauvegarder token et user
+                            tokenManager.saveToken(authResponse.accessToken)
+                            val user = authResponse.user
+                            tokenManager.saveUser(
+                                UserData(
+                                    id = user.id,
+                                    email = user.email,
+                                    nom = user.nom,
+                                    prenom = user.prenom,
+                                    role = user.role,
+                                    telephone = user.telephone ?: ""
+                                )
+                            )
+                            // Enregistrer le token FCM
+                            registerFCMToken()
+                            _authState.value = AuthUiState.Success(authResponse)
+                        } catch (e: Exception) {
+                            _authState.value = AuthUiState.Error("Erreur lors de la sauvegarde: ${e.message}")
+                        }
+                    },
+                    onFailure = { e ->
+                        _authState.value = AuthUiState.Error(e.message ?: "Erreur de connexion")
                     }
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("AuthViewModel", "Login error: ${e.message}", e)
-                _authState.value = Resource.Error("Erreur de connexion: ${e.localizedMessage}")
+                )
             }
         }
     }
 
-    fun signup(nom: String, prenom: String, email: String, password: String, telephone: String) {
-        _authState.value = Resource.Loading()
-        viewModelScope.launch {
-            try {
-                val result = repository.signup(nom, prenom, email, password, telephone)
-                _authState.value = result
-
-                if (result is Resource.Success) {
-                    tokenManager.saveToken(result.data!!.accessToken)
-                    tokenManager.saveUser(UserData(
-                        id = result.data.user.id,
-                        email = result.data.user.email,
-                        nom = result.data.user.nom,
-                        prenom = result.data.user.prenom,
-                        role = result.data.user.role,
-                        telephone = result.data.user.telephone ?: ""
-                    ))
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("AuthViewModel", "Signup error: ${e.message}", e)
-                _authState.value = Resource.Error("Erreur d\'inscription: ${e.localizedMessage}")
-            }
-        }
-    }
-
-    fun forgotPassword(email: String) {
-        _forgotPasswordState.value = Resource.Loading()
-        viewModelScope.launch {
-            val result = repository.forgotPassword(email)
-            _forgotPasswordState.value = result
-        }
-    }
-
-    fun changePassword(currentPassword: String, newPassword: String) {
-        _changePasswordState.value = Resource.Loading()
-        viewModelScope.launch {
-            try {
-                val result = repository.changePassword(currentPassword, newPassword)
-                _changePasswordState.value = result
-            } catch (e: Exception) {
-                android.util.Log.e("AuthViewModel", "Change password error: ${e.message}", e)
-                _changePasswordState.value = Resource.Error("Erreur lors du changement de mot de passe: ${e.localizedMessage}")
-            }
-        }
-    }
-
-    fun resetChangePasswordState() {
-        _changePasswordState.value = null
+    /**
+     * Enregistrer le token FCM au backend
+     */
+    private fun registerFCMToken() {
+        val fcmTokenService = FCMTokenService(getApplication())
+        fcmTokenService.registerDeviceToken()
+        fcmTokenService.subscribeToTopics()
     }
 
     fun logout() {
-        repository.logout()
-        tokenManager.clearAll()
+        viewModelScope.launch {
+            authRepository.logout().collect {
+                // Quel que soit le résultat, on nettoie le token localement
+                tokenManager.clearAll()
+                _authState.value = AuthUiState.Idle
+            }
+        }
     }
 
     fun isLoggedIn(): Boolean = tokenManager.isLoggedIn()
@@ -783,106 +752,5 @@ class ReclamationViewModel(application: Application) : AndroidViewModel(applicat
 
     fun refresh() {
         getMyReclamations()
-    }
-}
-
-// Notification ViewModel
-class NotificationViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = NotificationRepository()
-
-    private val _notificationsState = MutableLiveData<Resource<List<NotificationResponse>>>()
-    val notificationsState: LiveData<Resource<List<NotificationResponse>>> = _notificationsState
-
-    private val _unreadNotificationsState = MutableLiveData<Resource<List<NotificationResponse>>>()
-    val unreadNotificationsState: LiveData<Resource<List<NotificationResponse>>> = _unreadNotificationsState
-
-    private val _markAsReadState = MutableLiveData<Resource<NotificationResponse>>()
-    val markAsReadState: LiveData<Resource<NotificationResponse>> = _markAsReadState
-
-    private val _deleteNotificationState = MutableLiveData<Resource<MessageResponse>>()
-    val deleteNotificationState: LiveData<Resource<MessageResponse>> = _deleteNotificationState
-
-    private val _unreadCount = MutableStateFlow(0)
-    val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
-
-    fun getMyNotifications() {
-        _notificationsState.value = Resource.Loading()
-        viewModelScope.launch {
-            try {
-                val result = repository.getMyNotifications()
-                _notificationsState.value = result
-
-                // Update unread count
-                if (result is Resource.Success) {
-                    _unreadCount.value = result.data?.count { !it.lu } ?: 0
-                } else if (result is Resource.Error) {
-                    // Si erreur 500, afficher liste vide avec message
-                    android.util.Log.e("NotificationViewModel", "Erreur: ${result.message}")
-                    _notificationsState.value = Resource.Success(emptyList())
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("NotificationViewModel", "Exception: ${e.message}", e)
-                _notificationsState.value = Resource.Success(emptyList())
-            }
-        }
-    }
-
-    fun getUnreadNotifications() {
-        _unreadNotificationsState.value = Resource.Loading()
-        viewModelScope.launch {
-            try {
-                val result = repository.getUnreadNotifications()
-                _unreadNotificationsState.value = result
-
-                // Update unread count
-                if (result is Resource.Success) {
-                    _unreadCount.value = result.data?.size ?: 0
-                } else if (result is Resource.Error) {
-                    // Si erreur 500, afficher liste vide
-                    android.util.Log.e("NotificationViewModel", "Erreur: ${result.message}")
-                    _unreadNotificationsState.value = Resource.Success(emptyList())
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("NotificationViewModel", "Exception: ${e.message}", e)
-                _unreadNotificationsState.value = Resource.Success(emptyList())
-            }
-        }
-    }
-
-    fun markNotificationAsRead(id: String) {
-        _markAsReadState.value = Resource.Loading()
-        viewModelScope.launch {
-            val result = repository.markNotificationAsRead(id)
-            _markAsReadState.value = result
-
-            if (result is Resource.Success) {
-                getMyNotifications() // Refresh list
-            }
-        }
-    }
-
-    fun markAllNotificationsAsRead() {
-        viewModelScope.launch {
-            val result = repository.markAllNotificationsAsRead()
-            if (result is Resource.Success) {
-                getMyNotifications() // Refresh list
-            }
-        }
-    }
-
-    fun deleteNotification(id: String) {
-        _deleteNotificationState.value = Resource.Loading()
-        viewModelScope.launch {
-            val result = repository.deleteNotification(id)
-            _deleteNotificationState.value = result
-
-            if (result is Resource.Success) {
-                getMyNotifications() // Refresh list
-            }
-        }
-    }
-
-    fun refresh() {
-        getMyNotifications()
     }
 }

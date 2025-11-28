@@ -23,6 +23,13 @@ import com.example.karhebti_android.viewmodel.ViewModelFactory
 import java.text.SimpleDateFormat
 import java.util.*
 
+fun fixEmulatorImageUrl(url: String?): String? {
+    if (url == null) return null
+    return url
+        .replace("http://localhost", "http://10.0.2.2")
+        .replace("http://127.0.0.1", "http://10.0.2.2")
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DocumentDetailScreen(
@@ -94,6 +101,60 @@ fun DocumentDetailScreen(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        // Affichage de l'image scannée du document
+                        val baseUrl = "http://10.0.2.2:3000"
+                        val imageUrl = when {
+                            document.fichier.isBlank() -> null
+                            document.fichier.startsWith("http://") || document.fichier.startsWith("https://") -> document.fichier
+                            document.fichier.startsWith("/uploads/") -> baseUrl + document.fichier
+                            else -> "$baseUrl/uploads/documents/${document.fichier}"
+                        }
+                        val fixedImageUrl = fixEmulatorImageUrl(imageUrl)
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    "Image du document",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                                if (fixedImageUrl != null) {
+                                    var imageLoadState by remember { mutableStateOf(true) }
+                                    AsyncImage(
+                                        model = fixedImageUrl,
+                                        contentDescription = "Image du document",
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(250.dp),
+                                        onError = { imageLoadState = false },
+                                        onSuccess = { imageLoadState = true }
+                                    )
+                                    // Affichage de l'URL pour debug
+                                    Text(
+                                        fixedImageUrl,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                    if (!imageLoadState) {
+                                        Text(
+                                            "Erreur de chargement de l'image. Vérifiez l'URL ou le serveur.",
+                                            color = MaterialTheme.colorScheme.error,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            modifier = Modifier.padding(8.dp)
+                                        )
+                                    }
+                                } else {
+                                    Text(
+                                        "Aucune image disponible",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(32.dp)
+                                    )
+                                }
+                            }
+                        }
+
                         // Type de document
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -303,26 +364,7 @@ fun DocumentDetailScreen(
                             }
                         }
 
-                        // Image du document si disponible
-                        if (document.fichier.isNotEmpty() && document.fichier.startsWith("http")) {
-                            Card(modifier = Modifier.fillMaxWidth()) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text(
-                                        "Fichier",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    AsyncImage(
-                                        model = document.fichier,
-                                        contentDescription = "Document image",
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(200.dp)
-                                    )
-                                }
-                            }
-                        }
+
 
                         // Informations supplémentaires
                         Card(modifier = Modifier.fillMaxWidth()) {
@@ -445,4 +487,3 @@ fun DocumentDetailScreen(
         }
     }
 }
-

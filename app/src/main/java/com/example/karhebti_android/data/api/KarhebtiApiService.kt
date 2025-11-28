@@ -151,6 +151,14 @@ interface KarhebtiApiService {
     @DELETE("documents/{id}")
     suspend fun deleteDocument(@Path("id") id: String): Response<MessageResponse>
 
+    // OCR Document endpoint
+    @Multipart
+    @POST("documents/ocr")
+    suspend fun ocrDocument(
+        @Part file: MultipartBody.Part,
+        @Part("typeHint") typeHint: RequestBody? = null
+    ): Response<OcrDocumentResponse>
+
     // ==================== PARTS ====================
 
     @GET("parts")

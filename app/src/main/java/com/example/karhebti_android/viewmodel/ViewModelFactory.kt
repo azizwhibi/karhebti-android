@@ -36,10 +36,29 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
                 ReclamationViewModel(application) as T
             }
             modelClass.isAssignableFrom(NotificationViewModel::class.java) -> {
-                NotificationViewModel(application) as T
+                try {
+                    NotificationViewModel(
+                        application,
+                        com.example.karhebti_android.data.repository.NotificationRepository(
+                            com.example.karhebti_android.data.api.RetrofitClient.notificationApiService,
+                            application.applicationContext
+                        )
+                    ) as T
+                } catch (e: Exception) {
+                    throw IllegalArgumentException("Error creating NotificationViewModel: ${e.message}", e)
+                }
             }
-            modelClass.isAssignableFrom(NotificationViewModel::class.java) -> {
-                NotificationViewModel(application) as T
+            modelClass.isAssignableFrom(ExpiringDocumentsViewModel::class.java) -> {
+                ExpiringDocumentsViewModel(
+                    application,
+                    com.example.karhebti_android.data.repository.ExpiringDocumentsRepository(
+                        com.example.karhebti_android.data.api.RetrofitClient.apiService,
+                        application.applicationContext
+                    )
+                ) as T
+            }
+            modelClass.isAssignableFrom(OCRViewModel::class.java) -> {
+                OCRViewModel(application) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class")
         }

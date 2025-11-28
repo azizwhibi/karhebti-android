@@ -2,6 +2,7 @@ package com.example.karhebti_android.data.notifications
 
 import android.content.Context
 import android.util.Log
+import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 
 /**
@@ -14,19 +15,40 @@ class FCMHelper(private val context: Context) {
     }
 
     /**
+     * Initialiser Firebase si nécessaire
+     */
+    private fun ensureFirebaseInitialized() {
+        try {
+            if (FirebaseApp.getApps(context).isEmpty()) {
+                Log.d(TAG, "🔧 Initialisant Firebase...")
+                FirebaseApp.initializeApp(context)
+                Log.d(TAG, "✅ Firebase initialisé")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Erreur lors de l'initialisation de Firebase: ${e.message}")
+        }
+    }
+
+    /**
      * Obtenir le token FCM actuel
      */
     fun getFCMToken(callback: (token: String) -> Unit) {
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (!task.isSuccessful) {
-                Log.w(TAG, "Erreur lors de la récupération du token", task.exception)
-                callback("")
-                return@addOnCompleteListener
-            }
+        try {
+            ensureFirebaseInitialized()
+            FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                if (!task.isSuccessful) {
+                    Log.w(TAG, "Erreur lors de la récupération du token", task.exception)
+                    callback("")
+                    return@addOnCompleteListener
+                }
 
-            val token = task.result
-            Log.d(TAG, "Token FCM obtenu: $token")
-            callback(token)
+                val token = task.result
+                Log.d(TAG, "Token FCM obtenu: $token")
+                callback(token)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Erreur getFCMToken: ${e.message}", e)
+            callback("")
         }
     }
 
@@ -34,14 +56,19 @@ class FCMHelper(private val context: Context) {
      * S'abonner à un topic de notifications
      */
     fun subscribeToTopic(topic: String) {
-        FirebaseMessaging.getInstance().subscribeToTopic(topic)
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    Log.d(TAG, "✅ Abonné au topic: $topic")
-                } else {
-                    Log.e(TAG, "❌ Erreur abonnement au topic: $topic")
+        try {
+            ensureFirebaseInitialized()
+            FirebaseMessaging.getInstance().subscribeToTopic(topic)
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        Log.d(TAG, "✅ Abonné au topic: $topic")
+                    } else {
+                        Log.e(TAG, "❌ Erreur abonnement au topic: $topic")
+                    }
                 }
-            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Erreur subscribeToTopic: ${e.message}", e)
+        }
     }
 
     /**

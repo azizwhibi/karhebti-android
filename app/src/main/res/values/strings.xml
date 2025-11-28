@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">karhebti-android</string>
+    <!-- Label used by the Jitsi call activity declared in AndroidManifest.xml -->
+    <string name="title_jitsi_call" translatable="false">Appel SOS</string>
 </resources>

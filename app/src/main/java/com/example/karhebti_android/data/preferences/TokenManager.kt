@@ -4,10 +4,13 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.example.karhebti_android.data.api.RetrofitClient
 import com.google.gson.Gson
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 
 class TokenManager(context: Context) {
+    private val appContext: Context = context.applicationContext
     private val prefs: SharedPreferences =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private val gson = Gson()
 
@@ -29,6 +32,25 @@ class TokenManager(context: Context) {
     fun saveToken(token: String) {
         prefs.edit().putString(KEY_TOKEN, token).apply()
         RetrofitClient.setAuthToken(token)
+        // Also attempt to save into EncryptedSharedPreferences under "jwt_token" so
+        // other readers (AuthInterceptor / readAnyToken) can find it.
+        try {
+            val masterKey = MasterKey.Builder(appContext)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+
+            val encryptedPrefs = EncryptedSharedPreferences.create(
+                appContext,
+                "secret_shared_prefs",
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+            encryptedPrefs.edit().putString("jwt_token", token).apply()
+        } catch (e: Exception) {
+            // Not fatal: some devices/emulator configs might not support encrypted prefs at runtime
+            android.util.Log.w("TokenManager", "Could not write to EncryptedSharedPreferences: ${e.message}")
+        }
     }
 
     fun getToken(): String? {

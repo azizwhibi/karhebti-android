@@ -24,7 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.karhebti_android.data.repository.Resource
+import com.example.karhebti_android.viewmodel.AuthUiState
 import com.example.karhebti_android.viewmodel.AuthViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
 
@@ -64,11 +64,11 @@ fun LoginScreen(
 
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
-    val authState by authViewModel.authState.observeAsState()
+    val authState by authViewModel.authState.observeAsState(AuthUiState.Idle)
 
     LaunchedEffect(authState) {
         when (val state = authState) {
-            is Resource.Success -> {
+            is AuthUiState.Success -> {
                 with(prefs.edit()) {
                     if (rememberMe) {
                         putString("email", email)
@@ -115,9 +115,9 @@ fun LoginScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(authState) {
-        if (authState is Resource.Error) {
+        if (authState is AuthUiState.Error) {
             snackbarHostState.showSnackbar(
-                message = (authState as Resource.Error).message ?: "Erreur de connexion",
+                message = (authState as AuthUiState.Error).message,
                 duration = SnackbarDuration.Short
             )
         }
@@ -189,7 +189,7 @@ fun LoginScreen(
                     supportingText = emailError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     singleLine = true,
-                    enabled = authState !is Resource.Loading
+                    enabled = authState !is AuthUiState.Loading
                 )
 
                 OutlinedTextField(
@@ -226,7 +226,7 @@ fun LoginScreen(
                         }
                     },
                     singleLine = true,
-                    enabled = authState !is Resource.Loading
+                    enabled = authState !is AuthUiState.Loading
                 )
 
                 Row(
@@ -266,9 +266,9 @@ fun LoginScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
-                    enabled = authState !is Resource.Loading
+                    enabled = authState !is AuthUiState.Loading
                 ) {
-                    if (authState is Resource.Loading) {
+                    if (authState is AuthUiState.Loading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
                             color = MaterialTheme.colorScheme.onPrimary,

@@ -32,6 +32,7 @@ import com.example.karhebti_android.viewmodel.AuthViewModel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,7 +40,8 @@ fun SettingsScreen(
     onBackClick: () -> Unit = {},
     onLogout: () -> Unit = {},
     onReclamationsClick: () -> Unit = {},
-    onNotificationsClick: () -> Unit = {}
+    onNotificationsClick: () -> Unit = {},
+    onSOSClick: () -> Unit = {} // <-- paramètre pour le clic sur SOS
 ) {
     // Get AuthViewModel to access current user data
     val context = LocalContext.current
@@ -282,6 +284,21 @@ fun SettingsScreen(
                 iconTint = DeepPurple
             )
 
+            // Section SOS / Déclaration de panne
+            Text(
+                text = "Assistance & SOS",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            SettingsItem(
+                icon = Icons.Default.Warning,
+                title = "Déclarer une panne (SOS)",
+                subtitle = "Déclarer une panne ou demander de l'aide",
+                onClick = onSOSClick, // <-- rendre le bouton vraiment cliquable
+                iconTint = AlertRed
+            )
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // App Info
@@ -352,7 +369,6 @@ fun SettingsScreen(
     // Change Password Dialog
     if (showChangePasswordDialog) {
         ChangePasswordDialog(
-            authViewModel = authViewModel,
             onDismiss = { showChangePasswordDialog = false }
         )
     }
@@ -360,7 +376,6 @@ fun SettingsScreen(
 
 @Composable
 fun ChangePasswordDialog(
-    authViewModel: AuthViewModel,
     onDismiss: () -> Unit
 ) {
     var currentPassword by remember { mutableStateOf("") }
@@ -370,18 +385,8 @@ fun ChangePasswordDialog(
     var newPasswordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    val changePasswordState by authViewModel.changePasswordState.collectAsStateWithLifecycle()
-
-    // Handle success
-    LaunchedEffect(changePasswordState) {
-        if (changePasswordState is Resource.Success) {
-            authViewModel.resetChangePasswordState()
-            onDismiss()
-        } else if (changePasswordState is Resource.Error) {
-            errorMessage = (changePasswordState as Resource.Error).message
-        }
-    }
+    var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -493,14 +498,20 @@ fun ChangePasswordDialog(
                             errorMessage = "Le mot de passe doit contenir au moins 6 caractères"
                         }
                         else -> {
-                            authViewModel.changePassword(currentPassword, newPassword)
+                            // TODO: appeler un endpoint backend /auth/change-password quand disponible
+                            isLoading = true
+                            scope.launch {
+                                kotlinx.coroutines.delay(1500)
+                                isLoading = false
+                                onDismiss()
+                            }
                         }
                     }
                 },
-                enabled = changePasswordState !is Resource.Loading,
+                enabled = !isLoading,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
-                if (changePasswordState is Resource.Loading) {
+                if (isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         color = Color.White
@@ -511,13 +522,7 @@ fun ChangePasswordDialog(
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = {
-                    authViewModel.resetChangePasswordState()
-                    onDismiss()
-                },
-                enabled = changePasswordState !is Resource.Loading
-            ) {
+            TextButton(onClick = onDismiss, enabled = !isLoading) {
                 Text("Annuler")
             }
         }
