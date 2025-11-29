@@ -32,9 +32,39 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
             modelClass.isAssignableFrom(UserViewModel::class.java) -> {
                 UserViewModel(application) as T
             }
+<<<<<<< HEAD
             modelClass.isAssignableFrom(MarketplaceViewModel::class.java) -> {
                 // Create a NEW instance for each screen - no singleton!
                 MarketplaceViewModel(application) as T
+=======
+            modelClass.isAssignableFrom(ReclamationViewModel::class.java) -> {
+                ReclamationViewModel(application) as T
+            }
+            modelClass.isAssignableFrom(NotificationViewModel::class.java) -> {
+                try {
+                    NotificationViewModel(
+                        application,
+                        com.example.karhebti_android.data.repository.NotificationRepository(
+                            com.example.karhebti_android.data.api.RetrofitClient.notificationApiService,
+                            application.applicationContext
+                        )
+                    ) as T
+                } catch (e: Exception) {
+                    throw IllegalArgumentException("Error creating NotificationViewModel: ${e.message}", e)
+                }
+            }
+            modelClass.isAssignableFrom(ExpiringDocumentsViewModel::class.java) -> {
+                ExpiringDocumentsViewModel(
+                    application,
+                    com.example.karhebti_android.data.repository.ExpiringDocumentsRepository(
+                        com.example.karhebti_android.data.api.RetrofitClient.apiService,
+                        application.applicationContext
+                    )
+                ) as T
+            }
+            modelClass.isAssignableFrom(OCRViewModel::class.java) -> {
+                OCRViewModel(application) as T
+>>>>>>> origin/documents1
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class")
         }

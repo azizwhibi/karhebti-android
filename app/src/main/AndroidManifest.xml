@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.example.karhebti_android">
 
     <!-- Add Internet permission -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+<<<<<<< HEAD
     <!-- Media permissions for image picking (API 33+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
@@ -13,6 +15,31 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+=======
+    <!-- Camera and Media permissions -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Audio record permission required for Jitsi / calls -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- Location permissions -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- osmdroid permissions (pour le cache des tuiles de carte) -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28"
+        tools:ignore="ScopedStorage" />
+
+    <!-- Camera feature -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+
+    <!-- Firebase Cloud Messaging permissions -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+>>>>>>> origin/documents1
     <application
         android:name=".KarhebtiApplication"
         android:allowBackup="true"
@@ -25,10 +52,15 @@
         android:theme="@style/Theme.Karhebtiandroid"
         android:networkSecurityConfig="@xml/network_security_config">
 
+<<<<<<< HEAD
+=======
+        <!-- osmdroid ne nécessite PAS de clé API ! -->
+        <!-- Google Maps a été remplacé par OpenStreetMap (osmdroid) qui est gratuit et open source -->
+
+>>>>>>> origin/documents1
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:theme="@style/Theme.Karhebtiandroid">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -36,6 +68,7 @@
             </intent-filter>
         </activity>
 
+<<<<<<< HEAD
         <!-- Widget Provider -->
         <receiver
             android:name=".widget.EntretiensWidget"
@@ -48,6 +81,22 @@
                 android:resource="@xml/widget_entretiens_info" />
         </receiver>
 
+=======
+        <!-- Jitsi call Activity (Compose) -->
+        <activity
+            android:name=".jitsi.JitsiCallActivity"
+            android:exported="true"
+            android:label="Appel SOS" />
+
+        <!-- Firebase Cloud Messaging Service -->
+        <service
+            android:name=".data.notifications.KarhebtiMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+>>>>>>> origin/documents1
     </application>
 
 </manifest>

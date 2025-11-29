@@ -6,6 +6,10 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.karhebti_android.data.api.*
+import com.example.karhebti_android.data.model.Reclamation
+import com.example.karhebti_android.data.model.Garage
+import com.example.karhebti_android.data.model.Service
+import com.example.karhebti_android.data.notifications.FCMTokenService
 import com.example.karhebti_android.data.preferences.TokenManager
 import com.example.karhebti_android.data.preferences.UserData
 import com.example.karhebti_android.data.repository.*
@@ -13,17 +17,41 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+<<<<<<< HEAD
 
 // Auth ViewModel
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
+=======
+import kotlinx.coroutines.flow.collect
+
+// Data class for counters
+data class AppCounters(
+    val vehicles: Int = 0,
+    val entretiens: Int = 0,
+    val garages: Int = 0,
+    val documents: Int = 0
+)
+
+// Simple sealed class pour représenter l'état d'auth dans le ViewModel
+sealed class AuthUiState {
+    object Idle : AuthUiState()
+    object Loading : AuthUiState()
+    data class Success(val data: AuthResponse) : AuthUiState()
+    data class Error(val message: String) : AuthUiState()
+}
+
+// Auth ViewModel
+class AuthViewModel(application: Application) : AndroidViewModel(application) {
+    private val authRepository = AuthRepository(
+        authApiService = RetrofitClient.authApiService,
+        context = application.applicationContext
+    )
+>>>>>>> origin/documents1
     private val tokenManager = TokenManager.getInstance(application)
     private val repository = AuthRepository(tokenManager = tokenManager)
 
-    private val _authState = MutableLiveData<Resource<AuthResponse>>()
-    val authState: LiveData<Resource<AuthResponse>> = _authState
-
-    private val _forgotPasswordState = MutableLiveData<Resource<MessageResponse>>()
-    val forgotPasswordState: LiveData<Resource<MessageResponse>> = _forgotPasswordState
+    private val _authState = MutableLiveData<AuthUiState>(AuthUiState.Idle)
+    val authState: LiveData<AuthUiState> = _authState
 
     private val _changePasswordState = MutableStateFlow<Resource<MessageResponse>?>(null)
     val changePasswordState: StateFlow<Resource<MessageResponse>?> = _changePasswordState.asStateFlow()
@@ -42,8 +70,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun login(email: String, password: String) {
-        _authState.value = Resource.Loading()
+        _authState.value = AuthUiState.Loading
         viewModelScope.launch {
+<<<<<<< HEAD
             try {
                 android.util.Log.d("AuthViewModel", "Starting login for: $email")
                 val result = repository.login(email, password)
@@ -69,15 +98,41 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     } catch (e: Exception) {
                         android.util.Log.e("AuthViewModel", "Error saving token/user: ${e.message}", e)
                         _authState.value = Resource.Error("Erreur lors de la sauvegarde: ${e.message}")
+=======
+            authRepository.login(email, password).collect { result ->
+                result.fold(
+                    onSuccess = { authResponse ->
+                        try {
+                            // Sauvegarder token et user
+                            tokenManager.saveToken(authResponse.accessToken)
+                            val user = authResponse.user
+                            tokenManager.saveUser(
+                                UserData(
+                                    id = user.id,
+                                    email = user.email,
+                                    nom = user.nom,
+                                    prenom = user.prenom,
+                                    role = user.role,
+                                    telephone = user.telephone ?: ""
+                                )
+                            )
+                            // Enregistrer le token FCM
+                            registerFCMToken()
+                            _authState.value = AuthUiState.Success(authResponse)
+                        } catch (e: Exception) {
+                            _authState.value = AuthUiState.Error("Erreur lors de la sauvegarde: ${e.message}")
+                        }
+                    },
+                    onFailure = { e ->
+                        _authState.value = AuthUiState.Error(e.message ?: "Erreur de connexion")
+>>>>>>> origin/documents1
                     }
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("AuthViewModel", "Login error: ${e.message}", e)
-                _authState.value = Resource.Error("Erreur de connexion: ${e.localizedMessage}")
+                )
             }
         }
     }
 
+<<<<<<< HEAD
     // Start the two-step signup: call POST /auth/signup to send OTP and create pending signup
     fun signupInitiate(nom: String, prenom: String, email: String, password: String, telephone: String) {
         _signupInitiationState.value = Resource.Loading()
@@ -131,6 +186,15 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             val result = repository.forgotPassword(email)
             _forgotPasswordState.value = result
         }
+=======
+    /**
+     * Enregistrer le token FCM au backend
+     */
+    private fun registerFCMToken() {
+        val fcmTokenService = FCMTokenService(getApplication())
+        fcmTokenService.registerDeviceToken()
+        fcmTokenService.subscribeToTopics()
+>>>>>>> origin/documents1
     }
 
     fun verifyOtp(email: String, otp: String) {
@@ -189,6 +253,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun logout() {
+<<<<<<< HEAD
         tokenManager.clearAll()
         // Reset all state flows to prevent UI from attempting API calls with null token
         _authState.value = Resource.Loading()
@@ -196,6 +261,15 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _verifyOtpState.value = null
         _resetPasswordState.value = null
         _changePasswordState.value = null
+=======
+        viewModelScope.launch {
+            authRepository.logout().collect {
+                // Quel que soit le résultat, on nettoie le token localement
+                tokenManager.clearAll()
+                _authState.value = AuthUiState.Idle
+            }
+        }
+>>>>>>> origin/documents1
     }
 
     fun isLoggedIn(): Boolean = tokenManager.isLoggedIn()
@@ -240,7 +314,11 @@ class CarViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refresh() = getMyCars()
 
+<<<<<<< HEAD
     fun createCar(marque: String, modele: String, annee: Int, immatriculation: String, typeCarburant: String, kilometrage: Int? = null) {
+=======
+    fun createCar(marque: String, modele: String, annee: Int, immatriculation: String, typeCarburant: String) {
+>>>>>>> origin/documents1
         _createCarState.value = Resource.Loading()
         viewModelScope.launch {
             val result = repository.createCar(marque, modele, annee, immatriculation, typeCarburant, kilometrage)
@@ -317,9 +395,12 @@ class MaintenanceViewModel(application: Application) : AndroidViewModel(applicat
     private val _updateMaintenanceState = MutableLiveData<Resource<MaintenanceResponse>>()
     val updateMaintenanceState: LiveData<Resource<MaintenanceResponse>> = _updateMaintenanceState
 
+<<<<<<< HEAD
     private val _deleteMaintenanceState = MutableLiveData<Resource<MessageResponse>?>(null)
     val deleteMaintenanceState: LiveData<Resource<MessageResponse>?> = _deleteMaintenanceState
 
+=======
+>>>>>>> origin/documents1
     fun getMaintenances() {
         _maintenancesState.value = Resource.Loading()
         _maintenancesStateFlow.value = Resource.Loading()
@@ -426,9 +507,16 @@ class GarageViewModel(application: Application) : AndroidViewModel(application) 
 class DocumentViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = DocumentRepository()
 
+    // Document States
     private val _documentsState = MutableLiveData<Resource<List<DocumentResponse>>>()
     val documentsState: LiveData<Resource<List<DocumentResponse>>> = _documentsState
 
+<<<<<<< HEAD
+=======
+    private val _documentDetailState = MutableLiveData<Resource<DocumentResponse>>()
+    val documentDetailState: LiveData<Resource<DocumentResponse>> = _documentDetailState
+
+>>>>>>> origin/documents1
     private val _documentsStateFlow = MutableStateFlow<Resource<List<DocumentResponse>>?>(null)
     val documentsStateFlow: StateFlow<Resource<List<DocumentResponse>>?> = _documentsStateFlow.asStateFlow()
 
@@ -437,6 +525,9 @@ class DocumentViewModel(application: Application) : AndroidViewModel(application
 
     private val _createDocumentState = MutableLiveData<Resource<DocumentResponse>>()
     val createDocumentState: LiveData<Resource<DocumentResponse>> = _createDocumentState
+
+    private val _updateDocumentState = MutableLiveData<Resource<DocumentResponse>>()
+    val updateDocumentState: LiveData<Resource<DocumentResponse>> = _updateDocumentState
 
     fun getDocuments() {
         _documentsState.value = Resource.Loading()
@@ -447,20 +538,89 @@ class DocumentViewModel(application: Application) : AndroidViewModel(application
             _documentsStateFlow.value = result
             if (result is Resource.Success) {
                 _documentCount.value = result.data?.size ?: 0
+<<<<<<< HEAD
+=======
+                // Vérifier les documents expirante et logger les alertes
+                checkExpiringDocuments(result.data ?: emptyList())
+>>>>>>> origin/documents1
             }
+        }
+    }
+
+<<<<<<< HEAD
+    fun refresh() = getDocuments()
+
+    fun createDocument(type: String, dateEmission: String, dateExpiration: String, fichier: String, voiture: String) {
+=======
+    private fun checkExpiringDocuments(documents: List<DocumentResponse>) {
+        val expirationService = com.example.karhebti_android.data.websocket.DocumentExpirationNotificationService()
+        val expiringDocuments = expirationService.getDocumentsExpiringWithinThreeDays(documents)
+
+        if (expiringDocuments.isNotEmpty()) {
+            android.util.Log.w("DocumentViewModel", "🚨 ${expiringDocuments.size} document(s) expire(nt) dans 3 jours")
+            expiringDocuments.forEach { doc ->
+                val alertMessage = expirationService.getAlertMessage(doc)
+                android.util.Log.w("DocumentViewModel", alertMessage)
+            }
+        }
+    }
+
+    fun getDocumentById(id: String) {
+        android.util.Log.d("DocumentViewModel", "getDocumentById called with ID: $id")
+        _documentDetailState.value = Resource.Loading()
+        viewModelScope.launch {
+            android.util.Log.d("DocumentViewModel", "Fetching document from repository...")
+            val result = repository.getDocumentById(id)
+            android.util.Log.d("DocumentViewModel", "Result type: ${result::class.simpleName}")
+            _documentDetailState.value = result
         }
     }
 
     fun refresh() = getDocuments()
 
-    fun createDocument(type: String, dateEmission: String, dateExpiration: String, fichier: String, voiture: String) {
+    fun createDocument(request: CreateDocumentRequest) {
+>>>>>>> origin/documents1
         _createDocumentState.value = Resource.Loading()
         viewModelScope.launch {
-            val result = repository.createDocument(type, dateEmission, dateExpiration, fichier, voiture)
+            val result = repository.createDocument(request)
             _createDocumentState.value = result
-
             if (result is Resource.Success) {
                 getDocuments() // Refresh list
+            }
+        }
+    }
+
+    fun updateDocument(id: String, request: UpdateDocumentRequest) {
+        _updateDocumentState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.updateDocument(id, request)
+            _updateDocumentState.value = result
+            if (result is Resource.Success) {
+                getDocuments() // Refresh list
+                getDocumentById(id) // Refresh detail view
+            }
+        }
+    }
+
+    fun createDocument(request: CreateDocumentRequest, filePath: String? = null) {
+        _createDocumentState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.createDocument(request, filePath)
+            _createDocumentState.value = result
+            if (result is Resource.Success) {
+                getDocuments() // Refresh list
+            }
+        }
+    }
+
+    fun updateDocument(id: String, request: UpdateDocumentRequest, filePath: String? = null) {
+        _updateDocumentState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.updateDocument(id, request, filePath)
+            _updateDocumentState.value = result
+            if (result is Resource.Success) {
+                getDocuments() // Refresh list
+                getDocumentById(id) // Refresh detail view
             }
         }
     }
@@ -583,6 +743,7 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+
     fun updateUserRole(id: String, role: String) {
         viewModelScope.launch {
             val result = repository.updateUserRole(id, role)
@@ -591,13 +752,194 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+}
 
-    fun deleteUser(id: String) {
+// Reclamation (Feedback) ViewModel
+class ReclamationViewModel(application: Application) : AndroidViewModel(application) {
+    private val repository = ReclamationRepository()
+
+    private val _reclamationsState = MutableLiveData<Resource<List<Reclamation>>>()
+    val reclamationsState: LiveData<Resource<List<Reclamation>>> = _reclamationsState
+
+    private val _reclamationDetailState = MutableLiveData<Resource<Reclamation>>()
+    val reclamationDetailState: LiveData<Resource<Reclamation>> = _reclamationDetailState
+
+    private val _myReclamationsState = MutableLiveData<Resource<List<Reclamation>>>()
+    val myReclamationsState: LiveData<Resource<List<Reclamation>>> = _myReclamationsState
+
+    private val _createReclamationState = MutableLiveData<Resource<ReclamationResponse>>()
+    val createReclamationState: LiveData<Resource<ReclamationResponse>> = _createReclamationState
+
+    private val _updateReclamationState = MutableLiveData<Resource<ReclamationResponse>>()
+    val updateReclamationState: LiveData<Resource<ReclamationResponse>> = _updateReclamationState
+
+    private val _deleteReclamationState = MutableLiveData<Resource<MessageResponse>>()
+    val deleteReclamationState: LiveData<Resource<MessageResponse>> = _deleteReclamationState
+
+    private val _reclamationsStateFlow = MutableStateFlow<Resource<List<Reclamation>>?>(null)
+    val reclamationsStateFlow: StateFlow<Resource<List<Reclamation>>?> = _reclamationsStateFlow.asStateFlow()
+
+    private fun mapToReclamation(response: ReclamationResponse): Reclamation {
+        return Reclamation(
+            id = response.id,
+            titre = response.titre,
+            message = response.message,
+            type = response.type,
+            garage = response.garage?.let {
+                Garage(
+                    id = it.id,
+                    nom = it.nom,
+                    adresse = it.adresse,
+                    latitude = 0.0,
+                    longitude = 0.0,
+                    distance = 0.0,
+                    rating = 0.0f,
+                    reviewCount = 0,
+                    phoneNumber = it.telephone ?: "",
+                    isOpen = false,
+                    openUntil = null,
+                    services = emptyList(),
+                    imageUrl = null
+                )
+            },
+            service = response.service?.let { Service(it.id, it.type) },
+            createdAt = response.createdAt
+        )
+    }
+
+    fun getAllReclamations() {
+        _reclamationsState.value = Resource.Loading()
+        _reclamationsStateFlow.value = Resource.Loading()
         viewModelScope.launch {
-            val result = repository.deleteUser(id)
-            if (result is Resource.Success) {
-                getAllUsers() // Refresh list
+            val result = repository.getReclamations()
+            @Suppress("UNCHECKED_CAST")
+            val mappedResult: Resource<List<Reclamation>> = when (result) {
+                is Resource.Success -> Resource.Success(result.data?.map { mapToReclamation(it) } ?: emptyList())
+                is Resource.Error -> result as Resource<List<Reclamation>>
+                is Resource.Loading -> result as Resource<List<Reclamation>>
+            }
+            _reclamationsState.value = mappedResult
+            _reclamationsStateFlow.value = mappedResult
+        }
+    }
+
+    fun getReclamationById(id: String) {
+        _reclamationDetailState.value = Resource.Loading()
+        viewModelScope.launch {
+            try {
+                val result = repository.getReclamationById(id)
+                android.util.Log.d("ReclamationViewModel", "getReclamationById result: $result")
+                @Suppress("UNCHECKED_CAST")
+                val mappedResult: Resource<Reclamation> = when (result) {
+                    is Resource.Success -> result.data?.let { Resource.Success(mapToReclamation(it)) } as? Resource<Reclamation> ?: Resource.Error("No data")
+                    is Resource.Error -> result as Resource<Reclamation>
+                    is Resource.Loading -> result as Resource<Reclamation>
+                }
+                _reclamationDetailState.value = mappedResult
+            } catch (e: Exception) {
+                android.util.Log.e("ReclamationViewModel", "Error in getReclamationById: ${e.message}", e)
+                _reclamationDetailState.value = Resource.Error("Erreur: ${e.message}")
             }
         }
+    }
+
+    fun getMyReclamations() {
+        _myReclamationsState.value = Resource.Loading()
+        viewModelScope.launch {
+            try {
+                val result = repository.getMyReclamations()
+                android.util.Log.d("ReclamationViewModel", "getMyReclamations result: $result")
+                @Suppress("UNCHECKED_CAST")
+                val mappedResult: Resource<List<Reclamation>> = when (result) {
+                    is Resource.Success -> Resource.Success(result.data?.map { mapToReclamation(it) } ?: emptyList())
+                    is Resource.Error -> result as Resource<List<Reclamation>>
+                    is Resource.Loading -> result as Resource<List<Reclamation>>
+                }
+                _myReclamationsState.value = mappedResult
+            } catch (e: Exception) {
+                android.util.Log.e("ReclamationViewModel", "Error in getMyReclamations: ${e.message}", e)
+                _myReclamationsState.value = Resource.Error("Erreur: ${e.message}")
+            }
+        }
+    }
+
+    fun getReclamationsByGarage(garageId: String) {
+        _reclamationsState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.getReclamationsByGarage(garageId)
+            @Suppress("UNCHECKED_CAST")
+            val mappedResult: Resource<List<Reclamation>> = when (result) {
+                is Resource.Success -> Resource.Success(result.data?.map { mapToReclamation(it) } ?: emptyList())
+                is Resource.Error -> result as Resource<List<Reclamation>>
+                is Resource.Loading -> result as Resource<List<Reclamation>>
+            }
+            _reclamationsState.value = mappedResult
+        }
+    }
+
+    fun getReclamationsByService(serviceId: String) {
+        _reclamationsState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.getReclamationsByService(serviceId)
+            @Suppress("UNCHECKED_CAST")
+            val mappedResult: Resource<List<Reclamation>> = when (result) {
+                is Resource.Success -> Resource.Success(result.data?.map { mapToReclamation(it) } ?: emptyList())
+                is Resource.Error -> result as Resource<List<Reclamation>>
+                is Resource.Loading -> result as Resource<List<Reclamation>>
+            }
+            _reclamationsState.value = mappedResult
+        }
+    }
+
+    fun createReclamation(
+        type: String,
+        titre: String,
+        message: String,
+        garageId: String? = null,
+        serviceId: String? = null
+    ) {
+        _createReclamationState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.createReclamation(
+                type = type,
+                titre = titre,
+                message = message,
+                garageId = garageId,
+                serviceId = serviceId
+            )
+            _createReclamationState.value = result
+
+            if (result is Resource.Success) {
+                getMyReclamations() // Refresh user's reclamations
+            }
+        }
+    }
+
+    fun updateReclamation(id: String, titre: String? = null, message: String? = null) {
+        _updateReclamationState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.updateReclamation(id, titre, message)
+            _updateReclamationState.value = result
+
+            if (result is Resource.Success) {
+                getMyReclamations() // Refresh list
+            }
+        }
+    }
+
+    fun deleteReclamation(id: String) {
+        _deleteReclamationState.value = Resource.Loading()
+        viewModelScope.launch {
+            val result = repository.deleteReclamation(id)
+            _deleteReclamationState.value = result
+
+            if (result is Resource.Success) {
+                getMyReclamations() // Refresh list
+            }
+        }
+    }
+
+    fun refresh() {
+        getMyReclamations()
     }
 }

@@ -28,9 +28,12 @@ import com.example.karhebti_android.viewmodel.DocumentViewModel
 import com.example.karhebti_android.viewmodel.GarageViewModel
 import com.example.karhebti_android.viewmodel.MaintenanceViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
+<<<<<<< HEAD
 import com.example.karhebti_android.data.repository.TranslationManager
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
+=======
+>>>>>>> origin/documents1
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +74,7 @@ fun HomeScreen(
     val garageCount by garageViewModel.garageCount.collectAsState()
     val documentCount by documentViewModel.documentCount.collectAsState()
 
+<<<<<<< HEAD
     // Translation manager setup
     val db = com.example.karhebti_android.data.database.AppDatabase.getInstance(context.applicationContext)
     val translationRepository = com.example.karhebti_android.data.repository.TranslationRepository(
@@ -123,6 +127,8 @@ fun HomeScreen(
         }
     }
 
+=======
+>>>>>>> origin/documents1
     // Load data on first composition
     LaunchedEffect(Unit) {
         carViewModel.getMyCars()
@@ -183,7 +189,11 @@ fun HomeScreen(
                     IconButton(onClick = onSettingsClick) {
                         Icon(
                             imageVector = Icons.Default.Settings,
+<<<<<<< HEAD
                             contentDescription = settingsDescription,
+=======
+                            contentDescription = "Paramètres",
+>>>>>>> origin/documents1
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -208,6 +218,7 @@ fun HomeScreen(
                 fontWeight = FontWeight.Bold
             )
 
+<<<<<<< HEAD
             // Alertes importantes Section
             Text(
                 text = alertsTitle,
@@ -232,6 +243,8 @@ fun HomeScreen(
                 fuelLowTitle = fuelLowText,
                 fuelDetail = fuelDetail
             )
+=======
+>>>>>>> origin/documents1
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -295,13 +308,21 @@ fun HomeScreen(
             ) {
                 OverviewChip(
                     count = carCount.toString(),
+<<<<<<< HEAD
                     label = vehiclesLabel,
+=======
+                    label = "Véhicules",
+>>>>>>> origin/documents1
                     color = DeepPurple,
                     modifier = Modifier.weight(1f)
                 )
                 OverviewChip(
                     count = maintenanceCount.toString(),
+<<<<<<< HEAD
                     label = maintenanceLabel,
+=======
+                    label = "Entretiens",
+>>>>>>> origin/documents1
                     color = AccentGreen,
                     modifier = Modifier.weight(1f)
                 )
@@ -313,13 +334,21 @@ fun HomeScreen(
             ) {
                 OverviewChip(
                     count = documentCount.toString(),
+<<<<<<< HEAD
                     label = documentsLabel,
+=======
+                    label = "Documents",
+>>>>>>> origin/documents1
                     color = AccentYellow,
                     modifier = Modifier.weight(1f)
                 )
                 OverviewChip(
                     count = garageCount.toString(),
+<<<<<<< HEAD
                     label = garagesLabel,
+=======
+                    label = "Garages",
+>>>>>>> origin/documents1
                     color = LightPurple,
                     modifier = Modifier.weight(1f)
                 )
@@ -375,6 +404,7 @@ fun HomeScreen(
     }
 }
 
+<<<<<<< HEAD
 @Composable
 fun AlertCard(
     title: String,
@@ -526,6 +556,8 @@ fun FuelAlertCard(
         }
     }
 }
+=======
+>>>>>>> origin/documents1
 
 @Composable
 fun QuickActionButton(
@@ -619,3 +651,6 @@ fun HomeScreenPreview() {
         HomeScreen()
     }
 }
+
+
+

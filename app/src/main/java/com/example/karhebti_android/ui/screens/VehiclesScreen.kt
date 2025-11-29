@@ -55,13 +55,17 @@ fun VehiclesScreen(
     // Observe cars state from backend
     val carsState by carViewModel.carsState.observeAsState()
     val createCarState by carViewModel.createCarState.observeAsState()
+<<<<<<< HEAD
     val uploadState by carImageViewModel.uploadState.collectAsState()
     val isUploading by carImageViewModel.isUploading.collectAsState()
+=======
+>>>>>>> origin/documents1
 
     // UI State
     var showAddDialog by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
 
+<<<<<<< HEAD
     // Pending image Uri selected in the add dialog (uploaded after creation)
     var pendingImageUri by remember { mutableStateOf<Uri?>(null) }
 
@@ -83,8 +87,18 @@ fun VehiclesScreen(
     var backText by remember { mutableStateOf("Retour") }
 
     // Load cars on screen start
+=======
+    // Load cars on screen start - ALWAYS refresh when screen becomes visible
+>>>>>>> origin/documents1
     LaunchedEffect(Unit) {
         carViewModel.getMyCars()
+    }
+
+    // Auto-refresh whenever the screen is recomposed (navigating back)
+    DisposableEffect(Unit) {
+        onDispose {
+            // No cleanup needed
+        }
     }
 
     // Handle create car result
@@ -110,6 +124,7 @@ fun VehiclesScreen(
         }
     }
 
+<<<<<<< HEAD
     // Refresh car list after image upload
     LaunchedEffect(uploadState) {
         if (uploadState is Resource.Success) {
@@ -132,6 +147,8 @@ fun VehiclesScreen(
         }
     }
 
+=======
+>>>>>>> origin/documents1
     Scaffold(
         topBar = {
             TopAppBar(
@@ -149,7 +166,11 @@ fun VehiclesScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
+<<<<<<< HEAD
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, backText)
+=======
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour")
+>>>>>>> origin/documents1
                     }
                 },
 
@@ -190,7 +211,11 @@ fun VehiclesScreen(
                         ) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                             Text(
+<<<<<<< HEAD
                                 loadingText,
+=======
+                                "Chargement des véhicules...",
+>>>>>>> origin/documents1
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -252,8 +277,12 @@ fun VehiclesScreen(
                                 VehicleCardBackendIntegrated(
                                     car = car,
                                     onClick = { onVehicleClick(car.id) },
+<<<<<<< HEAD
                                     onDelete = { carViewModel.deleteCar(it) },
                                     carImageViewModel = carImageViewModel
+=======
+                                    onDelete = { carViewModel.deleteCar(it) }
+>>>>>>> origin/documents1
                                 )
                             }
                         }
@@ -313,10 +342,14 @@ fun VehiclesScreen(
             onAdd = { marque, modele, annee, immatriculation, typeCarburant, kilometrage ->
                 carViewModel.createCar(marque, modele, annee, immatriculation, typeCarburant, kilometrage)
             },
+<<<<<<< HEAD
             createState = createCarState,
             uploadState = uploadState,
             isUploading = isUploading,
             onImagePicked = { uri -> pendingImageUri = uri }
+=======
+            createState = createCarState
+>>>>>>> origin/documents1
         )
     }
 }
@@ -325,6 +358,7 @@ fun VehiclesScreen(
 fun VehicleCardBackendIntegrated(
     car: CarResponse,
     onClick: () -> Unit,
+<<<<<<< HEAD
     onDelete: (String) -> Unit,
     carImageViewModel: CarImageViewModel? = null
 ) {
@@ -332,6 +366,10 @@ fun VehicleCardBackendIntegrated(
     var showImageUploadDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
+=======
+    onDelete: (String) -> Unit
+) {
+>>>>>>> origin/documents1
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -348,6 +386,7 @@ fun VehicleCardBackendIntegrated(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+<<<<<<< HEAD
             // Image section
             if (!car.imageUrl.isNullOrEmpty()) {
                 val fullImageUrl = com.example.karhebti_android.util.ImageUrlHelper.getFullImageUrl(car.imageUrl)
@@ -377,6 +416,8 @@ fun VehicleCardBackendIntegrated(
                 Spacer(Modifier.height(4.dp))
             }
 
+=======
+>>>>>>> origin/documents1
             // Header Row with leading icon
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -411,6 +452,7 @@ fun VehicleCardBackendIntegrated(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+<<<<<<< HEAD
 
                 // Menu for actions (delete, upload image)
                 Row {
@@ -427,6 +469,8 @@ fun VehicleCardBackendIntegrated(
                         )
                     }
                 }
+=======
+>>>>>>> origin/documents1
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -720,7 +764,11 @@ fun AddVehicleDialog(
                         onValueChange = {},
                         label = { Text("Type de carburant") },
                         readOnly = true,
+<<<<<<< HEAD
                         modifier = Modifier.fillMaxWidth().menuAnchor()
+=======
+                        modifier = Modifier.fillMaxWidth()
+>>>>>>> origin/documents1
                     )
                     ExposedDropdownMenu(
                         expanded = expanded,
@@ -734,6 +782,7 @@ fun AddVehicleDialog(
                         }
                     }
                 }
+<<<<<<< HEAD
 
                 // Image picker UI with validation feedback
                 ImageUploadField(
@@ -781,16 +830,23 @@ fun AddVehicleDialog(
                         isUploading = true
                     )
                 }
+=======
+>>>>>>> origin/documents1
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     val yearInt = annee.toIntOrNull() ?: 0
+<<<<<<< HEAD
                     val kmInt = kilometrage.toIntOrNull()
                     onAdd(marque, modele, yearInt, immatriculation, typeCarburant, kmInt)
                 },
                 enabled = marque.isNotEmpty() && modele.isNotEmpty() && annee.isNotEmpty() && immatriculation.isNotEmpty() && createState !is Resource.Loading,
+=======
+                    onAdd(marque, modele, yearInt, immatriculation, typeCarburant)
+                },
+>>>>>>> origin/documents1
                 colors = ButtonDefaults.buttonColors(containerColor = DeepPurple)
             ) {
                 Text("Ajouter")

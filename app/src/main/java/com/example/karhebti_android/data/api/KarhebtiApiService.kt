@@ -3,6 +3,8 @@ package com.example.karhebti_android.data.api
 import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.*
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 
 interface KarhebtiApiService {
 
@@ -17,8 +19,13 @@ interface KarhebtiApiService {
     @POST("auth/forgot-password")
     suspend fun forgotPassword(@Body request: ForgotPasswordRequest): Response<MessageResponse>
 
+<<<<<<< HEAD
     @POST("auth/verify-otp")
     suspend fun verifyOtp(@Body request: VerifyOtpRequest): Response<MessageResponse>
+=======
+    @POST("auth/change-password")
+    suspend fun changePassword(@Body request: ChangePasswordRequest): Response<MessageResponse>
+>>>>>>> origin/documents1
 
     @POST("auth/reset-password")
     suspend fun resetPassword(@Body request: ResetPasswordRequest): Response<MessageResponse>
@@ -92,6 +99,7 @@ interface KarhebtiApiService {
 
     @DELETE("cars/{id}")
     suspend fun deleteCar(@Path("id") id: String): Response<Unit>
+<<<<<<< HEAD
 
     // ==================== NEW: CAR IMAGE UPLOAD ====================
 
@@ -101,6 +109,8 @@ interface KarhebtiApiService {
         @Path("id") id: String,
         @Part image: MultipartBody.Part
     ): Response<CarResponse>
+=======
+>>>>>>> origin/documents1
 
     // ==================== MAINTENANCES ====================
 
@@ -180,14 +190,43 @@ interface KarhebtiApiService {
     @POST("documents")
     suspend fun createDocument(@Body request: CreateDocumentRequest): Response<DocumentResponse>
 
+    @Multipart
+    @POST("documents")
+    suspend fun createDocumentMultipart(
+        @Part("type") type: RequestBody,
+        @Part("dateEmission") dateEmission: RequestBody,
+        @Part("dateExpiration") dateExpiration: RequestBody,
+        @Part("voiture") voiture: RequestBody,
+        @Part fichier: MultipartBody.Part? = null
+    ): Response<DocumentResponse>
+
     @PATCH("documents/{id}")
     suspend fun updateDocument(
         @Path("id") id: String,
         @Body request: UpdateDocumentRequest
     ): Response<DocumentResponse>
 
+    @Multipart
+    @PATCH("documents/{id}")
+    suspend fun updateDocumentMultipart(
+        @Path("id") id: String,
+        @Part("type") type: RequestBody,
+        @Part("dateEmission") dateEmission: RequestBody,
+        @Part("dateExpiration") dateExpiration: RequestBody,
+        @Part("voiture") voiture: RequestBody? = null,
+        @Part fichier: MultipartBody.Part? = null
+    ): Response<DocumentResponse>
+
     @DELETE("documents/{id}")
     suspend fun deleteDocument(@Path("id") id: String): Response<MessageResponse>
+
+    // OCR Document endpoint
+    @Multipart
+    @POST("documents/ocr")
+    suspend fun ocrDocument(
+        @Part file: MultipartBody.Part,
+        @Part("typeHint") typeHint: RequestBody? = null
+    ): Response<OcrDocumentResponse>
 
     // ==================== PARTS ====================
 
@@ -232,6 +271,32 @@ interface KarhebtiApiService {
     @DELETE("services/{id}")
     suspend fun deleteService(@Path("id") id: String): Response<MessageResponse>
 
+    // ==================== RECLAMATIONS (FEEDBACK) ====================
+
+    @GET("reclamations")
+    suspend fun getReclamations(): Response<List<ReclamationResponse>>
+
+    @GET("reclamations/{id}")
+    suspend fun getReclamation(@Path("id") id: String): Response<ReclamationResponse>
+
+    @GET("reclamations/garage/{garageId}")
+    suspend fun getReclamationsByGarage(@Path("garageId") garageId: String): Response<List<ReclamationResponse>>
+
+    @GET("reclamations/service/{serviceId}")
+    suspend fun getReclamationsByService(@Path("serviceId") serviceId: String): Response<List<ReclamationResponse>>
+
+    @POST("reclamations")
+    suspend fun createReclamation(@Body request: CreateReclamationRequest): Response<ReclamationResponse>
+
+    @PATCH("reclamations/{id}")
+    suspend fun updateReclamation(
+        @Path("id") id: String,
+        @Body request: UpdateReclamationRequest
+    ): Response<ReclamationResponse>
+
+    @DELETE("reclamations/{id}")
+    suspend fun deleteReclamation(@Path("id") id: String): Response<MessageResponse>
+
     // ==================== AI FEATURES ====================
 
     @POST("ai/report-road-issue")
@@ -257,6 +322,7 @@ interface KarhebtiApiService {
         @Query("rayon") rayon: Double? = null
     ): Response<List<GarageRecommendation>>
 
+<<<<<<< HEAD
     // ==================== TRANSLATION API ====================
 
     @POST("api/translation/translate")
@@ -340,4 +406,25 @@ interface KarhebtiApiService {
 
     @POST("notifications/mark-all-read")
     suspend fun markAllNotificationsAsRead(): Response<MessageResponse>
+=======
+    // ==================== NOTIFICATIONS ====================
+
+    @GET("notifications")
+    suspend fun getNotifications(): Response<List<NotificationResponse>>
+
+    @GET("notifications/mes-notifications")
+    suspend fun getMyNotifications(): Response<List<NotificationResponse>>
+
+    @GET("notifications/non-lues")
+    suspend fun getUnreadNotifications(): Response<List<NotificationResponse>>
+
+    @PATCH("notifications/{id}/marquer-lu")
+    suspend fun markNotificationAsRead(@Path("id") id: String): Response<NotificationResponse>
+
+    @PATCH("notifications/marquer-toutes-lues")
+    suspend fun markAllNotificationsAsRead(): Response<MessageResponse>
+
+    @DELETE("notifications/{id}")
+    suspend fun deleteNotification(@Path("id") id: String): Response<MessageResponse>
+>>>>>>> origin/documents1
 }

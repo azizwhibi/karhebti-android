@@ -34,12 +34,15 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DocumentsScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit,
+    onAddDocumentClick: () -> Unit,
+    onDocumentClick: (String) -> Unit
 ) {
     val context = LocalContext.current
     val documentViewModel: DocumentViewModel = viewModel(
         factory = ViewModelFactory(context.applicationContext as android.app.Application)
     )
+<<<<<<< HEAD
 
     // Translation manager setup
     val db = com.example.karhebti_android.data.database.AppDatabase.getInstance(context.applicationContext)
@@ -86,7 +89,13 @@ fun DocumentsScreen(
     val documentsState by documentViewModel.documentsState.observeAsState()
     var selectedFilter by remember { mutableStateOf(allText) }
     var showAddDialog by remember { mutableStateOf(false) }
+=======
+
+    val documentsState by documentViewModel.documentsState.observeAsState()
+    var selectedFilter by remember { mutableStateOf("Tous") }
+>>>>>>> origin/documents1
     var showDeleteDialog by remember { mutableStateOf<DocumentResponse?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         documentViewModel.getDocuments()
@@ -100,7 +109,11 @@ fun DocumentsScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
+<<<<<<< HEAD
                             contentDescription = backText,
+=======
+                            contentDescription = "Retour",
+>>>>>>> origin/documents1
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -109,7 +122,11 @@ fun DocumentsScreen(
                     IconButton(onClick = { documentViewModel.getDocuments() }) {
                         Icon(
                             Icons.Default.Refresh,
+<<<<<<< HEAD
                             contentDescription = refreshText,
+=======
+                            contentDescription = "Actualiser",
+>>>>>>> origin/documents1
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -122,6 +139,7 @@ fun DocumentsScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
+<<<<<<< HEAD
                 onClick = { showAddDialog = true },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
@@ -131,11 +149,25 @@ fun DocumentsScreen(
         }
     ) { paddingValues ->
         Box(
+=======
+                onClick = { onAddDocumentClick() },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Ajouter document")
+            }
+        }
+    ) { paddingValues ->
+        LazyColumn(
+>>>>>>> origin/documents1
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+<<<<<<< HEAD
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -158,10 +190,70 @@ fun DocumentsScreen(
                                 labelColor = MaterialTheme.colorScheme.onSurface
                             )
                         )
+=======
+            // Search bar
+            item {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    placeholder = { Text("Rechercher un document...") },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = "Rechercher",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Effacer",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    )
+                )
+            }
+
+            // Filter chips
+            item {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(listOf("Tous", "Carte grise", "Assurance", "Contrôle technique", "Autre")) { filter ->
+                        FilterChip(
+                            selected = selectedFilter == filter,
+                            onClick = { selectedFilter = filter },
+                            label = { Text(filter) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                labelColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        )
+>>>>>>> origin/documents1
                     }
                 }
 
+<<<<<<< HEAD
                 // Content
+=======
+            // Content
+            item {
+>>>>>>> origin/documents1
                 when (val state = documentsState) {
                     is Resource.Loading -> {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -171,7 +263,11 @@ fun DocumentsScreen(
                             ) {
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                                 Text(
+<<<<<<< HEAD
                                     loadingText,
+=======
+                                    "Chargement des documents...",
+>>>>>>> origin/documents1
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -179,8 +275,26 @@ fun DocumentsScreen(
                     }
                     is Resource.Success -> {
                         val allDocs = state.data ?: emptyList()
+<<<<<<< HEAD
                         val filteredDocs = if (selectedFilter == allText) allDocs
                         else allDocs.filter { it.type == selectedFilter.lowercase().replace(" ", "_") }
+=======
+
+                        // Filtrage par type
+                        val typeFilteredDocs = if (selectedFilter == "Tous") allDocs
+                        else allDocs.filter { it.type.equals(selectedFilter, ignoreCase = true) }
+
+                        // Filtrage par recherche
+                        val filteredDocs = if (searchQuery.isEmpty()) {
+                            typeFilteredDocs
+                        } else {
+                            typeFilteredDocs.filter { doc ->
+                                doc.type.contains(searchQuery, ignoreCase = true) ||
+                                doc.description?.contains(searchQuery, ignoreCase = true) == true ||
+                                doc.etat?.contains(searchQuery, ignoreCase = true) == true
+                            }
+                        }
+>>>>>>> origin/documents1
 
                         if (filteredDocs.isEmpty()) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -189,12 +303,20 @@ fun DocumentsScreen(
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
                                     Icon(
+<<<<<<< HEAD
                                         Icons.Default.Description,
+=======
+                                        if (searchQuery.isNotEmpty())
+                                            Icons.Default.SearchOff
+                                        else
+                                            Icons.Default.Description,
+>>>>>>> origin/documents1
                                         contentDescription = null,
                                         modifier = Modifier.size(64.dp),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                     )
                                     Text(
+<<<<<<< HEAD
                                         noDocumentsText,
                                         style = MaterialTheme.typography.titleLarge,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -206,6 +328,34 @@ fun DocumentsScreen(
                                 items(filteredDocs) { doc ->
                                     DocumentCard(doc)
                                 }
+=======
+                                        if (searchQuery.isNotEmpty())
+                                            "Aucun résultat"
+                                        else if (selectedFilter != "Tous")
+                                            "Aucun document de ce type"
+                                        else
+                                            "Aucun document",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                    Text(
+                                        if (searchQuery.isNotEmpty())
+                                            "Essayez avec d'autres mots-clés"
+                                        else
+                                            "Ajoutez vos documents importants",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        } else {
+                            filteredDocs.forEach { document ->
+                                DocumentCard(
+                                    document = document,
+                                    onClick = { onDocumentClick(document.id) },
+                                    onDelete = { showDeleteDialog = document }
+                                )
+>>>>>>> origin/documents1
                             }
                         }
                     }
@@ -224,12 +374,32 @@ fun DocumentsScreen(
                                 Text(
                                     "Erreur",
                                     style = MaterialTheme.typography.titleLarge,
+<<<<<<< HEAD
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     state.message ?: "Une erreur est survenue",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+=======
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Text(
+                                    state.message ?: "Une erreur est survenue",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Button(
+                                    onClick = { documentViewModel.getDocuments() },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    Icon(Icons.Default.Refresh, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Réessayer")
+                                }
+>>>>>>> origin/documents1
                             }
                         }
                     }
@@ -268,6 +438,7 @@ fun DocumentsScreen(
 }
 
 @Composable
+<<<<<<< HEAD
 fun DocumentCard(document: DocumentResponse) {
     val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
 
@@ -280,14 +451,43 @@ fun DocumentCard(document: DocumentResponse) {
             containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+=======
+fun DocumentCard(
+    document: DocumentResponse,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
+
+    val now = Date()
+    val daysUntilExpiry = ((document.dateExpiration.time - now.time) / (1000 * 60 * 60 * 24)).toInt()
+
+    val (statusLabel, statusColor) = when {
+        daysUntilExpiry < 0 -> "Expiré" to MaterialTheme.colorScheme.error
+        daysUntilExpiry <= 30 -> "Expire bientôt" to MaterialTheme.colorScheme.tertiary
+        else -> "Valide" to MaterialTheme.colorScheme.secondary
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(12.dp)
+>>>>>>> origin/documents1
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+<<<<<<< HEAD
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -323,3 +523,90 @@ fun DocumentCard(document: DocumentResponse) {
         }
     }
 }
+=======
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Description,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Column {
+                    Text(
+                        text = document.type.replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Expire le ${dateFormat.format(document.dateExpiration)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AssistChip(
+                    onClick = {},
+                    label = { Text(statusLabel, style = MaterialTheme.typography.labelSmall) },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = statusColor.copy(alpha = 0.2f),
+                        labelColor = statusColor
+                    )
+                )
+
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(
+                            Icons.Default.MoreVert,
+                            contentDescription = "Menu",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Supprimer",
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onDelete()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+>>>>>>> origin/documents1

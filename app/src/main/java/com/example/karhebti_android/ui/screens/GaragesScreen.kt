@@ -31,13 +31,15 @@ import androidx.compose.runtime.collectAsState
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GaragesScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onAddGarageClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val garageViewModel: GarageViewModel = viewModel(
         factory = ViewModelFactory(context.applicationContext as android.app.Application)
     )
 
+<<<<<<< HEAD
     // Translation manager setup
     val db = com.example.karhebti_android.data.database.AppDatabase.getInstance(context.applicationContext)
     val translationRepository = com.example.karhebti_android.data.repository.TranslationRepository(
@@ -87,6 +89,11 @@ fun GaragesScreen(
     val garagesState by garageViewModel.garagesState.observeAsState()
     var searchQuery by remember { mutableStateOf("") }
     var selectedService by remember { mutableStateOf(allText) }
+=======
+    val garagesState by garageViewModel.garagesState.observeAsState()
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedService by remember { mutableStateOf("Tous") }
+>>>>>>> origin/documents1
 
     LaunchedEffect(Unit) {
         garageViewModel.getGarages()
@@ -100,7 +107,11 @@ fun GaragesScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
+<<<<<<< HEAD
                             contentDescription = backText,
+=======
+                            contentDescription = "Retour",
+>>>>>>> origin/documents1
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -109,7 +120,11 @@ fun GaragesScreen(
                     IconButton(onClick = { garageViewModel.getGarages() }) {
                         Icon(
                             Icons.Default.Refresh,
+<<<<<<< HEAD
                             contentDescription = refreshText,
+=======
+                            contentDescription = "Actualiser",
+>>>>>>> origin/documents1
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -119,6 +134,18 @@ fun GaragesScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAddGarageClick,
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = "Ajouter un garage",
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
+            }
         }
     ) { paddingValues ->
         Box(
@@ -136,7 +163,11 @@ fun GaragesScreen(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
+<<<<<<< HEAD
                     placeholder = { Text(searchPlaceholder) },
+=======
+                    placeholder = { Text("Rechercher un garage...") },
+>>>>>>> origin/documents1
                     leadingIcon = {
                         Icon(
                             Icons.Default.Search,
@@ -159,7 +190,11 @@ fun GaragesScreen(
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+<<<<<<< HEAD
                     items(listOf(allText, oilChangeText, revisionText, repairText, tiresText, brakesText)) { service ->
+=======
+                    items(listOf("Tous", "vidange", "révision", "réparation", "pneus", "freins")) { service ->
+>>>>>>> origin/documents1
                         FilterChip(
                             selected = selectedService == service,
                             onClick = { selectedService = service },
@@ -177,6 +212,7 @@ fun GaragesScreen(
                 when (val state = garagesState) {
                     is Resource.Loading -> {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+<<<<<<< HEAD
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -187,12 +223,19 @@ fun GaragesScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+=======
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+>>>>>>> origin/documents1
                         }
                     }
                     is Resource.Success -> {
                         val allGarages = state.data ?: emptyList()
                         val filteredGarages = allGarages.filter { garage ->
+<<<<<<< HEAD
                             (selectedService == allText || garage.typeService.contains(selectedService)) &&
+=======
+                            (selectedService == "Tous" || garage.typeService.contains(selectedService)) &&
+>>>>>>> origin/documents1
                                     (searchQuery.isBlank() || garage.nom.contains(searchQuery, ignoreCase = true))
                         }
 
@@ -209,6 +252,7 @@ fun GaragesScreen(
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                     )
                                     Text(
+<<<<<<< HEAD
                                         noGaragesText,
                                         style = MaterialTheme.typography.titleLarge,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -221,6 +265,22 @@ fun GaragesScreen(
                                     GarageCard(garage, ratingText)
                                 }
                             }
+=======
+                                        "Aucun garage trouvé",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(filteredGarages, key = { it.id }) { garage ->
+                                    GarageCard(garage = garage)
+                                }
+                            }
+>>>>>>> origin/documents1
                         }
                     }
                     is Resource.Error -> {
@@ -236,6 +296,7 @@ fun GaragesScreen(
                                     tint = MaterialTheme.colorScheme.error
                                 )
                                 Text(
+<<<<<<< HEAD
                                     "Erreur",
                                     style = MaterialTheme.typography.titleLarge,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -244,6 +305,20 @@ fun GaragesScreen(
                                     state.message ?: "Une erreur est survenue",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+=======
+                                    "Erreur de chargement",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Button(
+                                    onClick = { garageViewModel.getGarages() },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    Text("Réessayer")
+                                }
+>>>>>>> origin/documents1
                             }
                         }
                     }
@@ -255,6 +330,7 @@ fun GaragesScreen(
 }
 
 @Composable
+<<<<<<< HEAD
 fun GarageCard(garage: GarageResponse, ratingText: String) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -263,6 +339,16 @@ fun GarageCard(garage: GarageResponse, ratingText: String) {
             containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+=======
+fun GarageCard(garage: GarageResponse) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp)
+>>>>>>> origin/documents1
     ) {
         Column(
             modifier = Modifier
@@ -273,6 +359,7 @@ fun GarageCard(garage: GarageResponse, ratingText: String) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
+<<<<<<< HEAD
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -283,11 +370,25 @@ fun GarageCard(garage: GarageResponse, ratingText: String) {
                     )
                     Text(
                         garage.adresse,
+=======
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = garage.nom,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = garage.adresse,
+>>>>>>> origin/documents1
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
+<<<<<<< HEAD
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -302,10 +403,52 @@ fun GarageCard(garage: GarageResponse, ratingText: String) {
                         garage.noteUtilisateur.toString(),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold
+=======
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.tertiaryContainer
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Star,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        Text(
+                            text = garage.noteUtilisateur.toString(),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(garage.typeService) { service ->
+                    AssistChip(
+                        onClick = {},
+                        label = {
+                            Text(
+                                service.replaceFirstChar { it.uppercase() },
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            labelColor = MaterialTheme.colorScheme.primary
+                        )
+>>>>>>> origin/documents1
                     )
                 }
             }
 
+<<<<<<< HEAD
             // Services
             if (garage.typeService.isNotEmpty()) {
                 Row(
@@ -338,6 +481,32 @@ fun GarageCard(garage: GarageResponse, ratingText: String) {
                             )
                         }
                     }
+=======
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = { /* call garage */ },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary,
+                        contentColor = MaterialTheme.colorScheme.onSecondary
+                    )
+                ) {
+                    Icon(Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Appeler")
+                }
+
+                OutlinedButton(
+                    onClick = { /* navigate to garage */ },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Directions, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Itinéraire")
+>>>>>>> origin/documents1
                 }
             }
         }

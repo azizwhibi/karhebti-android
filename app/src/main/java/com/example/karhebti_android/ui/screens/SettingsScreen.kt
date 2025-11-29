@@ -24,20 +24,34 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+<<<<<<< HEAD
+=======
+import androidx.compose.ui.tooling.preview.Preview
+>>>>>>> origin/documents1
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.karhebti_android.data.repository.Resource
 import com.example.karhebti_android.ui.theme.*
 import com.example.karhebti_android.viewmodel.AuthViewModel
+<<<<<<< HEAD
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.karhebti_android.data.repository.TranslationManager
+=======
+//import kotlinx.coroutines.flow.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+>>>>>>> origin/documents1
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onBackClick: () -> Unit = {},
-    onLogout: () -> Unit = {}
+    onLogout: () -> Unit = {},
+    onReclamationsClick: () -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
+    onSOSClick: () -> Unit = {} // <-- paramètre pour le clic sur SOS
 ) {
     // Get AuthViewModel to access current user data
     val context = LocalContext.current
@@ -106,10 +120,16 @@ fun SettingsScreen(
     // SharedPreferences for clearing Remember Me on logout
     val prefs = remember { context.getSharedPreferences("login_prefs", android.content.Context.MODE_PRIVATE) }
 
+    // SharedPreferences for clearing Remember Me on logout
+    val prefs = remember { context.getSharedPreferences("login_prefs", android.content.Context.MODE_PRIVATE) }
+
     var notificationsEnabled by remember { mutableStateOf(true) }
     var twoFactorEnabled by remember { mutableStateOf(false) }
     var showChangePasswordDialog by remember { mutableStateOf(false) }
+<<<<<<< HEAD
     var showLanguageDialog by remember { mutableStateOf(false) }
+=======
+>>>>>>> origin/documents1
 
     // Get current user data
     val currentUser = authViewModel.getCurrentUser()
@@ -271,11 +291,17 @@ fun SettingsScreen(
                 modifier = Modifier.padding(top = 8.dp)
             )
 
-            SettingsToggleItem(
+            SettingsItem(
                 icon = Icons.Default.Notifications,
+<<<<<<< HEAD
                 title = notificationsText,
                 checked = notificationsEnabled,
                 onCheckedChange = { isChecked: Boolean -> notificationsEnabled = isChecked },
+=======
+                title = "Notifications",
+                subtitle = "Gérer vos notifications",
+                onClick = onNotificationsClick,
+>>>>>>> origin/documents1
                 iconTint = AccentGreen
             )
 
@@ -297,7 +323,11 @@ fun SettingsScreen(
 
             SettingsItem(
                 icon = Icons.Default.Lock,
+<<<<<<< HEAD
                 title = changePasswordText,
+=======
+                title = "Changer mot de passe",
+>>>>>>> origin/documents1
                 onClick = { showChangePasswordDialog = true },
                 iconTint = DeepPurple
             )
@@ -319,8 +349,21 @@ fun SettingsScreen(
             )
 
             SettingsItem(
+<<<<<<< HEAD
                 icon = Icons.AutoMirrored.Filled.Help,
                 title = helpCenterText,
+=======
+                icon = Icons.Default.Feedback,
+                title = "Réclamations",
+                subtitle = "Signaler un problème",
+                onClick = onReclamationsClick,
+                iconTint = AccentOrange
+            )
+
+            SettingsItem(
+                icon = Icons.Default.Help,
+                title = "Centre d'aide",
+>>>>>>> origin/documents1
                 onClick = { /* Open help */ },
                 iconTint = AccentGreen
             )
@@ -330,6 +373,21 @@ fun SettingsScreen(
                 title = contactUsText,
                 onClick = { /* Contact support */ },
                 iconTint = DeepPurple
+            )
+
+            // Section SOS / Déclaration de panne
+            Text(
+                text = "Assistance & SOS",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            SettingsItem(
+                icon = Icons.Default.Warning,
+                title = "Déclarer une panne (SOS)",
+                subtitle = "Déclarer une panne ou demander de l'aide",
+                onClick = onSOSClick, // <-- rendre le bouton vraiment cliquable
+                iconTint = AlertRed
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -402,6 +460,7 @@ fun SettingsScreen(
     // Change Password Dialog
     if (showChangePasswordDialog) {
         ChangePasswordDialog(
+<<<<<<< HEAD
             authViewModel = authViewModel,
             translationManager = translationManager,
             currentLanguage = currentLanguage,
@@ -543,6 +602,15 @@ fun ChangePasswordDialog(
     authViewModel: AuthViewModel,
     translationManager: TranslationManager,
     currentLanguage: String,
+=======
+            onDismiss = { showChangePasswordDialog = false }
+        )
+    }
+}
+
+@Composable
+fun ChangePasswordDialog(
+>>>>>>> origin/documents1
     onDismiss: () -> Unit
 ) {
     var currentPassword by remember { mutableStateOf("") }
@@ -552,6 +620,7 @@ fun ChangePasswordDialog(
     var newPasswordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+<<<<<<< HEAD
 
     val changePasswordState by authViewModel.changePasswordState.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
@@ -596,12 +665,20 @@ fun ChangePasswordDialog(
             errorMessage = (changePasswordState as Resource.Error).message
         }
     }
+=======
+    var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+>>>>>>> origin/documents1
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
+<<<<<<< HEAD
                 dialogTitle,
+=======
+                "Changer le mot de passe",
+>>>>>>> origin/documents1
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -615,13 +692,21 @@ fun ChangePasswordDialog(
                         currentPassword = it
                         errorMessage = null
                     },
+<<<<<<< HEAD
                     label = { Text(currentPasswordLabel) },
+=======
+                    label = { Text("Mot de passe actuel") },
+>>>>>>> origin/documents1
                     visualTransformation = if (currentPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         IconButton(onClick = { currentPasswordVisible = !currentPasswordVisible }) {
                             Icon(
                                 imageVector = if (currentPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+<<<<<<< HEAD
                                 contentDescription = if (currentPasswordVisible) hideText else showText
+=======
+                                contentDescription = if (currentPasswordVisible) "Masquer" else "Afficher"
+>>>>>>> origin/documents1
                             )
                         }
                     },
@@ -640,13 +725,21 @@ fun ChangePasswordDialog(
                         newPassword = it
                         errorMessage = null
                     },
+<<<<<<< HEAD
                     label = { Text(newPasswordLabel) },
+=======
+                    label = { Text("Nouveau mot de passe") },
+>>>>>>> origin/documents1
                     visualTransformation = if (newPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         IconButton(onClick = { newPasswordVisible = !newPasswordVisible }) {
                             Icon(
                                 imageVector = if (newPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+<<<<<<< HEAD
                                 contentDescription = if (newPasswordVisible) hideText else showText
+=======
+                                contentDescription = if (newPasswordVisible) "Masquer" else "Afficher"
+>>>>>>> origin/documents1
                             )
                         }
                     },
@@ -665,13 +758,21 @@ fun ChangePasswordDialog(
                         confirmPassword = it
                         errorMessage = null
                     },
+<<<<<<< HEAD
                     label = { Text(confirmPasswordLabel) },
+=======
+                    label = { Text("Confirmer le mot de passe") },
+>>>>>>> origin/documents1
                     visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
                             Icon(
                                 imageVector = if (confirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+<<<<<<< HEAD
                                 contentDescription = if (confirmPasswordVisible) hideText else showText
+=======
+                                contentDescription = if (confirmPasswordVisible) "Masquer" else "Afficher"
+>>>>>>> origin/documents1
                             )
                         }
                     },
@@ -698,6 +799,7 @@ fun ChangePasswordDialog(
                 onClick = {
                     when {
                         currentPassword.isEmpty() || newPassword.isEmpty() || confirmPassword.isEmpty() -> {
+<<<<<<< HEAD
                             errorMessage = allFieldsRequiredError
                         }
                         newPassword != confirmPassword -> {
@@ -718,16 +820,46 @@ fun ChangePasswordDialog(
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 if (changePasswordState is Resource.Loading) {
+=======
+                            errorMessage = "Tous les champs sont requis"
+                        }
+                        newPassword != confirmPassword -> {
+                            errorMessage = "Les mots de passe ne correspondent pas"
+                        }
+                        newPassword.length < 6 -> {
+                            errorMessage = "Le mot de passe doit contenir au moins 6 caractères"
+                        }
+                        else -> {
+                            // TODO: appeler un endpoint backend /auth/change-password quand disponible
+                            isLoading = true
+                            scope.launch {
+                                kotlinx.coroutines.delay(1500)
+                                isLoading = false
+                                onDismiss()
+                            }
+                        }
+                    }
+                },
+                enabled = !isLoading,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            ) {
+                if (isLoading) {
+>>>>>>> origin/documents1
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         color = Color.White
                     )
                 } else {
+<<<<<<< HEAD
                     Text(changeText)
+=======
+                    Text("Changer")
+>>>>>>> origin/documents1
                 }
             }
         },
         dismissButton = {
+<<<<<<< HEAD
             TextButton(
                 onClick = {
                     authViewModel.resetChangePasswordState()
@@ -796,6 +928,13 @@ fun SettingsToggleItem(
             )
         }
     }
+=======
+            TextButton(onClick = onDismiss, enabled = !isLoading) {
+                Text("Annuler")
+            }
+        }
+    )
+>>>>>>> origin/documents1
 }
 
 @Composable
@@ -854,9 +993,81 @@ fun SettingsItem(
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
+<<<<<<< HEAD
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)
+=======
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+>>>>>>> origin/documents1
             )
         }
     }
 }
+<<<<<<< HEAD
+=======
+
+@Composable
+fun SettingsToggleItem(
+    icon: ImageVector,
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    iconTint: Color = DeepPurple
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(iconTint.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = AccentGreen,
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = LightGrey
+                )
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SettingsScreenPreview() {
+    KarhebtiandroidTheme {
+        SettingsScreen()
+    }
+}
+>>>>>>> origin/documents1

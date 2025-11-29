@@ -4,6 +4,7 @@ import com.google.gson.annotations.SerializedName
 import com.google.gson.annotations.JsonAdapter
 import java.util.Date
 
+<<<<<<< HEAD
 // Auth DTOs
 data class SignupRequest(
     val nom: String,
@@ -68,6 +69,12 @@ data class UpdateUserRequest(
 data class UpdateRoleRequest(
     val role: String
 )
+=======
+// Ce fichier contient uniquement les modèles métier (cars, maintenances, garages, documents, etc.).
+// Tous les DTOs d'authentification, de notifications et les réponses génériques
+// (SignupRequest, LoginRequest, AuthResponse, UserResponse, ErrorResponse,
+// NotificationResponse, MessageResponse, etc.) sont définis dans DTOs.kt.
+>>>>>>> origin/documents1
 
 // Car DTOs
 data class CreateCarRequest(
@@ -105,11 +112,14 @@ data class CarResponse(
     val prochainEntretien: String? = null,
     val joursProchainEntretien: Int? = null,
     val imageUrl: String? = null,
+<<<<<<< HEAD
     val price: Double? = null,
     val description: String? = null,
     @SerializedName("forSale")
     val isForSale: Boolean = false,
     val saleStatus: String? = null,
+=======
+>>>>>>> origin/documents1
     @JsonAdapter(FlexibleUserDeserializer::class)
     val user: String? = null, // Can be either user ID string or user object
     val createdAt: Date,
@@ -191,7 +201,9 @@ data class UpdateDocumentRequest(
     val type: String? = null,
     val dateEmission: String? = null,
     val dateExpiration: String? = null,
-    val fichier: String? = null
+    val fichier: String? = null,
+    val description: String? = null,
+    val etat: String? = null
 )
 
 data class DocumentResponse(
@@ -202,9 +214,27 @@ data class DocumentResponse(
     val dateExpiration: Date,
     val fichier: String,
     @JsonAdapter(FlexibleCarDeserializer::class)
+<<<<<<< HEAD
     val voiture: String? = null, // Can be either car ID string or car object
+=======
+    val voiture: String? = null,
+>>>>>>> origin/documents1
     val createdAt: Date,
-    val updatedAt: Date
+    val updatedAt: Date,
+    val description: String? = null,
+    val etat: String? = null
+)
+
+// OCR DTOs
+data class OcrDocumentData(
+    val type: String,           // "assurance", "carte_grise", "permis", "visite_technique", "inconnu"
+    val dateEmission: String?,  // ISO 8601 format: "2024-01-01T00:00:00.000Z"
+    val dateExpiration: String? // ISO 8601 format: "2025-12-31T00:00:00.000Z"
+)
+
+data class OcrDocumentResponse(
+    val success: Boolean,
+    val data: OcrDocumentData
 )
 
 // Part DTOs
@@ -223,7 +253,11 @@ data class PartResponse(
     val type: String,
     val dateInstallation: Date,
     val kilometrageRecommande: Int,
+<<<<<<< HEAD
     val voiture: String? = null, // Changed from CarResponse to String (car ID)
+=======
+    val voiture: String? = null,
+>>>>>>> origin/documents1
     val createdAt: Date,
     val updatedAt: Date
 )
@@ -266,9 +300,20 @@ data class SendEmailVerificationRequest(
     val email: String
 )
 
+<<<<<<< HEAD
 data class VerifyEmailRequest(
     val email: String,
     val code: String
+=======
+data class DangerZone(
+    val id: String,
+    val type: String,
+    val description: String,
+    val latitude: Double,
+    val longitude: Double,
+    val signalements: Int,
+    val niveauDanger: String
+>>>>>>> origin/documents1
 )
 
 data class EmailVerificationResponse(
@@ -276,6 +321,7 @@ data class EmailVerificationResponse(
     val message: String
 )
 
+<<<<<<< HEAD
 // Entretiens Filter/Search DTOs
 data class EntretiensFilterParams(
     val search: String? = null,
@@ -291,12 +337,21 @@ data class EntretiensFilterParams(
     val order: String? = "asc", // asc, desc
     val page: Int = 1,
     val limit: Int = 20
+=======
+data class MaintenanceRecommendation(
+    val type: String,
+    val priorite: String,
+    val raison: String,
+    val estimationCout: Double,
+    val delaiRecommande: String
+>>>>>>> origin/documents1
 )
 
 data class MaintenanceExtendedResponse(
     @SerializedName("_id")
     val id: String,
     val type: String,
+<<<<<<< HEAD
     val title: String,
     val notes: String? = null,
     val tags: List<String> = emptyList(),
@@ -311,10 +366,17 @@ data class MaintenanceExtendedResponse(
     @JsonAdapter(FlexibleCarDeserializer::class)
     val voiture: String? = null,
     val ownerId: String? = null,
+=======
+    val coutMoyen: Double,
+    val dureeEstimee: Int,
+    @JsonAdapter(FlexibleGarageDeserializer::class)
+    val garage: String? = null,
+>>>>>>> origin/documents1
     val createdAt: Date? = null,
     val updatedAt: Date? = null
 )
 
+<<<<<<< HEAD
 data class PaginatedMaintenancesResponse(
     val data: List<MaintenanceExtendedResponse>,
     val page: Int,
@@ -338,15 +400,23 @@ data class UpcomingMaintenanceWidget(
 data class MessageResponse(
     val message: String,
     val ok: Boolean? = null
+=======
+// Reclamation (Feedback) DTOs
+data class CreateReclamationRequest(
+    val type: String,
+    val titre: String,
+    val message: String,
+    val garage: String? = null,
+    val service: String? = null
+>>>>>>> origin/documents1
 )
 
-// Error Response
-data class ErrorResponse(
-    val statusCode: Int,
-    val message: List<String>,
-    val error: String
+data class UpdateReclamationRequest(
+    val titre: String? = null,
+    val message: String? = null
 )
 
+<<<<<<< HEAD
 // ==================== SERVICES DTOs ====================
 
 data class CreateServiceRequest(
@@ -363,10 +433,23 @@ data class ServiceResponse(
     val description: String,
     val prix: Double,
     val garage: String,
+=======
+data class ReclamationResponse(
+    @SerializedName("_id")
+    val id: String,
+    val type: String,
+    val titre: String,
+    val message: String,
+    @JsonAdapter(FlexibleUserDeserializer::class)
+    val user: String? = null,
+    val garage: GarageResponse? = null,
+    val service: ServiceResponse? = null,
+>>>>>>> origin/documents1
     val createdAt: Date? = null,
     val updatedAt: Date? = null
 )
 
+<<<<<<< HEAD
 // ==================== AI FEATURES DTOs ====================
 
 // Road Issue Reporting
@@ -693,3 +776,7 @@ data class WsUserStatus(
     val event: String, // "user_online" or "user_offline"
     val userId: String
 )
+=======
+// Notification DTOs - already defined in DTOs.kt, keeping for reference
+// ...existing code...
+>>>>>>> origin/documents1

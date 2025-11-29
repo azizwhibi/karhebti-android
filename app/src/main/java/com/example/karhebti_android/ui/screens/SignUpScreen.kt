@@ -15,20 +15,43 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+<<<<<<< HEAD
+=======
+import androidx.compose.ui.platform.LocalContext
+>>>>>>> origin/documents1
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+<<<<<<< HEAD
 import com.example.karhebti_android.data.api.SignupData
+=======
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.karhebti_android.viewmodel.AuthUiState
+import com.example.karhebti_android.viewmodel.AuthViewModel
+import com.example.karhebti_android.viewmodel.ViewModelFactory
+>>>>>>> origin/documents1
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignUpScreen(
+<<<<<<< HEAD
     onSignupInitiated: (SignupData) -> Unit = {},
     onLoginClick: () -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
+=======
+    onSignUpSuccess: () -> Unit = {},
+    onLoginClick: () -> Unit = {},
+    onBackClick: () -> Unit = {}
+) {
+    val context = LocalContext.current
+    val authViewModel: AuthViewModel = viewModel(
+        factory = ViewModelFactory(context.applicationContext as android.app.Application)
+    )
+
+>>>>>>> origin/documents1
     var nom by remember { mutableStateOf("") }
     var prenom by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -45,6 +68,7 @@ fun SignUpScreen(
     var passwordError by remember { mutableStateOf<String?>(null) }
     var confirmPasswordError by remember { mutableStateOf<String?>(null) }
 
+<<<<<<< HEAD
     // When signup is initiated we simply emit the pending signup data to the caller
     // The caller will start the email verification flow before creating the account.
     fun validateNom(): Boolean {
@@ -52,6 +76,22 @@ fun SignUpScreen(
         return nomError == null
     }
 
+=======
+    val authState by authViewModel.authState.observeAsState(AuthUiState.Idle)
+
+    LaunchedEffect(authState) {
+        when (authState) {
+            is AuthUiState.Success -> onSignUpSuccess()
+            else -> {}
+        }
+    }
+
+    fun validateNom(): Boolean {
+        nomError = if (nom.isBlank()) "Le nom est requis" else null
+        return nomError == null
+    }
+
+>>>>>>> origin/documents1
     fun validatePrenom(): Boolean {
         prenomError = if (prenom.isBlank()) "Le prénom est requis" else null
         return prenomError == null
@@ -106,6 +146,17 @@ fun SignUpScreen(
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
+<<<<<<< HEAD
+=======
+    LaunchedEffect(authState) {
+        if (authState is AuthUiState.Error) {
+            snackbarHostState.showSnackbar(
+                message = (authState as AuthUiState.Error).message ?: "Erreur d'inscription",
+                duration = SnackbarDuration.Short
+            )
+        }
+    }
+>>>>>>> origin/documents1
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -169,7 +220,12 @@ fun SignUpScreen(
                     ),
                     isError = nomError != null,
                     supportingText = nomError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+<<<<<<< HEAD
                     singleLine = true
+=======
+                    singleLine = true,
+                    enabled = authState !is AuthUiState.Loading
+>>>>>>> origin/documents1
                 )
 
                 OutlinedTextField(
@@ -192,7 +248,12 @@ fun SignUpScreen(
                     ),
                     isError = prenomError != null,
                     supportingText = prenomError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+<<<<<<< HEAD
                     singleLine = true
+=======
+                    singleLine = true,
+                    enabled = authState !is AuthUiState.Loading
+>>>>>>> origin/documents1
                 )
 
                 OutlinedTextField(
@@ -216,7 +277,12 @@ fun SignUpScreen(
                     isError = emailError != null,
                     supportingText = emailError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+<<<<<<< HEAD
                     singleLine = true
+=======
+                    singleLine = true,
+                    enabled = authState !is AuthUiState.Loading
+>>>>>>> origin/documents1
                 )
 
                 OutlinedTextField(
@@ -240,7 +306,12 @@ fun SignUpScreen(
                     isError = telephoneError != null,
                     supportingText = telephoneError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+<<<<<<< HEAD
                     singleLine = true
+=======
+                    singleLine = true,
+                    enabled = authState !is AuthUiState.Loading
+>>>>>>> origin/documents1
                 )
 
                 OutlinedTextField(
@@ -274,7 +345,12 @@ fun SignUpScreen(
                             )
                         }
                     },
+<<<<<<< HEAD
                     singleLine = true
+=======
+                    singleLine = true,
+                    enabled = authState !is AuthUiState.Loading
+>>>>>>> origin/documents1
                 )
 
                 OutlinedTextField(
@@ -308,13 +384,25 @@ fun SignUpScreen(
                             )
                         }
                     },
+<<<<<<< HEAD
                     singleLine = true
+=======
+                    singleLine = true,
+                    enabled = authState !is AuthUiState.Loading
+>>>>>>> origin/documents1
                 )
 
                 Button(
                     onClick = {
                         if (validateAll()) {
+<<<<<<< HEAD
                             onSignupInitiated(SignupData(nom = nom, prenom = prenom, email = email, telephone = telephone, password = password))
+=======
+                            // TODO: implémenter un vrai endpoint /auth/signup côté backend
+                            // Pour l’instant, on peut soit appeler onLoginClick() pour rediriger vers login,
+                            // soit simplement afficher un message.
+                            onLoginClick()
+>>>>>>> origin/documents1
                         }
                     },
                     modifier = Modifier
@@ -325,6 +413,7 @@ fun SignUpScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
+<<<<<<< HEAD
                     enabled = true
                 ) {
                     Text(
@@ -349,6 +438,40 @@ fun SignUpScreen(
                         modifier = Modifier.clickable { onLoginClick() }
                     )
                 }
+=======
+                    enabled = authState !is AuthUiState.Loading
+                ) {
+                    if (authState is AuthUiState.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = "S'inscrire",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text(
+                        text = "Déjà membre ? ",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Connexion",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable { onLoginClick() }
+                    )
+                }
+>>>>>>> origin/documents1
             }
         }
     }
