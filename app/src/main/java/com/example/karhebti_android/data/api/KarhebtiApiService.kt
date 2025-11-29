@@ -1,0 +1,310 @@
+package com.example.karhebti_android.data.api
+
+import com.google.gson.annotations.SerializedName
+import retrofit2.Response
+import retrofit2.http.*
+
+interface KarhebtiApiService {
+
+    // ==================== AUTH ====================
+
+    @POST("auth/signup")
+    suspend fun signup(@Body request: SignupRequest): Response<AuthResponse>
+
+    @POST("auth/login")
+    suspend fun login(@Body request: LoginRequest): Response<AuthResponse>
+
+    @POST("auth/forgot-password")
+    suspend fun forgotPassword(@Body request: ForgotPasswordRequest): Response<MessageResponse>
+
+    @POST("auth/reset-password")
+    suspend fun resetPassword(@Body request: ResetPasswordRequest): Response<MessageResponse>
+
+    // ==================== USERS ====================
+
+    @GET("users")
+    suspend fun getAllUsers(): Response<List<UserResponse>>
+
+    @GET("users/{id}")
+    suspend fun getUser(@Path("id") id: String): Response<UserResponse>
+
+    @POST("users")
+    suspend fun createUser(@Body request: SignupRequest): Response<UserResponse>
+
+    @PATCH("users/{id}")
+    suspend fun updateUser(
+        @Path("id") id: String,
+        @Body request: UpdateUserRequest
+    ): Response<UserResponse>
+
+    @DELETE("users/{id}")
+    suspend fun deleteUser(@Path("id") id: String): Response<MessageResponse>
+
+    @PATCH("users/{id}/role")
+    suspend fun updateUserRole(
+        @Path("id") id: String,
+        @Body request: UpdateRoleRequest
+    ): Response<UserResponse>
+
+    // ==================== CARS ====================
+
+    @GET("cars")
+    suspend fun getMyCars(): Response<List<CarResponse>>
+
+    @GET("cars/{id}")
+    suspend fun getCar(@Path("id") id: String): Response<CarResponse>
+
+    @POST("cars")
+    suspend fun createCar(@Body request: CreateCarRequest): Response<CarResponse>
+
+    @PATCH("cars/{id}")
+    suspend fun updateCar(
+        @Path("id") id: String,
+        @Body request: UpdateCarRequest
+    ): Response<CarResponse>
+
+    @DELETE("cars/{id}")
+    suspend fun deleteCar(@Path("id") id: String): Response<MessageResponse>
+
+    // ==================== MAINTENANCES ====================
+
+    @GET("maintenances")
+    suspend fun getMaintenances(): Response<List<MaintenanceResponse>>
+
+    @GET("maintenances/{id}")
+    suspend fun getMaintenance(@Path("id") id: String): Response<MaintenanceResponse>
+
+    @POST("maintenances")
+    suspend fun createMaintenance(@Body request: CreateMaintenanceRequest): Response<MaintenanceResponse>
+
+    @PATCH("maintenances/{id}")
+    suspend fun updateMaintenance(
+        @Path("id") id: String,
+        @Body request: UpdateMaintenanceRequest
+    ): Response<MaintenanceResponse>
+
+    @DELETE("maintenances/{id}")
+    suspend fun deleteMaintenance(@Path("id") id: String): Response<MessageResponse>
+
+    // ==================== GARAGES ====================
+
+    @GET("garages")
+    suspend fun getGarages(): Response<List<GarageResponse>>
+
+    @GET("garages/{id}")
+    suspend fun getGarage(@Path("id") id: String): Response<GarageResponse>
+
+    @POST("garages")
+    suspend fun createGarage(@Body request: CreateGarageRequest): Response<GarageResponse>
+    @PATCH("garages/{id}")
+    suspend fun updateGarage(
+        @Path("id") id: String,
+        @Body data: UpdateGarageRequest
+    ): Response<GarageResponse>
+
+    @DELETE("garages/{id}")
+    suspend fun deleteGarage(@Path("id") id: String): Response<Unit>
+
+
+    // ==================== DOCUMENTS ====================
+
+    @GET("documents")
+    suspend fun getDocuments(): Response<List<DocumentResponse>>
+
+    @GET("documents/{id}")
+    suspend fun getDocument(@Path("id") id: String): Response<DocumentResponse>
+
+    @POST("documents")
+    suspend fun createDocument(@Body request: CreateDocumentRequest): Response<DocumentResponse>
+
+    @PATCH("documents/{id}")
+    suspend fun updateDocument(
+        @Path("id") id: String,
+        @Body request: UpdateDocumentRequest
+    ): Response<DocumentResponse>
+
+    @DELETE("documents/{id}")
+    suspend fun deleteDocument(@Path("id") id: String): Response<MessageResponse>
+
+    // ==================== PARTS ====================
+
+    @GET("parts")
+    suspend fun getParts(): Response<List<PartResponse>>
+
+    @GET("parts/{id}")
+    suspend fun getPart(@Path("id") id: String): Response<PartResponse>
+
+    @POST("parts")
+    suspend fun createPart(@Body request: CreatePartRequest): Response<PartResponse>
+
+    @PATCH("parts/{id}")
+    suspend fun updatePart(
+        @Path("id") id: String,
+        @Body request: CreatePartRequest
+    ): Response<PartResponse>
+
+    @DELETE("parts/{id}")
+    suspend fun deletePart(@Path("id") id: String): Response<MessageResponse>
+
+    // ==================== SERVICES ====================
+
+    @GET("services")
+    suspend fun getServices(): Response<List<ServiceResponse>>
+
+    @GET("services/{id}")
+    suspend fun getService(@Path("id") id: String): Response<ServiceResponse>
+
+    @GET("services/garage/{garageId}")
+    suspend fun getServicesByGarage(@Path("garageId") garageId: String): Response<List<ServiceResponse>>
+
+    @POST("services")
+    suspend fun createService(@Body request: CreateServiceRequest): Response<ServiceResponse>
+
+    @PATCH("services/{id}")
+    suspend fun updateService(
+        @Path("id") id: String,
+        @Body data: UpdateServiceRequest
+    ): Response<ServiceResponse>
+
+    @DELETE("services/{id}")
+    suspend fun deleteService(@Path("id") id: String): Response<MessageResponse>
+
+    // ==================== AI FEATURES ====================
+
+    @POST("ai/report-road-issue")
+    suspend fun reportRoadIssue(@Body request: ReportRoadIssueRequest): Response<RoadIssueResponse>
+
+    @GET("ai/danger-zones")
+    suspend fun getDangerZones(
+        @Query("latitude") latitude: Double? = null,
+        @Query("longitude") longitude: Double? = null,
+        @Query("rayon") rayon: Double? = null
+    ): Response<List<DangerZone>>
+
+    @POST("ai/maintenance-recommendations")
+    suspend fun getMaintenanceRecommendations(
+        @Body request: MaintenanceRecommendationRequest
+    ): Response<MaintenanceRecommendationResponse>
+
+    @GET("ai/garage-recommendation")
+    suspend fun getGarageRecommendations(
+        @Query("typePanne") typePanne: String? = null,
+        @Query("latitude") latitude: Double? = null,
+        @Query("longitude") longitude: Double? = null,
+        @Query("rayon") rayon: Double? = null
+    ): Response<List<GarageRecommendation>>
+
+    // ==================== RESERVATIONS ====================
+
+    @GET("reservations")
+    suspend fun getReservations(
+        @Query("userId") userId: String? = null,
+        @Query("garageId") garageId: String? = null,
+        @Query("status") status: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 10
+    ): Response<ReservationListResponse>
+
+    @GET("reservations/me")
+    suspend fun getMyReservations(
+        @Query("status") status: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 10
+    ): Response<ReservationListResponse>
+
+    @GET("reservations/{id}")
+    suspend fun getReservation(@Path("id") id: String): Response<ReservationResponse>
+
+    @POST("reservations")
+    suspend fun createReservation(@Body request: CreateReservationRequest): Response<ReservationResponse>
+
+    @PATCH("reservations/{id}")
+    suspend fun updateReservation(
+        @Path("id") id: String,
+        @Body request: UpdateReservationRequest
+    ): Response<ReservationResponse>
+
+    @DELETE("reservations/{id}")
+    suspend fun deleteReservation(@Path("id") id: String): Response<MessageResponse>
+
+    @PATCH("reservations/{id}/status")
+    suspend fun updateReservationStatus(
+        @Path("id") id: String,
+        @Body request: UpdateReservationStatusRequest
+    ): Response<ReservationResponse>
+
+
+    @GET("reservations/garage/{garageId}")
+    suspend fun getGarageReservations(
+        @Path("garageId") garageId: String,
+        @Query("status") status: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 10
+    ): Response<ReservationListResponse>
+
+    // Response wrappers for paginated data
+    data class ReservationListResponse(
+        val reservations: List<ReservationResponse>,
+        val total: Int,
+        val page: Int,
+        val limit: Int,
+        @SerializedName("totalPages")
+        val totalPages: Int
+    )
+
+    // ==================== OSM ====================
+
+    // Dans KarhebtiApiService.kt
+    @GET("osm/search")
+    suspend fun searchAddress(
+        @Query("query") query: String
+    ): Response<List<LocationSuggestion>>
+
+    @GET("osm/reverse")
+    suspend fun reverseGeocode(
+        @Query("lat") lat: Double,
+        @Query("lon") lon: Double
+    ): Response<LocationSuggestion>
+
+
+    // ==================== REPAIR BAYS ====================
+
+    @GET("repair-bays/garage/{garageId}")
+    suspend fun getRepairBaysByGarage(
+        @Path("garageId") garageId: String
+    ): Response<List<RepairBayResponse>>
+
+    @GET("repair-bays/garage/{garageId}/available")
+    suspend fun getAvailableRepairBays(
+        @Path("garageId") garageId: String,
+        @Query("date") date: String,
+        @Query("heureDebut") heureDebut: String,
+        @Query("heureFin") heureFin: String
+    ): Response<List<RepairBayResponse>>
+
+    @POST("repair-bays")
+    suspend fun createRepairBay(
+        @Body request: CreateRepairBayRequest
+    ): Response<RepairBayResponse>
+
+    @PATCH("repair-bays/{id}")
+    suspend fun updateRepairBay(
+        @Path("id") id: String,
+        @Body request: CreateRepairBayRequest
+    ): Response<RepairBayResponse>
+
+    @DELETE("repair-bays/{id}")
+    suspend fun deleteRepairBay(
+        @Path("id") id: String
+    ): Response<MessageResponse>
+// ==================== REPAIR BAYS ====================
+
+
+
+
+}
+
+
+
+
+
