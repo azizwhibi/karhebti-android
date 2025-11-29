@@ -2,10 +2,7 @@ package com.example.karhebti_android.ui.screens
 
 import android.app.DatePickerDialog
 import androidx.compose.foundation.background
-<<<<<<< HEAD
-=======
 import androidx.compose.foundation.border
->>>>>>> origin/documents1
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -317,7 +314,6 @@ fun EntretiensScreen(
 
             // Content
             Box(modifier = Modifier.fillMaxSize()) {
-<<<<<<< HEAD
                 // If filter state exists and is successful, show paginated filtered results
                 if (filterState is Resource.Success) {
                     val paged = (filterState as Resource.Success).data?.data ?: emptyList()
@@ -340,86 +336,14 @@ fun EntretiensScreen(
                                 soonText -> daysUntil in 8..30
                                 plannedText -> daysUntil > 30
                                 else -> true
-=======
-                when (val state = maintenancesState) {
-                    is Resource.Loading -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                                Text(
-                                    "Chargement des entretiens...",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
->>>>>>> origin/documents1
                             }
                         }
                     }
 
-<<<<<<< HEAD
                     // Final client-side filter that can match related entities (cars, garages)
                     val carsList = when (carsState) {
                         is Resource.Success -> (carsState as Resource.Success).data ?: emptyList()
                         else -> emptyList()
-=======
-                        // Filter based on tab
-                        val displayedMaintenances = if (selectedTab == 0) {
-                            allMaintenances.filter { it.date.after(now) || it.date == now }
-                        } else {
-                            allMaintenances.filter { it.date.before(now) }
-                        }
-
-                        if (displayedMaintenances.isEmpty()) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                                    modifier = Modifier.padding(32.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Build,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(64.dp),
-                                        tint = TextSecondary.copy(alpha = 0.5f)
-                                    )
-                                    Text(
-                                        if (selectedTab == 0) "Aucun entretien à venir" else "Aucun historique",
-                                        style = MaterialTheme.typography.titleLarge,
-                                        color = TextPrimary
-                                    )
-                                    Text(
-                                        if (selectedTab == 0) "Planifiez votre prochain entretien" else "Vos entretiens passés apparaîtront ici",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = TextSecondary
-                                    )
-                                }
-                            }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                items(displayedMaintenances, key = { it.id }) { maintenance ->
-                                    MaintenanceCardBackendIntegrated(
-                                        maintenance = maintenance,
-                                        onDelete = { showDeleteDialog = maintenance },
-                                        onClick = { onMaintenanceClick(maintenance.id) },
-                                        cars = carsState?.data ?: emptyList() // Pass cars list
-                                    )
-                                }
-                            }
-                        }
->>>>>>> origin/documents1
                     }
                     val garagesList = when (garagesState) {
                         is Resource.Success -> (garagesState as Resource.Success).data ?: emptyList()
@@ -469,14 +393,13 @@ fun EntretiensScreen(
                                 Text(
                                     if (selectedTab == 0) noMaintenanceText else "Aucun historique",
                                     style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.onBackground
+                                    color = TextPrimary
                                 )
                                 Text(
                                     if (selectedTab == 0) "Planifiez votre prochain entretien" else "Vos entretiens passés apparaîtront ici",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = TextSecondary
                                 )
-<<<<<<< HEAD
                             }
                         }
                     } else {
@@ -491,17 +414,6 @@ fun EntretiensScreen(
                                 val cars = when (carsState) {
                                     is Resource.Success -> (carsState as Resource.Success).data ?: emptyList()
                                     else -> emptyList()
-=======
-                                Button(
-                                    onClick = { maintenanceViewModel.getMaintenances() },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary
-                                    )
-                                ) {
-                                    Icon(Icons.Default.Refresh, null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("Réessayer")
->>>>>>> origin/documents1
                                 }
                                 // Safely extract garages list as well
                                 val garages = when (garagesState) {
@@ -713,17 +625,12 @@ fun MaintenanceCardBackendIntegrated(
     maintenance: MaintenanceResponse,
     onDelete: () -> Unit,
     onClick: () -> Unit,
-<<<<<<< HEAD
     cars: List<com.example.karhebti_android.data.api.CarResponse> = emptyList(),
     garages: List<com.example.karhebti_android.data.api.GarageResponse> = emptyList()
-=======
-    cars: List<com.example.karhebti_android.data.api.CarResponse> = emptyList()
->>>>>>> origin/documents1
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
 
-<<<<<<< HEAD
     val daysUntil = try {
         ((maintenance.date.time - Date().time) / (1000 * 60 * 60 * 24)).toInt()
     } catch (_: Exception) {
@@ -762,39 +669,6 @@ fun MaintenanceCardBackendIntegrated(
         cars.find { it.id == carId }
     }
 
-=======
-    // Determine urgency based on date
-    val daysUntil = ((maintenance.date.time - Date().time) / (1000 * 60 * 60 * 24)).toInt()
-
-    val (urgencyLabel, chipColors) = when {
-        daysUntil < 0 -> "Terminé" to AssistChipDefaults.assistChipColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        daysUntil == 0 -> "Aujourd'hui" to AssistChipDefaults.assistChipColors(
-            containerColor = AlertRed.copy(alpha = 0.2f),
-            labelColor = AlertRed
-        )
-        daysUntil <= 7 -> "Urgent" to AssistChipDefaults.assistChipColors(
-            containerColor = AlertRed.copy(alpha = 0.2f),
-            labelColor = AlertRed
-        )
-        daysUntil <= 30 -> "Bientôt" to AssistChipDefaults.assistChipColors(
-            containerColor = AccentYellow.copy(alpha = 0.2f),
-            labelColor = AccentYellow
-        )
-        else -> "Prévu" to AssistChipDefaults.assistChipColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-            labelColor = MaterialTheme.colorScheme.onTertiaryContainer
-        )
-    }
-
-    // Look up the car from the cars list
-    val car = maintenance.voiture?.let { carId ->
-        cars.find { it.id == carId }
-    }
-
->>>>>>> origin/documents1
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -854,7 +728,6 @@ fun MaintenanceCardBackendIntegrated(
                 ) {
                     AssistChip(
                         onClick = {},
-<<<<<<< HEAD
                         label = { Text(urgencyLabel) },
                         colors = chipColors
                     )
@@ -865,49 +738,11 @@ fun MaintenanceCardBackendIntegrated(
 
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                         DropdownMenuItem(text = { Text("Supprimer") }, onClick = { showMenu = false; onDelete() })
-=======
-                        label = {
-                            Text(
-                                urgencyLabel,
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        },
-                        colors = chipColors
-                    )
-
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(
-                                Icons.Default.MoreVert,
-                                "Menu",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Supprimer", color = AlertRed) },
-                                onClick = {
-                                    showMenu = false
-                                    onDelete()
-                                },
-                                leadingIcon = { Icon(Icons.Default.Delete, null, tint = AlertRed) }
-                            )
-                        }
->>>>>>> origin/documents1
                     }
                 }
             }
 
-<<<<<<< HEAD
             // Info row
-=======
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-            // Details
->>>>>>> origin/documents1
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1013,64 +848,9 @@ fun MaintenanceCardExtended(
                     Icon(
                         imageVector = Icons.Default.Build,
                         contentDescription = null,
-<<<<<<< HEAD
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = maintenance.type.replaceFirstChar { it.uppercase() },
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    car?.let {
-                        Text(
-                            text = "${it.marque} ${it.modele}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    AssistChip(onClick = {}, label = { Text(urgencyLabel) }, colors = chipColors)
-
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = null)
-                    }
-
-                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(text = { Text("Supprimer") }, onClick = { showMenu = false; onDelete() })
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    // Safely obtain a display date using helper
-                    val displayDate = maintenance.effectiveDateSafe()
-                    Text("Date: ${displayDate?.let { dateFormat.format(it) } ?: "N/A"}", style = MaterialTheme.typography.bodyMedium)
-                    Text("Coût: ${maintenance.cout} DT", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-
-                maintenance.garage?.let { g ->
-                    val garageName = garages.find { it.id == g }?.nom
-                    garageName?.let { name ->
-                        Text(name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-=======
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        modifier = Modifier.size(16.dp)
+                        /*tint = MaterialTheme.colorScheme.onSurfaceVariant*/
                     )
                     Text(
                         text = dateFormat.format(maintenance.date),
@@ -1084,7 +864,6 @@ fun MaintenanceCardExtended(
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
->>>>>>> origin/documents1
             }
         }
     }
@@ -1113,7 +892,6 @@ fun AddMaintenanceDialog(
     val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
     val isoDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.FRANCE)
 
-<<<<<<< HEAD
     // Safely extract cars and garages from state without unchecked casts
     val cars = remember(carsState) {
         when (carsState) {
@@ -1133,15 +911,6 @@ fun AddMaintenanceDialog(
             }
             else -> emptyList()
         }
-=======
-    // Extract cars and garages from state
-    val cars = remember(carsState) {
-        (carsState as? Resource.Success<List<com.example.karhebti_android.data.api.CarResponse>>)?.data ?: emptyList()
-    }
-
-    val allGarages = remember(garagesState) {
-        (garagesState as? Resource.Success<List<com.example.karhebti_android.data.api.GarageResponse>>)?.data ?: emptyList()
->>>>>>> origin/documents1
     }
 
     // Filter garages by selected service type
@@ -1190,12 +959,8 @@ fun AddMaintenanceDialog(
                 // Car selection dropdown
                 ExposedDropdownMenuBox(
                     expanded = expandedCar,
-<<<<<<< HEAD
                     onExpandedChange = { expandedCar = it },
                     modifier = Modifier.fillMaxWidth()
-=======
-                    onExpandedChange = { expandedCar = it }
->>>>>>> origin/documents1
                 ) {
                     OutlinedTextField(
                         value = if (selectedCarId.isNotBlank()) {
@@ -1206,13 +971,8 @@ fun AddMaintenanceDialog(
                         label = { Text("Véhicule") },
                         placeholder = { Text("Sélectionner un véhicule") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCar) },
-<<<<<<< HEAD
                         isError = cars.isEmpty(),
                         modifier = Modifier.menuAnchor()
-=======
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        isError = cars.isEmpty()
->>>>>>> origin/documents1
                     )
                     ExposedDropdownMenu(
                         expanded = expandedCar,
@@ -1220,7 +980,7 @@ fun AddMaintenanceDialog(
                     ) {
                         if (cars.isEmpty()) {
                             DropdownMenuItem(
-                                text = { Text("Aucun véhicule disponible", color = TextSecondary) },
+                                text = { Text("Aucun véhicule disponible") },
                                 onClick = { expandedCar = false }
                             )
                         } else {
@@ -1249,12 +1009,8 @@ fun AddMaintenanceDialog(
                 // Garage selection dropdown (filtered by service type)
                 ExposedDropdownMenuBox(
                     expanded = expandedGarage,
-<<<<<<< HEAD
                     onExpandedChange = { expandedGarage = it },
                     modifier = Modifier.fillMaxWidth()
-=======
-                    onExpandedChange = { expandedGarage = it }
->>>>>>> origin/documents1
                 ) {
                     OutlinedTextField(
                         value = if (selectedGarageId.isNotBlank()) {
@@ -1265,13 +1021,8 @@ fun AddMaintenanceDialog(
                         label = { Text("Garage") },
                         placeholder = { Text("Sélectionner un garage") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedGarage) },
-<<<<<<< HEAD
                         isError = filteredGarages.isEmpty(),
                         modifier = Modifier.menuAnchor()
-=======
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        isError = filteredGarages.isEmpty()
->>>>>>> origin/documents1
                     )
                     ExposedDropdownMenu(
                         expanded = expandedGarage,

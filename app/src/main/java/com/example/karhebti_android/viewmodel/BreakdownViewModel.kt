@@ -73,16 +73,4 @@ class BreakdownViewModel(private val repo: BreakdownsRepository) : ViewModel() {
             }
         }
     }
-
-    fun fetchBreakdown(id: Int) {
-        _uiState.value = BreakdownUiState.Loading
-        viewModelScope.launch {
-            repo.getBreakdown(id).collect { result ->
-                _uiState.value = result.fold(
-                    onSuccess = { BreakdownUiState.Success(it) },
-                    onFailure = { BreakdownUiState.Error(it.message ?: "Erreur") }
-                )
-            }
-        }
-    }
 }

@@ -3,7 +3,6 @@ package com.example.karhebti_android.data.api
 import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.*
-import okhttp3.MultipartBody
 import okhttp3.RequestBody
 
 interface KarhebtiApiService {
@@ -19,13 +18,8 @@ interface KarhebtiApiService {
     @POST("auth/forgot-password")
     suspend fun forgotPassword(@Body request: ForgotPasswordRequest): Response<MessageResponse>
 
-<<<<<<< HEAD
     @POST("auth/verify-otp")
     suspend fun verifyOtp(@Body request: VerifyOtpRequest): Response<MessageResponse>
-=======
-    @POST("auth/change-password")
-    suspend fun changePassword(@Body request: ChangePasswordRequest): Response<MessageResponse>
->>>>>>> origin/documents1
 
     @POST("auth/reset-password")
     suspend fun resetPassword(@Body request: ResetPasswordRequest): Response<MessageResponse>
@@ -99,7 +93,6 @@ interface KarhebtiApiService {
 
     @DELETE("cars/{id}")
     suspend fun deleteCar(@Path("id") id: String): Response<Unit>
-<<<<<<< HEAD
 
     // ==================== NEW: CAR IMAGE UPLOAD ====================
 
@@ -109,8 +102,6 @@ interface KarhebtiApiService {
         @Path("id") id: String,
         @Part image: MultipartBody.Part
     ): Response<CarResponse>
-=======
->>>>>>> origin/documents1
 
     // ==================== MAINTENANCES ====================
 
@@ -322,7 +313,6 @@ interface KarhebtiApiService {
         @Query("rayon") rayon: Double? = null
     ): Response<List<GarageRecommendation>>
 
-<<<<<<< HEAD
     // ==================== TRANSLATION API ====================
 
     @POST("api/translation/translate")
@@ -394,19 +384,6 @@ interface KarhebtiApiService {
     @POST("conversations/{id}/mark-read")
     suspend fun markConversationAsRead(@Path("id") id: String): Response<MessageResponse>
 
-    // Notifications
-    @GET("notifications")
-    suspend fun getNotifications(): Response<List<NotificationResponse>>
-
-    @GET("notifications/unread-count")
-    suspend fun getUnreadNotificationCount(): Response<UnreadCountResponse>
-
-    @POST("notifications/{id}/mark-read")
-    suspend fun markNotificationAsRead(@Path("id") id: String): Response<NotificationResponse>
-
-    @POST("notifications/mark-all-read")
-    suspend fun markAllNotificationsAsRead(): Response<MessageResponse>
-=======
     // ==================== NOTIFICATIONS ====================
 
     @GET("notifications")
@@ -426,5 +403,4 @@ interface KarhebtiApiService {
 
     @DELETE("notifications/{id}")
     suspend fun deleteNotification(@Path("id") id: String): Response<MessageResponse>
->>>>>>> origin/documents1
 }

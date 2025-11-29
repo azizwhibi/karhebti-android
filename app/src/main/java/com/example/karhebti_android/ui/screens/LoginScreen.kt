@@ -24,11 +24,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-<<<<<<< HEAD
 import com.example.karhebti_android.data.repository.Resource
-=======
 import com.example.karhebti_android.viewmodel.AuthUiState
->>>>>>> origin/documents1
 import com.example.karhebti_android.viewmodel.AuthViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
 
@@ -68,19 +65,11 @@ fun LoginScreen(
 
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
-<<<<<<< HEAD
-    val authState by authViewModel.authState.observeAsState()
-
-    LaunchedEffect(authState) {
-        when (val state = authState) {
-            is Resource.Success -> {
-=======
     val authState by authViewModel.authState.observeAsState(AuthUiState.Idle)
 
     LaunchedEffect(authState) {
         when (val state = authState) {
             is AuthUiState.Success -> {
->>>>>>> origin/documents1
                 with(prefs.edit()) {
                     if (rememberMe) {
                         putString("email", email)

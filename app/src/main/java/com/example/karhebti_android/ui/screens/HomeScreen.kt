@@ -18,7 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.karhebti_android.ui.theme.*
@@ -28,12 +27,9 @@ import com.example.karhebti_android.viewmodel.DocumentViewModel
 import com.example.karhebti_android.viewmodel.GarageViewModel
 import com.example.karhebti_android.viewmodel.MaintenanceViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
-<<<<<<< HEAD
 import com.example.karhebti_android.data.repository.TranslationManager
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
-=======
->>>>>>> origin/documents1
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,7 +44,6 @@ fun HomeScreen(
     onConversationsClick: () -> Unit = {},
     onPendingSwipesClick: () -> Unit = {}
 ) {
-    // Get ViewModels
     val context = LocalContext.current
     val authViewModel: AuthViewModel = viewModel(
         factory = androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(
@@ -68,13 +63,11 @@ fun HomeScreen(
         factory = ViewModelFactory(context.applicationContext as android.app.Application)
     )
 
-    // Collect counters from StateFlow
     val carCount by carViewModel.carCount.collectAsState()
     val maintenanceCount by maintenanceViewModel.maintenanceCount.collectAsState()
     val garageCount by garageViewModel.garageCount.collectAsState()
     val documentCount by documentViewModel.documentCount.collectAsState()
 
-<<<<<<< HEAD
     // Translation manager setup
     val db = com.example.karhebti_android.data.database.AppDatabase.getInstance(context.applicationContext)
     val translationRepository = com.example.karhebti_android.data.repository.TranslationRepository(
@@ -89,14 +82,6 @@ fun HomeScreen(
 
     // Translated UI strings
     var welcomeText by remember { mutableStateOf("Bonjour") }
-    var alertsTitle by remember { mutableStateOf("Alertes importantes") }
-    var revisionTitle by remember { mutableStateOf("Révision à prévoir") }
-    var revisionDescription by remember { mutableStateOf("Vidange + Filtre à huile") }
-    var revisionDeadline by remember { mutableStateOf("Dans 15 jours ou 500 km") }
-    var urgentText by remember { mutableStateOf("URGENT") }
-    var scheduleText by remember { mutableStateOf("Planifier") }
-    var fuelLowText by remember { mutableStateOf("Niveau carburant bas") }
-    var fuelDetail by remember { mutableStateOf("15% restant · Autonomie 45 km") }
     var quickActionsTitle by remember { mutableStateOf("Actions rapides") }
     var vehiclesLabel by remember { mutableStateOf("Véhicules") }
     var maintenanceLabel by remember { mutableStateOf("Entretien") }
@@ -105,18 +90,9 @@ fun HomeScreen(
     var overviewTitle by remember { mutableStateOf("Aperçu") }
     var settingsDescription by remember { mutableStateOf("Paramètres") }
 
-    // Update translations when language changes
     LaunchedEffect(currentLanguage) {
         coroutineScope.launch {
             welcomeText = translationManager.translate("hello", "Bonjour", currentLanguage)
-            alertsTitle = translationManager.translate("important_alerts", "Alertes importantes", currentLanguage)
-            revisionTitle = translationManager.translate("revision_needed", "Révision à prévoir", currentLanguage)
-            revisionDescription = translationManager.translate("oil_change_filter", "Vidange + Filtre à huile", currentLanguage)
-            revisionDeadline = translationManager.translate("in_15_days", "Dans 15 jours ou 500 km", currentLanguage)
-            urgentText = translationManager.translate("urgent", "URGENT", currentLanguage)
-            scheduleText = translationManager.translate("schedule", "Planifier", currentLanguage)
-            fuelLowText = translationManager.translate("low_fuel", "Niveau carburant bas", currentLanguage)
-            fuelDetail = translationManager.translate("fuel_detail", "15% restant · Autonomie 45 km", currentLanguage)
             quickActionsTitle = translationManager.translate("quick_actions", "Actions rapides", currentLanguage)
             vehiclesLabel = translationManager.translate("vehicles", "Véhicules", currentLanguage)
             maintenanceLabel = translationManager.translate("maintenance", "Entretien", currentLanguage)
@@ -127,9 +103,6 @@ fun HomeScreen(
         }
     }
 
-=======
->>>>>>> origin/documents1
-    // Load data on first composition
     LaunchedEffect(Unit) {
         carViewModel.getMyCars()
         maintenanceViewModel.getMaintenances()
@@ -137,7 +110,6 @@ fun HomeScreen(
         documentViewModel.getDocuments()
     }
 
-    // Get current user data for personalized greeting
     val currentUser = authViewModel.getCurrentUser()
     val userFirstName = currentUser?.prenom ?: "Utilisateur"
     val userInitials = if (currentUser != null) {
@@ -161,7 +133,6 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Profile Avatar
                     Box(
                         modifier = Modifier
                             .size(40.dp)
@@ -177,7 +148,6 @@ fun HomeScreen(
                         )
                     }
 
-                    // App Name
                     Text(
                         text = "Karhebti",
                         style = MaterialTheme.typography.headlineSmall,
@@ -185,15 +155,10 @@ fun HomeScreen(
                         fontWeight = FontWeight.Bold
                     )
 
-                    // Settings Icon
                     IconButton(onClick = onSettingsClick) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-<<<<<<< HEAD
                             contentDescription = settingsDescription,
-=======
-                            contentDescription = "Paramètres",
->>>>>>> origin/documents1
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -210,7 +175,6 @@ fun HomeScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Personalized Welcome Message
             Text(
                 text = "$welcomeText, $userFirstName 👋",
                 style = MaterialTheme.typography.headlineMedium,
@@ -218,37 +182,8 @@ fun HomeScreen(
                 fontWeight = FontWeight.Bold
             )
 
-<<<<<<< HEAD
-            // Alertes importantes Section
-            Text(
-                text = alertsTitle,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            // Révision à prévoir Card
-            AlertCard(
-                title = revisionTitle,
-                description = revisionDescription,
-                deadline = revisionDeadline,
-                urgency = urgentText,
-                urgencyColor = AlertRed,
-                scheduleButtonText = scheduleText,
-                onActionClick = { /* Handle planifier */ }
-            )
-
-            // Niveau carburant bas Card
-            FuelAlertCard(
-                fuelLowTitle = fuelLowText,
-                fuelDetail = fuelDetail
-            )
-=======
->>>>>>> origin/documents1
-
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Quick Actions
             Text(
                 text = quickActionsTitle,
                 style = MaterialTheme.typography.titleLarge,
@@ -294,7 +229,6 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Overview Chips - Now with dynamic counters
             Text(
                 text = overviewTitle,
                 style = MaterialTheme.typography.titleLarge,
@@ -308,21 +242,13 @@ fun HomeScreen(
             ) {
                 OverviewChip(
                     count = carCount.toString(),
-<<<<<<< HEAD
                     label = vehiclesLabel,
-=======
-                    label = "Véhicules",
->>>>>>> origin/documents1
                     color = DeepPurple,
                     modifier = Modifier.weight(1f)
                 )
                 OverviewChip(
                     count = maintenanceCount.toString(),
-<<<<<<< HEAD
                     label = maintenanceLabel,
-=======
-                    label = "Entretiens",
->>>>>>> origin/documents1
                     color = AccentGreen,
                     modifier = Modifier.weight(1f)
                 )
@@ -334,21 +260,13 @@ fun HomeScreen(
             ) {
                 OverviewChip(
                     count = documentCount.toString(),
-<<<<<<< HEAD
                     label = documentsLabel,
-=======
-                    label = "Documents",
->>>>>>> origin/documents1
                     color = AccentYellow,
                     modifier = Modifier.weight(1f)
                 )
                 OverviewChip(
                     count = garageCount.toString(),
-<<<<<<< HEAD
                     label = garagesLabel,
-=======
-                    label = "Garages",
->>>>>>> origin/documents1
                     color = LightPurple,
                     modifier = Modifier.weight(1f)
                 )
@@ -356,7 +274,6 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Marketplace Section
             Text(
                 text = "🚗 Car Marketplace",
                 style = MaterialTheme.typography.titleLarge,
@@ -364,7 +281,6 @@ fun HomeScreen(
                 fontWeight = FontWeight.SemiBold
             )
 
-            // Marketplace Quick Actions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -403,161 +319,6 @@ fun HomeScreen(
         }
     }
 }
-
-<<<<<<< HEAD
-@Composable
-fun AlertCard(
-    title: String,
-    description: String,
-    deadline: String,
-    urgency: String,
-    urgencyColor: Color,
-    scheduleButtonText: String = "Planifier",
-    onActionClick: () -> Unit
-) {
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = null,
-                        tint = urgencyColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = urgencyColor.copy(alpha = 0.2f)
-                ) {
-                    Text(
-                        text = urgency,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = urgencyColor,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-            }
-
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Schedule,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = deadline,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                TextButton(onClick = onActionClick) {
-                    Text(scheduleButtonText, color = MaterialTheme.colorScheme.primary)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun FuelAlertCard(
-    fuelLowTitle: String = "Niveau carburant bas",
-    fuelDetail: String = "15% restant · Autonomie 45 km"
-) {
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(AccentYellow.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.LocalGasStation,
-                    contentDescription = null,
-                    tint = AccentYellow,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = fuelLowTitle,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = fuelDetail,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-=======
->>>>>>> origin/documents1
 
 @Composable
 fun QuickActionButton(
@@ -606,51 +367,30 @@ fun OverviewChip(
     color: Color,
     modifier: Modifier = Modifier
 ) {
-    ElevatedCard(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+    Surface(
+        modifier = modifier.height(80.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = color.copy(alpha = 0.15f)
     ) {
-        Row(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(color.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = count,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = color
-                )
-            }
+            Text(
+                text = count,
+                style = MaterialTheme.typography.headlineMedium,
+                color = color,
+                fontWeight = FontWeight.Bold
+            )
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
+                color = color
             )
         }
     }
 }
-
-@Preview(showBackground = true)
-@Composable
-fun HomeScreenPreview() {
-    KarhebtiandroidTheme {
-        HomeScreen()
-    }
-}
-
-
 

@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 class MarketplaceRepository(
     private val apiService: KarhebtiApiService,
+    private val notificationApiService: NotificationApiService,
     private val token: String
 ) {
     companion object {
@@ -298,9 +299,9 @@ class MarketplaceRepository(
         }
     }
 
-    suspend fun getUnreadNotificationCount(): Resource<UnreadCountResponse> {
+    suspend fun getUnreadCount(): Resource<UnreadCountResponse> {
         return try {
-            val response = apiService.getUnreadNotificationCount()
+            val response = notificationApiService.getUnreadCount()
             if (response.isSuccessful && response.body() != null) {
                 Resource.Success(response.body()!!)
             } else {

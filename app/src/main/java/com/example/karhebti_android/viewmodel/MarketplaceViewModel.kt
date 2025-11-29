@@ -15,7 +15,11 @@ class MarketplaceViewModel(application: Application) : AndroidViewModel(applicat
 
     private val tokenManager = TokenManager(application)
     private val repository: MarketplaceRepository by lazy {
-        MarketplaceRepository(RetrofitClient.apiService, tokenManager.getToken() ?: "")
+        MarketplaceRepository(
+            apiService = RetrofitClient.apiService,
+            notificationApiService = RetrofitClient.notificationApiService,
+            token = tokenManager.getToken() ?: ""
+        )
     }
 
     // Available cars for browsing
@@ -132,7 +136,7 @@ class MarketplaceViewModel(application: Application) : AndroidViewModel(applicat
 
     fun loadUnreadCount() {
         viewModelScope.launch {
-            val result = repository.getUnreadNotificationCount()
+            val result = repository.getUnreadCount()
             if (result is Resource.Success) {
                 _unreadCount.value = result.data?.count ?: 0
             }

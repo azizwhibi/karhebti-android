@@ -268,6 +268,8 @@ class ChatViewModel private constructor(application: Application) : AndroidViewM
                     _messages.postValue(Resource.Success(newList))
 
                     android.util.Log.d("ChatViewModel", "✅ Updated LiveData with ${newList.size} messages")
+                }else{
+                    android.util.Log.d("ChatViewModel", "ℹ️ Message ${message.id} added to cache for conversation $conversationId, not current conversation")
                 }
             } else {
                 android.util.Log.d("ChatViewModel", "⚠️ Duplicate message ${message.id} ignored")

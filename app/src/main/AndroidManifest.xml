@@ -7,19 +7,15 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-<<<<<<< HEAD
     <!-- Media permissions for image picking (API 33+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
-    <!-- Legacy permission for older Android versions -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-
-=======
     <!-- Camera and Media permissions -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Audio record permission required for Jitsi / calls -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Legacy permission for older Android versions -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
@@ -39,7 +35,6 @@
     <!-- Firebase Cloud Messaging permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
->>>>>>> origin/documents1
     <application
         android:name=".KarhebtiApplication"
         android:allowBackup="true"
@@ -52,12 +47,9 @@
         android:theme="@style/Theme.Karhebtiandroid"
         android:networkSecurityConfig="@xml/network_security_config">
 
-<<<<<<< HEAD
-=======
         <!-- osmdroid ne nécessite PAS de clé API ! -->
         <!-- Google Maps a été remplacé par OpenStreetMap (osmdroid) qui est gratuit et open source -->
 
->>>>>>> origin/documents1
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -68,7 +60,6 @@
             </intent-filter>
         </activity>
 
-<<<<<<< HEAD
         <!-- Widget Provider -->
         <receiver
             android:name=".widget.EntretiensWidget"
@@ -81,7 +72,6 @@
                 android:resource="@xml/widget_entretiens_info" />
         </receiver>
 
-=======
         <!-- Jitsi call Activity (Compose) -->
         <activity
             android:name=".jitsi.JitsiCallActivity"
@@ -96,7 +86,6 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
->>>>>>> origin/documents1
     </application>
 
 </manifest>

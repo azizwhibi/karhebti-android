@@ -56,14 +56,6 @@ data class UpdateTokenResponse(
     val message: String
 )
 
-data class UnreadCountResponse(
-    @SerializedName("success")
-    val success: Boolean,
-
-    @SerializedName("count")
-    val count: Int
-)
-
 data class MarkAllReadResponse(
     @SerializedName("success")
     val success: Boolean,

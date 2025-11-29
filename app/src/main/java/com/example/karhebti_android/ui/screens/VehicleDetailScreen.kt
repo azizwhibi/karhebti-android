@@ -20,19 +20,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-<<<<<<< HEAD
 import androidx.compose.ui.layout.ContentScale
-=======
->>>>>>> origin/documents1
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-<<<<<<< HEAD
 import coil.compose.AsyncImage
-=======
->>>>>>> origin/documents1
 import com.example.karhebti_android.data.api.CarResponse
 import com.example.karhebti_android.data.api.MaintenanceResponse
 import com.example.karhebti_android.data.repository.Resource
@@ -245,17 +239,15 @@ fun VehicleDetailContent(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        // Hero section with theme gradient
+        // Hero section with theme gradient and car image
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-<<<<<<< HEAD
                 .height(220.dp)
         ) {
             val fullImageUrl = com.example.karhebti_android.util.ImageUrlHelper.getFullImageUrl(car.imageUrl)
             // Car image background
             AsyncImage(
-
                 model = fullImageUrl ?: "https://cdn-icons-png.flaticon.com/512/743/743007.png",
                 contentDescription = null,
                 modifier = Modifier.matchParentSize(),
@@ -281,19 +273,6 @@ fun VehicleDetailContent(
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-=======
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
-                        )
-                    )
-                )
-                .padding(24.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
->>>>>>> origin/documents1
                 Box(
                     modifier = Modifier
                         .size(64.dp)

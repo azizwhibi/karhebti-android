@@ -1,32 +1,25 @@
 package com.example.karhebti_android.navigation
 
 import androidx.compose.runtime.Composable
-<<<<<<< HEAD
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
-=======
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
->>>>>>> origin/documents1
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.karhebti_android.data.api.SignupData
 import com.example.karhebti_android.data.repository.Resource
 import com.example.karhebti_android.ui.screens.*
-<<<<<<< HEAD
+import com.example.karhebti_android.ui.screens.BreakdownSOSScreen
 import com.example.karhebti_android.viewmodel.AuthViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
 import android.app.Application
-=======
-import com.example.karhebti_android.ui.screens.BreakdownSOSScreen
->>>>>>> origin/documents1
 
 sealed class Screen(val route: String) {
     object Login : Screen("login")
@@ -60,16 +53,6 @@ sealed class Screen(val route: String) {
     }
     object Garages : Screen("garages")
     object Settings : Screen("settings")
-<<<<<<< HEAD
-    // Marketplace screens
-    object MarketplaceBrowse : Screen("marketplace_browse")
-    object MyListings : Screen("my_listings")
-    object Conversations : Screen("conversations")
-    object Chat : Screen("chat/{conversationId}") {
-        fun createRoute(conversationId: String) = "chat/$conversationId"
-    }
-    object PendingSwipes : Screen("pending_swipes")
-=======
     object Notifications : Screen("notifications")
     object Reclamations : Screen("reclamations")
     object AddReclamation : Screen("add_reclamation")
@@ -87,7 +70,14 @@ sealed class Screen(val route: String) {
             "sos_status/${breakdownId ?: "null"}/$type/$latitude/$longitude"
     }
     object SOSHistory : Screen("sos_history")
->>>>>>> origin/documents1
+    // Marketplace screens
+    object MarketplaceBrowse : Screen("marketplace_browse")
+    object MyListings : Screen("my_listings")
+    object Conversations : Screen("conversations")
+    object Chat : Screen("chat/{conversationId}") {
+        fun createRoute(conversationId: String) = "chat/$conversationId"
+    }
+    object PendingSwipes : Screen("pending_swipes")
 }
 
 @Composable
@@ -110,7 +100,7 @@ fun NavGraph(
 
     // When a signup has been triggered after email verification, navigate to Home on success
     LaunchedEffect(authState, pendingSignupPerform) {
-        if (pendingSignupPerform && authState is Resource.Success) {
+        if (pendingSignupPerform && authState is Resource.Success<*>) {
             // Clear pending signup from previous back stack entry if present
             navController.previousBackStackEntry?.savedStateHandle?.remove<SignupData>("pendingSignup")
             // Navigate to home, clear back stack
@@ -139,7 +129,6 @@ fun NavGraph(
 
         composable(Screen.SignUp.route) {
             SignUpScreen(
-<<<<<<< HEAD
                 onSignupInitiated = { signupData: SignupData ->
                     // Store pending signup data so EmailVerification can access it
                     navController.currentBackStackEntry?.savedStateHandle?.set("pendingSignup", signupData)
@@ -147,12 +136,6 @@ fun NavGraph(
                     authViewModel.signupInitiate(signupData.nom, signupData.prenom, signupData.email, signupData.password, signupData.telephone)
                     // Navigate to EmailVerification immediately; EmailVerificationScreen will show resend/cooldown
                     navController.navigate(Screen.EmailVerification.createRoute(signupData.email))
-=======
-                onSignUpSuccess = {
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
-                    }
->>>>>>> origin/documents1
                 },
                 onBackClick = { navController.popBackStack() }
             )
@@ -289,9 +272,6 @@ fun NavGraph(
         }
 
         composable(Screen.Documents.route) {
-<<<<<<< HEAD
-            DocumentsScreen(onBackClick = { navController.popBackStack() })
-=======
             DocumentsScreen(
                 onBackClick = { navController.popBackStack() },
                 onDocumentClick = { documentId ->
@@ -322,7 +302,6 @@ fun NavGraph(
                 documentId = documentId,
                 onBackClick = { navController.popBackStack() }
             )
->>>>>>> origin/documents1
         }
 
         composable(Screen.Garages.route) {
@@ -341,7 +320,7 @@ fun NavGraph(
                 },
                 onReclamationsClick = { navController.navigate(Screen.Reclamations.route) },
                 onNotificationsClick = { navController.navigate(Screen.Notifications.route) },
-                onSOSClick = { navController.navigate(Screen.SOS.route) } // <-- navigation SOS
+                onSOSClick = { navController.navigate(Screen.SOS.route) }
             )
         }
 
@@ -417,7 +396,6 @@ fun NavGraph(
         }
         
         composable(Screen.SOSHistory.route) {
-            // Create a local Retrofit + Repo + ViewModelFactory so we can instantiate BreakdownViewModel
             val context = androidx.compose.ui.platform.LocalContext.current
             val retrofitLocal = androidx.compose.runtime.remember {
                 val logging = okhttp3.logging.HttpLoggingInterceptor().apply { level = okhttp3.logging.HttpLoggingInterceptor.Level.BODY }
@@ -436,10 +414,8 @@ fun NavGraph(
             val factoryLocal = com.example.karhebti_android.viewmodel.BreakdownViewModelFactory(repoLocal)
             val viewModel: com.example.karhebti_android.viewmodel.BreakdownViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = factoryLocal)
 
-             // Collect UI state
              val uiState by viewModel.uiState.collectAsState(initial = com.example.karhebti_android.viewmodel.BreakdownUiState.Idle)
 
-             // Map BreakdownResponse data to HistoryItem list for the screen
              val items: List<HistoryItem> = when (uiState) {
                 is com.example.karhebti_android.viewmodel.BreakdownUiState.Success -> {
                     val data = (uiState as com.example.karhebti_android.viewmodel.BreakdownUiState.Success).data
@@ -459,7 +435,7 @@ fun NavGraph(
                 else -> emptyList()
             }
 
-            val callContext = context // capture LocalContext.current once
+            val callContext = context
 
             BreakdownHistoryScreen(
                 items = items,
@@ -467,16 +443,12 @@ fun NavGraph(
                 onRefresh = { viewModel.fetchAllBreakdowns() },
                 onBackClick = { navController.popBackStack() },
                 onCall = { roomId ->
-                    // Start the JitsiCallActivity using captured context
                     val intent = com.example.karhebti_android.jitsi.JitsiCallActivity.createIntent(callContext, roomId)
                     callContext.startActivity(intent)
                 }
             )
 
-            // Trigger initial load (fetch user breakdowns). If you have a cached userId, pass it here.
-            // For simplicity we'll try to fetch all breakdowns (server must filter by auth). Use viewModel.fetchUserBreakdowns(userId) if you have an id.
             androidx.compose.runtime.LaunchedEffect(Unit) {
-                // Fetch all breakdowns (backend should return only user's breakdowns when authenticated)
                 viewModel.fetchAllBreakdowns()
             }
         }

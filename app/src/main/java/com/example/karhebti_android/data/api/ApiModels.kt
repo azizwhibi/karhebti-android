@@ -4,77 +4,10 @@ import com.google.gson.annotations.SerializedName
 import com.google.gson.annotations.JsonAdapter
 import java.util.Date
 
-<<<<<<< HEAD
-// Auth DTOs
-data class SignupRequest(
-    val nom: String,
-    val prenom: String,
-    val email: String,
-    val motDePasse: String,
-    val telephone: String
-)
-
-data class LoginRequest(
-    val email: String,
-    val motDePasse: String
-)
-
-data class AuthResponse(
-    @SerializedName("access_token")
-    val accessToken: String,
-    val user: UserResponse
-)
-
-data class ForgotPasswordRequest(
-    val email: String
-)
-
-data class VerifyOtpRequest(
-    val email: String,
-    val otp: String
-)
-
-data class ChangePasswordRequest(
-    val userId: String,
-    val currentPassword: String,
-    val nouveauMotDePasse: String
-)
-
-data class ResetPasswordRequest(
-    val email: String,
-    val otp: String,
-    @SerializedName("newPassword")
-    val newPassword: String
-)
-
-// User DTOs
-data class UserResponse(
-    @SerializedName("_id")
-    val id: String?,
-    val nom: String,
-    val prenom: String,
-    val email: String,
-    val telephone: String?,
-    val role: String,
-    val createdAt: Date? = null,
-    val updatedAt: Date? = null
-)
-
-data class UpdateUserRequest(
-    val nom: String? = null,
-    val prenom: String? = null,
-    val telephone: String? = null
-)
-
-data class UpdateRoleRequest(
-    val role: String
-)
-=======
 // Ce fichier contient uniquement les modèles métier (cars, maintenances, garages, documents, etc.).
 // Tous les DTOs d'authentification, de notifications et les réponses génériques
 // (SignupRequest, LoginRequest, AuthResponse, UserResponse, ErrorResponse,
 // NotificationResponse, MessageResponse, etc.) sont définis dans DTOs.kt.
->>>>>>> origin/documents1
 
 // Car DTOs
 data class CreateCarRequest(
@@ -112,14 +45,11 @@ data class CarResponse(
     val prochainEntretien: String? = null,
     val joursProchainEntretien: Int? = null,
     val imageUrl: String? = null,
-<<<<<<< HEAD
     val price: Double? = null,
     val description: String? = null,
     @SerializedName("forSale")
     val isForSale: Boolean = false,
     val saleStatus: String? = null,
-=======
->>>>>>> origin/documents1
     @JsonAdapter(FlexibleUserDeserializer::class)
     val user: String? = null, // Can be either user ID string or user object
     val createdAt: Date,
@@ -214,11 +144,7 @@ data class DocumentResponse(
     val dateExpiration: Date,
     val fichier: String,
     @JsonAdapter(FlexibleCarDeserializer::class)
-<<<<<<< HEAD
     val voiture: String? = null, // Can be either car ID string or car object
-=======
-    val voiture: String? = null,
->>>>>>> origin/documents1
     val createdAt: Date,
     val updatedAt: Date,
     val description: String? = null,
@@ -253,11 +179,7 @@ data class PartResponse(
     val type: String,
     val dateInstallation: Date,
     val kilometrageRecommande: Int,
-<<<<<<< HEAD
     val voiture: String? = null, // Changed from CarResponse to String (car ID)
-=======
-    val voiture: String? = null,
->>>>>>> origin/documents1
     val createdAt: Date,
     val updatedAt: Date
 )
@@ -300,20 +222,9 @@ data class SendEmailVerificationRequest(
     val email: String
 )
 
-<<<<<<< HEAD
 data class VerifyEmailRequest(
     val email: String,
     val code: String
-=======
-data class DangerZone(
-    val id: String,
-    val type: String,
-    val description: String,
-    val latitude: Double,
-    val longitude: Double,
-    val signalements: Int,
-    val niveauDanger: String
->>>>>>> origin/documents1
 )
 
 data class EmailVerificationResponse(
@@ -321,7 +232,6 @@ data class EmailVerificationResponse(
     val message: String
 )
 
-<<<<<<< HEAD
 // Entretiens Filter/Search DTOs
 data class EntretiensFilterParams(
     val search: String? = null,
@@ -337,21 +247,12 @@ data class EntretiensFilterParams(
     val order: String? = "asc", // asc, desc
     val page: Int = 1,
     val limit: Int = 20
-=======
-data class MaintenanceRecommendation(
-    val type: String,
-    val priorite: String,
-    val raison: String,
-    val estimationCout: Double,
-    val delaiRecommande: String
->>>>>>> origin/documents1
 )
 
 data class MaintenanceExtendedResponse(
     @SerializedName("_id")
     val id: String,
     val type: String,
-<<<<<<< HEAD
     val title: String,
     val notes: String? = null,
     val tags: List<String> = emptyList(),
@@ -366,17 +267,10 @@ data class MaintenanceExtendedResponse(
     @JsonAdapter(FlexibleCarDeserializer::class)
     val voiture: String? = null,
     val ownerId: String? = null,
-=======
-    val coutMoyen: Double,
-    val dureeEstimee: Int,
-    @JsonAdapter(FlexibleGarageDeserializer::class)
-    val garage: String? = null,
->>>>>>> origin/documents1
     val createdAt: Date? = null,
     val updatedAt: Date? = null
 )
 
-<<<<<<< HEAD
 data class PaginatedMaintenancesResponse(
     val data: List<MaintenanceExtendedResponse>,
     val page: Int,
@@ -396,11 +290,6 @@ data class UpcomingMaintenanceWidget(
     val plate: String? = null
 )
 
-// Message Response
-data class MessageResponse(
-    val message: String,
-    val ok: Boolean? = null
-=======
 // Reclamation (Feedback) DTOs
 data class CreateReclamationRequest(
     val type: String,
@@ -408,7 +297,6 @@ data class CreateReclamationRequest(
     val message: String,
     val garage: String? = null,
     val service: String? = null
->>>>>>> origin/documents1
 )
 
 data class UpdateReclamationRequest(
@@ -416,7 +304,20 @@ data class UpdateReclamationRequest(
     val message: String? = null
 )
 
-<<<<<<< HEAD
+data class ReclamationResponse(
+    @SerializedName("_id")
+    val id: String,
+    val type: String,
+    val titre: String,
+    val message: String,
+    @JsonAdapter(FlexibleUserDeserializer::class)
+    val user: String? = null,
+    val garage: GarageResponse? = null,
+    val service: ServiceResponse? = null,
+    val createdAt: Date? = null,
+    val updatedAt: Date? = null
+)
+
 // ==================== SERVICES DTOs ====================
 
 data class CreateServiceRequest(
@@ -433,23 +334,10 @@ data class ServiceResponse(
     val description: String,
     val prix: Double,
     val garage: String,
-=======
-data class ReclamationResponse(
-    @SerializedName("_id")
-    val id: String,
-    val type: String,
-    val titre: String,
-    val message: String,
-    @JsonAdapter(FlexibleUserDeserializer::class)
-    val user: String? = null,
-    val garage: GarageResponse? = null,
-    val service: ServiceResponse? = null,
->>>>>>> origin/documents1
     val createdAt: Date? = null,
     val updatedAt: Date? = null
 )
 
-<<<<<<< HEAD
 // ==================== AI FEATURES DTOs ====================
 
 // Road Issue Reporting
@@ -714,19 +602,6 @@ data class SendMessageRequest(
     val content: String
 )
 
-// Notification response
-data class NotificationResponse(
-    @SerializedName("_id")
-    val id: String,
-    val userId: String,
-    val type: String, // "swipe_right", "swipe_accepted", "swipe_declined", "new_message"
-    val title: String,
-    val message: String,
-    val data: Map<String, Any>? = null,
-    val isRead: Boolean = false,
-    val createdAt: Date
-)
-
 // Unread count
 data class UnreadCountResponse(
     val count: Int
@@ -776,7 +651,3 @@ data class WsUserStatus(
     val event: String, // "user_online" or "user_offline"
     val userId: String
 )
-=======
-// Notification DTOs - already defined in DTOs.kt, keeping for reference
-// ...existing code...
->>>>>>> origin/documents1

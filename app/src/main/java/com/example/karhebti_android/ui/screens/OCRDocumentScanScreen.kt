@@ -462,7 +462,7 @@ fun OCRDocumentScanScreen(
                                     }
 
                                     val request = CreateDocumentRequest(
-                                        type = extractedType.lowercase().replace(" ", "_"), // Normaliser pour le backend
+                                        type = extractedType.lowercase(), // Format: "carte grise" (with spaces, not underscores)
                                         dateEmission = sdfIso.format(extractedDateEmission!!.time),
                                         dateExpiration = expirationDateStr,
                                         fichier = selectedFilePaths.joinToString(","),

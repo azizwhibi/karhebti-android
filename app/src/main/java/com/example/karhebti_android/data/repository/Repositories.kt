@@ -19,139 +19,7 @@ sealed class Resource<T>(
     class Loading<T> : Resource<T>()
 }
 
-<<<<<<< HEAD
-class AuthRepository(
-    private val apiService: KarhebtiApiService = RetrofitClient.apiService,
-    private val tokenManager: TokenManager
-) {
-
-    suspend fun signup(
-        nom: String,
-        prenom: String,
-        email: String,
-        motDePasse: String,
-        telephone: String
-    ): Resource<MessageResponse> = withContext(Dispatchers.IO) {
-        try {
-            val request = SignupRequest(nom, prenom, email, motDePasse, telephone)
-            val response = apiService.signup(request)
-
-            if (response.isSuccessful && response.body() != null) {
-                Resource.Success(response.body()!!)
-            } else {
-                Resource.Error("Erreur d'inscription: ${response.message()}")
-            }
-        } catch (e: Exception) {
-            Resource.Error("Erreur réseau: ${e.localizedMessage}")
-        }
-    }
-
-    // This verifies the OTP for a pending signup and completes account creation.
-    suspend fun verifySignupOtp(email: String, otpCode: String): Resource<AuthResponse> = withContext(Dispatchers.IO) {
-        try {
-            val request = VerifySignupOtpRequest(email, otpCode)
-            val response = apiService.verifySignupOtp(request)
-
-            if (response.isSuccessful && response.body() != null) {
-                Resource.Success(response.body()!!)
-            } else {
-                val errorBody = response.errorBody()?.string()
-                Resource.Error("Erreur de vérification: ${response.code()} - $errorBody")
-            }
-        } catch (e: Exception) {
-            Resource.Error("Erreur réseau: ${e.localizedMessage}")
-        }
-    }
-
-    suspend fun login(email: String, motDePasse: String): Resource<AuthResponse> =
-        withContext(Dispatchers.IO) {
-            try {
-                val request = LoginRequest(email, motDePasse)
-                val response = apiService.login(request)
-
-                if (response.isSuccessful && response.body() != null) {
-                    val authResponse = response.body()!!
-                    // Token will be saved by AuthViewModel via tokenManager.saveToken()
-                    Resource.Success(authResponse)
-                } else {
-                    Resource.Error("Email ou mot de passe incorrect")
-                }
-            } catch (e: Exception) {
-                Resource.Error("Erreur réseau: ${e.localizedMessage}")
-            }
-        }
-
-    suspend fun forgotPassword(email: String): Resource<MessageResponse> =
-        withContext(Dispatchers.IO) {
-            try {
-                val request = ForgotPasswordRequest(email)
-                val response = apiService.forgotPassword(request)
-
-                if (response.isSuccessful && response.body() != null) {
-                    Resource.Success(response.body()!!)
-                } else {
-                    Resource.Error("Erreur: ${response.message()}")
-                }
-            } catch (e: Exception) {
-                Resource.Error("Erreur réseau: ${e.localizedMessage}")
-            }
-        }
-
-    suspend fun verifyOtp(email: String, otp: String): Resource<MessageResponse> =
-        withContext(Dispatchers.IO) {
-            try {
-                val request = VerifyOtpRequest(email, otp)
-                val response = apiService.verifyOtp(request)
-
-                if (response.isSuccessful && response.body() != null) {
-                    Resource.Success(response.body()!!)
-                } else {
-                    Resource.Error("Code OTP invalide ou expiré")
-                }
-            } catch (e: Exception) {
-                Resource.Error("Erreur réseau: ${e.localizedMessage}")
-            }
-        }
-
-    suspend fun resetPassword(email: String, otp: String, newPassword: String): Resource<MessageResponse> =
-        withContext(Dispatchers.IO) {
-            try {
-                val request = ResetPasswordRequest(email, otp, newPassword)
-                val response = apiService.resetPassword(request)
-
-                if (response.isSuccessful && response.body() != null) {
-                    Resource.Success(response.body()!!)
-                } else {
-                    Resource.Error("Erreur: ${response.message()}")
-                }
-            } catch (e: Exception) {
-                Resource.Error("Erreur réseau: ${e.localizedMessage}")
-            }
-        }
-
-    suspend fun changePassword(currentPassword: String, newPassword: String): Resource<MessageResponse> =
-        withContext(Dispatchers.IO) {
-            try {
-                val userId = tokenManager.getUser()?.id ?: tokenManager.getToken()?.let { tokenManager.getUserIdFromToken(it) }
-                    ?: return@withContext Resource.Error("Utilisateur non connecté")
-                val request = ChangePasswordRequest(userId, currentPassword, newPassword)
-                val response = apiService.changePassword(request)
-
-                if (response.isSuccessful && response.body() != null) {
-                    Resource.Success(response.body()!!)
-                } else {
-                    Resource.Error("Erreur: ${response.message()}")
-                }
-            } catch (e: Exception) {
-                Resource.Error("Erreur réseau: ${e.localizedMessage}")
-            }
-        }
-
-    // Logout is now handled entirely by TokenManager.clearAll()
-}
-=======
 // ==================== CAR REPOSITORY ====================
->>>>>>> origin/documents1
 
 class CarRepository(private val apiService: KarhebtiApiService = RetrofitClient.apiService) {
 
@@ -178,16 +46,12 @@ class CarRepository(private val apiService: KarhebtiApiService = RetrofitClient.
         kilometrage: Int? = null
     ): Resource<CarResponse> = withContext(Dispatchers.IO) {
         try {
-<<<<<<< HEAD
             android.util.Log.d("CarRepository", "Creating car: $marque $modele $annee $immatriculation $typeCarburant")
             // Create car without kilometrage first
-=======
->>>>>>> origin/documents1
             val request = CreateCarRequest(marque, modele, annee, immatriculation, typeCarburant)
             val response = apiService.createCar(request)
 
             if (response.isSuccessful && response.body() != null) {
-<<<<<<< HEAD
                 val createdCar = response.body()!!
                 android.util.Log.d("CarRepository", "Success: Car created - $createdCar")
 
@@ -208,9 +72,6 @@ class CarRepository(private val apiService: KarhebtiApiService = RetrofitClient.
                 } else {
                     Resource.Success(createdCar)
                 }
-=======
-                Resource.Success(response.body()!!)
->>>>>>> origin/documents1
             } else {
                 Resource.Error("Erreur lors de la création")
             }
@@ -232,10 +93,7 @@ class CarRepository(private val apiService: KarhebtiApiService = RetrofitClient.
         imageUrl: String? = null
     ): Resource<CarResponse> = withContext(Dispatchers.IO) {
         try {
-<<<<<<< HEAD
             android.util.Log.d("CarRepository", "Updating car: $id")
-=======
->>>>>>> origin/documents1
             val request = UpdateCarRequest(
                 marque, modele, annee, typeCarburant,
                 kilometrage, statut, prochainEntretien, joursProchainEntretien, imageUrl
@@ -253,13 +111,9 @@ class CarRepository(private val apiService: KarhebtiApiService = RetrofitClient.
                 Resource.Error(errorMsg)
             }
         } catch (e: Exception) {
-<<<<<<< HEAD
             val errorMsg = "Erreur réseau: ${e.message}"
             android.util.Log.e("CarRepository", errorMsg, e)
             Resource.Error(errorMsg)
-=======
-            Resource.Error("Erreur réseau: ${e.message}")
->>>>>>> origin/documents1
         }
     }
 
@@ -268,7 +122,6 @@ class CarRepository(private val apiService: KarhebtiApiService = RetrofitClient.
             android.util.Log.d("CarRepository", "Deleting car: $id")
             val response = apiService.deleteCar(id)
 
-<<<<<<< HEAD
             android.util.Log.d("CarRepository", "Delete response code: ${response.code()}")
             
             // Backend returns empty body (Unit/Void), so we just check if successful
@@ -277,10 +130,6 @@ class CarRepository(private val apiService: KarhebtiApiService = RetrofitClient.
                 // Create a success message for the UI
                 val successMessage = MessageResponse(message = "Véhicule supprimé avec succès")
                 Resource.Success(successMessage)
-=======
-            if (response.isSuccessful) {
-                Resource.Success(MessageResponse(message = "Véhicule supprimé avec succès"))
->>>>>>> origin/documents1
             } else {
                 val errorBody = response.errorBody()?.string()
                 val errorMsg = "Erreur lors de la suppression: ${response.code()} - $errorBody"
@@ -288,13 +137,9 @@ class CarRepository(private val apiService: KarhebtiApiService = RetrofitClient.
                 Resource.Error(errorMsg)
             }
         } catch (e: Exception) {
-<<<<<<< HEAD
             val errorMsg = "Erreur réseau: ${e.message}"
             android.util.Log.e("CarRepository", errorMsg, e)
             Resource.Error(errorMsg)
-=======
-            Resource.Error("Erreur réseau: ${e.message}")
->>>>>>> origin/documents1
         }
     }
 }
@@ -311,20 +156,6 @@ class MaintenanceRepository(private val apiService: KarhebtiApiService = Retrofi
                 Resource.Success(response.body()!!)
             } else {
                 Resource.Error("Erreur lors de la récupération des entretiens")
-            }
-        } catch (e: Exception) {
-            Resource.Error("Erreur réseau: ${e.message}")
-        }
-    }
-
-    suspend fun getMaintenanceById(id: String): Resource<MaintenanceResponse> = withContext(Dispatchers.IO) {
-        try {
-            val response = apiService.getMaintenance(id)
-
-            if (response.isSuccessful && response.body() != null) {
-                Resource.Success(response.body()!!)
-            } else {
-                Resource.Error("Erreur: ${response.code()}")
             }
         } catch (e: Exception) {
             Resource.Error("Erreur réseau: ${e.message}")
@@ -370,19 +201,6 @@ class MaintenanceRepository(private val apiService: KarhebtiApiService = Retrofi
                 Resource.Success(response.body()!!)
             } else {
                 Resource.Error("Erreur lors de la création de l'entretien")
-            }
-        } catch (e: Exception) {
-            Resource.Error("Erreur réseau: ${e.message}")
-        }
-    }
-
-    suspend fun updateMaintenance(id: String, request: UpdateMaintenanceRequest): Resource<MaintenanceResponse> = withContext(Dispatchers.IO) {
-        try {
-            val response = apiService.updateMaintenance(id, request)
-            if (response.isSuccessful && response.body() != null) {
-                Resource.Success(response.body()!!)
-            } else {
-                Resource.Error("Erreur lors de la mise à jour")
             }
         } catch (e: Exception) {
             Resource.Error("Erreur réseau: ${e.message}")

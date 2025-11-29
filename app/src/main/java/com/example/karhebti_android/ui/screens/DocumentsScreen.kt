@@ -42,7 +42,6 @@ fun DocumentsScreen(
     val documentViewModel: DocumentViewModel = viewModel(
         factory = ViewModelFactory(context.applicationContext as android.app.Application)
     )
-<<<<<<< HEAD
 
     // Translation manager setup
     val db = com.example.karhebti_android.data.database.AppDatabase.getInstance(context.applicationContext)
@@ -64,10 +63,14 @@ fun DocumentsScreen(
     var allText by remember { mutableStateOf("Tous") }
     var registrationText by remember { mutableStateOf("Carte grise") }
     var insuranceText by remember { mutableStateOf("Assurance") }
-    var inspectionText by remember { mutableStateOf("Visite technique") }
+    var inspectionText by remember { mutableStateOf("Contrôle technique") }
     var otherText by remember { mutableStateOf("Autre") }
     var loadingText by remember { mutableStateOf("Chargement des documents...") }
     var noDocumentsText by remember { mutableStateOf("Aucun document") }
+    var searchText by remember { mutableStateOf("Rechercher un document...") }
+    var clearText by remember { mutableStateOf("Effacer") }
+    var deleteText by remember { mutableStateOf("Supprimer") }
+    var cancelText by remember { mutableStateOf("Annuler") }
 
     // Update translations when language changes
     LaunchedEffect(currentLanguage) {
@@ -79,21 +82,19 @@ fun DocumentsScreen(
             allText = translationManager.translate("all", "Tous", currentLanguage)
             registrationText = translationManager.translate("registration", "Carte grise", currentLanguage)
             insuranceText = translationManager.translate("insurance", "Assurance", currentLanguage)
-            inspectionText = translationManager.translate("inspection", "Visite technique", currentLanguage)
+            inspectionText = translationManager.translate("inspection", "Contrôle technique", currentLanguage)
             otherText = translationManager.translate("other", "Autre", currentLanguage)
             loadingText = translationManager.translate("documents_loading", "Chargement des documents...", currentLanguage)
             noDocumentsText = translationManager.translate("no_documents", "Aucun document", currentLanguage)
+            searchText = translationManager.translate("search_document", "Rechercher un document...", currentLanguage)
+            clearText = translationManager.translate("clear", "Effacer", currentLanguage)
+            deleteText = translationManager.translate("delete", "Supprimer", currentLanguage)
+            cancelText = translationManager.translate("cancel", "Annuler", currentLanguage)
         }
     }
 
     val documentsState by documentViewModel.documentsState.observeAsState()
     var selectedFilter by remember { mutableStateOf(allText) }
-    var showAddDialog by remember { mutableStateOf(false) }
-=======
-
-    val documentsState by documentViewModel.documentsState.observeAsState()
-    var selectedFilter by remember { mutableStateOf("Tous") }
->>>>>>> origin/documents1
     var showDeleteDialog by remember { mutableStateOf<DocumentResponse?>(null) }
     var searchQuery by remember { mutableStateOf("") }
 
@@ -109,11 +110,7 @@ fun DocumentsScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-<<<<<<< HEAD
                             contentDescription = backText,
-=======
-                            contentDescription = "Retour",
->>>>>>> origin/documents1
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -122,11 +119,7 @@ fun DocumentsScreen(
                     IconButton(onClick = { documentViewModel.getDocuments() }) {
                         Icon(
                             Icons.Default.Refresh,
-<<<<<<< HEAD
                             contentDescription = refreshText,
-=======
-                            contentDescription = "Actualiser",
->>>>>>> origin/documents1
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -139,8 +132,7 @@ fun DocumentsScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-<<<<<<< HEAD
-                onClick = { showAddDialog = true },
+                onClick = { onAddDocumentClick() },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
@@ -148,18 +140,7 @@ fun DocumentsScreen(
             }
         }
     ) { paddingValues ->
-        Box(
-=======
-                onClick = { onAddDocumentClick() },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Ajouter document")
-            }
-        }
-    ) { paddingValues ->
         LazyColumn(
->>>>>>> origin/documents1
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
@@ -167,30 +148,6 @@ fun DocumentsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-<<<<<<< HEAD
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Filter chips
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(listOf(allText, registrationText, insuranceText, inspectionText, otherText)) { filter ->
-                        FilterChip(
-                            selected = selectedFilter == filter,
-                            onClick = { selectedFilter = filter },
-                            label = { Text(filter) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                labelColor = MaterialTheme.colorScheme.onSurface
-                            )
-                        )
-=======
             // Search bar
             item {
                 OutlinedTextField(
@@ -199,11 +156,11 @@ fun DocumentsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 8.dp),
-                    placeholder = { Text("Rechercher un document...") },
+                    placeholder = { Text(searchText) },
                     leadingIcon = {
                         Icon(
                             Icons.Default.Search,
-                            contentDescription = "Rechercher",
+                            contentDescription = searchText,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
@@ -212,7 +169,7 @@ fun DocumentsScreen(
                             IconButton(onClick = { searchQuery = "" }) {
                                 Icon(
                                     Icons.Default.Close,
-                                    contentDescription = "Effacer",
+                                    contentDescription = clearText,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -232,7 +189,7 @@ fun DocumentsScreen(
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(listOf("Tous", "Carte grise", "Assurance", "Contrôle technique", "Autre")) { filter ->
+                    items(listOf(allText, registrationText, insuranceText, inspectionText, otherText)) { filter ->
                         FilterChip(
                             selected = selectedFilter == filter,
                             onClick = { selectedFilter = filter },
@@ -244,16 +201,12 @@ fun DocumentsScreen(
                                 labelColor = MaterialTheme.colorScheme.onSurface
                             )
                         )
->>>>>>> origin/documents1
                     }
                 }
+            }
 
-<<<<<<< HEAD
-                // Content
-=======
             // Content
             item {
->>>>>>> origin/documents1
                 when (val state = documentsState) {
                     is Resource.Loading -> {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -263,11 +216,7 @@ fun DocumentsScreen(
                             ) {
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                                 Text(
-<<<<<<< HEAD
                                     loadingText,
-=======
-                                    "Chargement des documents...",
->>>>>>> origin/documents1
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -275,13 +224,9 @@ fun DocumentsScreen(
                     }
                     is Resource.Success -> {
                         val allDocs = state.data ?: emptyList()
-<<<<<<< HEAD
-                        val filteredDocs = if (selectedFilter == allText) allDocs
-                        else allDocs.filter { it.type == selectedFilter.lowercase().replace(" ", "_") }
-=======
 
                         // Filtrage par type
-                        val typeFilteredDocs = if (selectedFilter == "Tous") allDocs
+                        val typeFilteredDocs = if (selectedFilter == allText) allDocs
                         else allDocs.filter { it.type.equals(selectedFilter, ignoreCase = true) }
 
                         // Filtrage par recherche
@@ -294,7 +239,6 @@ fun DocumentsScreen(
                                 doc.etat?.contains(searchQuery, ignoreCase = true) == true
                             }
                         }
->>>>>>> origin/documents1
 
                         if (filteredDocs.isEmpty()) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -303,38 +247,21 @@ fun DocumentsScreen(
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
                                     Icon(
-<<<<<<< HEAD
-                                        Icons.Default.Description,
-=======
                                         if (searchQuery.isNotEmpty())
                                             Icons.Default.SearchOff
                                         else
                                             Icons.Default.Description,
->>>>>>> origin/documents1
                                         contentDescription = null,
                                         modifier = Modifier.size(64.dp),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                     )
                                     Text(
-<<<<<<< HEAD
-                                        noDocumentsText,
-                                        style = MaterialTheme.typography.titleLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        } else {
-                            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                items(filteredDocs) { doc ->
-                                    DocumentCard(doc)
-                                }
-=======
                                         if (searchQuery.isNotEmpty())
                                             "Aucun résultat"
-                                        else if (selectedFilter != "Tous")
+                                        else if (selectedFilter != allText)
                                             "Aucun document de ce type"
                                         else
-                                            "Aucun document",
+                                            noDocumentsText,
                                         style = MaterialTheme.typography.titleLarge,
                                         color = MaterialTheme.colorScheme.onBackground
                                     )
@@ -355,7 +282,6 @@ fun DocumentsScreen(
                                     onClick = { onDocumentClick(document.id) },
                                     onDelete = { showDeleteDialog = document }
                                 )
->>>>>>> origin/documents1
                             }
                         }
                     }
@@ -374,14 +300,6 @@ fun DocumentsScreen(
                                 Text(
                                     "Erreur",
                                     style = MaterialTheme.typography.titleLarge,
-<<<<<<< HEAD
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    state.message ?: "Une erreur est survenue",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-=======
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
                                 Text(
@@ -399,7 +317,6 @@ fun DocumentsScreen(
                                     Spacer(Modifier.width(8.dp))
                                     Text("Réessayer")
                                 }
->>>>>>> origin/documents1
                             }
                         }
                     }
@@ -425,12 +342,12 @@ fun DocumentsScreen(
                         contentColor = MaterialTheme.colorScheme.error
                     )
                 ) {
-                    Text("Supprimer")
+                    Text(deleteText)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = null }) {
-                    Text("Annuler")
+                    Text(cancelText)
                 }
             }
         )
@@ -438,20 +355,6 @@ fun DocumentsScreen(
 }
 
 @Composable
-<<<<<<< HEAD
-fun DocumentCard(document: DocumentResponse) {
-    val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
-
-    ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { /* Handle document click */ },
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-=======
 fun DocumentCard(
     document: DocumentResponse,
     onClick: () -> Unit,
@@ -478,7 +381,6 @@ fun DocumentCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(12.dp)
->>>>>>> origin/documents1
     ) {
         Row(
             modifier = Modifier
@@ -487,43 +389,6 @@ fun DocumentCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-<<<<<<< HEAD
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.Description,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    document.type.uppercase(),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "Ajouté le ${dateFormat.format(document.createdAt)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-=======
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -609,4 +474,3 @@ fun DocumentCard(
     }
 }
 
->>>>>>> origin/documents1

@@ -3,6 +3,27 @@ package com.example.karhebti_android.data.websocket
 import android.util.Log
 import org.json.JSONObject
 
+// Extension function to convert JSONObject to Map
+fun JSONObject.toMap(): Map<String, Any> {
+    val map = mutableMapOf<String, Any>()
+    val keys = this.keys()
+    while (keys.hasNext()) {
+        val key = keys.next()
+        try {
+            val value: String = when (val rawValue = this.get(key.toString())) {
+                is JSONObject -> rawValue.toString()
+                JSONObject.NULL -> ""
+                null -> ""
+                else -> rawValue.toString()
+            }
+            map[key.toString()] = value
+        } catch (e: Exception) {
+            map[key.toString()] = ""
+        }
+    }
+    return map
+}
+
 // This is a simplified WebSocket service that can be extended with Socket.io
 // The actual Socket.io implementation will work once the dependency is properly synced
 
@@ -99,16 +120,3 @@ class WebSocketService(private val baseUrl: String) {
         }
     }
 }
-
-// Extension pour convertir JSONObject en Map
-fun JSONObject.toMap(): Map<String, Any> {
-    val map = mutableMapOf<String, Any>()
-    val iterator = keys()
-    while (iterator.hasNext()) {
-        val key = iterator.next()
-        map[key] = get(key)
-    }
-    return map
-}
-
-

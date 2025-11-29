@@ -37,14 +37,21 @@ data class ForgotPasswordRequest(
     val email: String
 )
 
+data class VerifyOtpRequest(
+    val email: String,
+    val otp: String
+)
+
 data class ChangePasswordRequest(
     val currentPassword: String,
     val newPassword: String
 )
 
 data class ResetPasswordRequest(
-    val token: String,
-    val nouveauMotDePasse: String
+    val email: String,
+    val otp: String,
+    @SerializedName("newPassword")
+    val newPassword: String
 )
 
 // User DTOs utilisés par KarhebtiApiService et ailleurs
@@ -102,7 +109,9 @@ data class NotificationResponse(
 
     val createdAt: String? = null,
 
-    val updatedAt: String? = null
+    val updatedAt: String? = null,
+
+    val data: Map<String, Any>? = null
 )
 
 // ==================== ERROR DTO ====================

@@ -196,8 +196,8 @@ class ChatWebSocketClient(
         try {
             if (args.isNotEmpty()) {
                 val data = args[0] as? JSONObject
-                val userId = data?.optString("userId", "") ?: ""
-                val conversationId = data?.optString("conversationId", "") ?: ""
+                val userId: String = data?.optString("userId", "") ?: ""
+                val conversationId: String = data?.optString("conversationId", "") ?: ""
                 Log.d(TAG, "✅ User typing: $userId in conversation $conversationId")
                 onUserTyping(userId, conversationId)
             }
@@ -210,7 +210,7 @@ class ChatWebSocketClient(
         try {
             if (args.isNotEmpty()) {
                 val data = args[0] as? JSONObject
-                val userId = data?.optString("userId", "") ?: ""
+                val userId: String = data?.optString("userId", "") ?: ""
                 Log.d(TAG, "✅ User online: $userId")
                 onUserStatus(userId, true)
             }
@@ -223,7 +223,7 @@ class ChatWebSocketClient(
         try {
             if (args.isNotEmpty()) {
                 val data = args[0] as? JSONObject
-                val userId = data?.optString("userId", "") ?: ""
+                val userId: String = data?.optString("userId", "") ?: ""
                 Log.d(TAG, "✅ User offline: $userId")
                 onUserStatus(userId, false)
             }

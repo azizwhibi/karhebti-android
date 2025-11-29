@@ -5,12 +5,7 @@ import android.content.SharedPreferences
 import android.util.Base64
 import com.example.karhebti_android.data.api.RetrofitClient
 import com.google.gson.Gson
-<<<<<<< HEAD
 import org.json.JSONObject
-=======
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
->>>>>>> origin/documents1
 
 class TokenManager(context: Context) {
     private val appContext: Context = context.applicationContext
@@ -37,31 +32,8 @@ class TokenManager(context: Context) {
     fun saveToken(token: String) {
         android.util.Log.d("TokenManager", "Saving token: $token")
         prefs.edit().putString(KEY_TOKEN, token).apply()
-<<<<<<< HEAD
         android.util.Log.d("TokenManager", "Token saved. Verifying: ${getToken()}")
-        // Token is now fetched directly by the interceptor from here
-=======
         RetrofitClient.setAuthToken(token)
-        // Also attempt to save into EncryptedSharedPreferences under "jwt_token" so
-        // other readers (AuthInterceptor / readAnyToken) can find it.
-        try {
-            val masterKey = MasterKey.Builder(appContext)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-
-            val encryptedPrefs = EncryptedSharedPreferences.create(
-                appContext,
-                "secret_shared_prefs",
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-            encryptedPrefs.edit().putString("jwt_token", token).apply()
-        } catch (e: Exception) {
-            // Not fatal: some devices/emulator configs might not support encrypted prefs at runtime
-            android.util.Log.w("TokenManager", "Could not write to EncryptedSharedPreferences: ${e.message}")
-        }
->>>>>>> origin/documents1
     }
 
     fun getToken(): String? {
@@ -86,7 +58,7 @@ class TokenManager(context: Context) {
 
     fun clearAll() {
         prefs.edit().clear().apply()
-        // Token is automatically null when cleared from SharedPreferences
+        RetrofitClient.setAuthToken(null)
     }
 
     fun isLoggedIn(): Boolean {
@@ -99,8 +71,10 @@ class TokenManager(context: Context) {
 
     // Initialize token on app start
     fun initializeToken() {
-        // Token initialization now happens in RetrofitClient.initialize()
-        // Just ensure it's set up early
+        val token = getToken()
+        if (token != null) {
+            RetrofitClient.setAuthToken(token)
+        }
     }
 
     // Extract user ID from JWT token

@@ -17,11 +17,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-<<<<<<< HEAD
-
-// Auth ViewModel
-class AuthViewModel(application: Application) : AndroidViewModel(application) {
-=======
 import kotlinx.coroutines.flow.collect
 
 // Data class for counters
@@ -42,13 +37,11 @@ sealed class AuthUiState {
 
 // Auth ViewModel
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
+    private val tokenManager = TokenManager.getInstance(application)
     private val authRepository = AuthRepository(
         authApiService = RetrofitClient.authApiService,
         context = application.applicationContext
     )
->>>>>>> origin/documents1
-    private val tokenManager = TokenManager.getInstance(application)
-    private val repository = AuthRepository(tokenManager = tokenManager)
 
     private val _authState = MutableLiveData<AuthUiState>(AuthUiState.Idle)
     val authState: LiveData<AuthUiState> = _authState
@@ -65,6 +58,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val _signupInitiationState = MutableLiveData<Resource<MessageResponse>>()
     val signupInitiationState: LiveData<Resource<MessageResponse>> = _signupInitiationState
 
+    private val _forgotPasswordState = MutableLiveData<Resource<MessageResponse>>()
+    val forgotPasswordState: LiveData<Resource<MessageResponse>> = _forgotPasswordState
+
     init {
         tokenManager.initializeToken()
     }
@@ -72,37 +68,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun login(email: String, password: String) {
         _authState.value = AuthUiState.Loading
         viewModelScope.launch {
-<<<<<<< HEAD
-            try {
-                android.util.Log.d("AuthViewModel", "Starting login for: $email")
-                val result = repository.login(email, password)
-                android.util.Log.d("AuthViewModel", "Login result: $result")
-                _authState.value = result
-
-                if (result is Resource.Success) {
-                    android.util.Log.d("AuthViewModel", "Login successful, saving token...")
-                    try {
-                        val userData = result.data!!
-                        android.util.Log.d("AuthViewModel", "User data received: ${userData.user}")
-
-                        tokenManager.saveToken(userData.accessToken)
-                        tokenManager.saveUser(UserData(
-                            id = userData.user.id,
-                            email = userData.user.email,
-                            nom = userData.user.nom,
-                            prenom = userData.user.prenom,
-                            role = userData.user.role,
-                            telephone = userData.user.telephone ?: ""
-                        ))
-                        android.util.Log.d("AuthViewModel", "Token and user saved successfully")
-                    } catch (e: Exception) {
-                        android.util.Log.e("AuthViewModel", "Error saving token/user: ${e.message}", e)
-                        _authState.value = Resource.Error("Erreur lors de la sauvegarde: ${e.message}")
-=======
             authRepository.login(email, password).collect { result ->
                 result.fold(
                     onSuccess = { authResponse ->
                         try {
+                            android.util.Log.d("AuthViewModel", "Login successful for: $email")
                             // Sauvegarder token et user
                             tokenManager.saveToken(authResponse.accessToken)
                             val user = authResponse.user
@@ -116,29 +86,39 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                                     telephone = user.telephone ?: ""
                                 )
                             )
+                            android.util.Log.d("AuthViewModel", "Token and user saved successfully")
                             // Enregistrer le token FCM
                             registerFCMToken()
                             _authState.value = AuthUiState.Success(authResponse)
                         } catch (e: Exception) {
+                            android.util.Log.e("AuthViewModel", "Error saving token/user: ${e.message}", e)
                             _authState.value = AuthUiState.Error("Erreur lors de la sauvegarde: ${e.message}")
                         }
                     },
                     onFailure = { e ->
+                        android.util.Log.e("AuthViewModel", "Login error: ${e.message}", e)
                         _authState.value = AuthUiState.Error(e.message ?: "Erreur de connexion")
->>>>>>> origin/documents1
                     }
                 )
             }
         }
     }
 
-<<<<<<< HEAD
+    /**
+     * Enregistrer le token FCM au backend
+     */
+    private fun registerFCMToken() {
+        val fcmTokenService = FCMTokenService(getApplication())
+        fcmTokenService.registerDeviceToken()
+        fcmTokenService.subscribeToTopics()
+    }
+
     // Start the two-step signup: call POST /auth/signup to send OTP and create pending signup
     fun signupInitiate(nom: String, prenom: String, email: String, password: String, telephone: String) {
         _signupInitiationState.value = Resource.Loading()
         viewModelScope.launch {
             try {
-                val result = repository.signup(nom, prenom, email, password, telephone)
+                val result = authRepository.signup(nom, prenom, email, password, telephone)
                 _signupInitiationState.value = result
             } catch (e: Exception) {
                 _signupInitiationState.value = Resource.Error("Erreur d'inscription: ${e.localizedMessage}")
@@ -148,27 +128,32 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     // Complete the signup by verifying the OTP (POST /auth/signup/verify). On success save token & user.
     fun verifySignupOtp(email: String, otpCode: String) {
-        _authState.value = Resource.Loading()
+        _authState.value = AuthUiState.Loading
         viewModelScope.launch {
             try {
-                val result = repository.verifySignupOtp(email, otpCode)
-                _authState.value = result
-
-                if (result is Resource.Success) {
-                    // save token and user
-                    val auth = result.data!!
-                    tokenManager.saveToken(auth.accessToken)
-                    tokenManager.saveUser(UserData(
-                        id = auth.user.id,
-                        email = auth.user.email,
-                        nom = auth.user.nom,
-                        prenom = auth.user.prenom,
-                        role = auth.user.role,
-                        telephone = auth.user.telephone ?: ""
-                    ))
+                val result = authRepository.verifySignupOtp(email, otpCode)
+                when (result) {
+                    is Resource.Success -> {
+                        // save token and user
+                        val auth = result.data!!
+                        tokenManager.saveToken(auth.accessToken)
+                        tokenManager.saveUser(UserData(
+                            id = auth.user.id,
+                            email = auth.user.email,
+                            nom = auth.user.nom,
+                            prenom = auth.user.prenom,
+                            role = auth.user.role,
+                            telephone = auth.user.telephone ?: ""
+                        ))
+                        _authState.value = AuthUiState.Success(auth)
+                    }
+                    is Resource.Error -> {
+                        _authState.value = AuthUiState.Error(result.message ?: "Erreur de vérification")
+                    }
+                    else -> {}
                 }
             } catch (e: Exception) {
-                _authState.value = Resource.Error("Erreur lors de la vérification du signup: ${e.localizedMessage}")
+                _authState.value = AuthUiState.Error("Erreur lors de la vérification du signup: ${e.localizedMessage}")
             }
         }
     }
@@ -183,25 +168,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun forgotPassword(email: String) {
         _forgotPasswordState.value = Resource.Loading()
         viewModelScope.launch {
-            val result = repository.forgotPassword(email)
+            val result = authRepository.forgotPassword(email)
             _forgotPasswordState.value = result
         }
-=======
-    /**
-     * Enregistrer le token FCM au backend
-     */
-    private fun registerFCMToken() {
-        val fcmTokenService = FCMTokenService(getApplication())
-        fcmTokenService.registerDeviceToken()
-        fcmTokenService.subscribeToTopics()
->>>>>>> origin/documents1
     }
 
     fun verifyOtp(email: String, otp: String) {
         _verifyOtpState.value = Resource.Loading()
         viewModelScope.launch {
             try {
-                val result = repository.verifyOtp(email, otp)
+                val result = authRepository.verifyOtp(email, otp)
                 _verifyOtpState.value = result
             } catch (e: Exception) {
                 android.util.Log.e("AuthViewModel", "Verify OTP error: ${e.message}", e)
@@ -214,7 +190,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _resetPasswordState.value = Resource.Loading()
         viewModelScope.launch {
             try {
-                val result = repository.resetPassword(email, otp, newPassword)
+                val result = authRepository.resetPassword(email, otp, newPassword)
                 _resetPasswordState.value = result
             } catch (e: Exception) {
                 android.util.Log.e("AuthViewModel", "Reset password error: ${e.message}", e)
@@ -227,7 +203,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _changePasswordState.value = Resource.Loading()
         viewModelScope.launch {
             try {
-                val result = repository.changePassword(currentPassword, newPassword)
+                val result = authRepository.changePassword(currentPassword, newPassword)
                 _changePasswordState.value = result
             } catch (e: Exception) {
                 android.util.Log.e("AuthViewModel", "Change password error: ${e.message}", e)
@@ -253,23 +229,18 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun logout() {
-<<<<<<< HEAD
-        tokenManager.clearAll()
-        // Reset all state flows to prevent UI from attempting API calls with null token
-        _authState.value = Resource.Loading()
-        _forgotPasswordState.value = Resource.Loading()
-        _verifyOtpState.value = null
-        _resetPasswordState.value = null
-        _changePasswordState.value = null
-=======
         viewModelScope.launch {
             authRepository.logout().collect {
                 // Quel que soit le résultat, on nettoie le token localement
                 tokenManager.clearAll()
                 _authState.value = AuthUiState.Idle
+                // Reset all state flows to prevent UI from attempting API calls with null token
+                _forgotPasswordState.value = Resource.Loading()
+                _verifyOtpState.value = null
+                _resetPasswordState.value = null
+                _changePasswordState.value = null
             }
         }
->>>>>>> origin/documents1
     }
 
     fun isLoggedIn(): Boolean = tokenManager.isLoggedIn()
@@ -314,11 +285,7 @@ class CarViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refresh() = getMyCars()
 
-<<<<<<< HEAD
     fun createCar(marque: String, modele: String, annee: Int, immatriculation: String, typeCarburant: String, kilometrage: Int? = null) {
-=======
-    fun createCar(marque: String, modele: String, annee: Int, immatriculation: String, typeCarburant: String) {
->>>>>>> origin/documents1
         _createCarState.value = Resource.Loading()
         viewModelScope.launch {
             val result = repository.createCar(marque, modele, annee, immatriculation, typeCarburant, kilometrage)
@@ -395,12 +362,9 @@ class MaintenanceViewModel(application: Application) : AndroidViewModel(applicat
     private val _updateMaintenanceState = MutableLiveData<Resource<MaintenanceResponse>>()
     val updateMaintenanceState: LiveData<Resource<MaintenanceResponse>> = _updateMaintenanceState
 
-<<<<<<< HEAD
     private val _deleteMaintenanceState = MutableLiveData<Resource<MessageResponse>?>(null)
     val deleteMaintenanceState: LiveData<Resource<MessageResponse>?> = _deleteMaintenanceState
 
-=======
->>>>>>> origin/documents1
     fun getMaintenances() {
         _maintenancesState.value = Resource.Loading()
         _maintenancesStateFlow.value = Resource.Loading()
@@ -511,12 +475,9 @@ class DocumentViewModel(application: Application) : AndroidViewModel(application
     private val _documentsState = MutableLiveData<Resource<List<DocumentResponse>>>()
     val documentsState: LiveData<Resource<List<DocumentResponse>>> = _documentsState
 
-<<<<<<< HEAD
-=======
     private val _documentDetailState = MutableLiveData<Resource<DocumentResponse>>()
     val documentDetailState: LiveData<Resource<DocumentResponse>> = _documentDetailState
 
->>>>>>> origin/documents1
     private val _documentsStateFlow = MutableStateFlow<Resource<List<DocumentResponse>>?>(null)
     val documentsStateFlow: StateFlow<Resource<List<DocumentResponse>>?> = _documentsStateFlow.asStateFlow()
 
@@ -538,20 +499,12 @@ class DocumentViewModel(application: Application) : AndroidViewModel(application
             _documentsStateFlow.value = result
             if (result is Resource.Success) {
                 _documentCount.value = result.data?.size ?: 0
-<<<<<<< HEAD
-=======
                 // Vérifier les documents expirante et logger les alertes
                 checkExpiringDocuments(result.data ?: emptyList())
->>>>>>> origin/documents1
             }
         }
     }
 
-<<<<<<< HEAD
-    fun refresh() = getDocuments()
-
-    fun createDocument(type: String, dateEmission: String, dateExpiration: String, fichier: String, voiture: String) {
-=======
     private fun checkExpiringDocuments(documents: List<DocumentResponse>) {
         val expirationService = com.example.karhebti_android.data.websocket.DocumentExpirationNotificationService()
         val expiringDocuments = expirationService.getDocumentsExpiringWithinThreeDays(documents)
@@ -579,7 +532,6 @@ class DocumentViewModel(application: Application) : AndroidViewModel(application
     fun refresh() = getDocuments()
 
     fun createDocument(request: CreateDocumentRequest) {
->>>>>>> origin/documents1
         _createDocumentState.value = Resource.Loading()
         viewModelScope.launch {
             val result = repository.createDocument(request)
@@ -704,10 +656,10 @@ class AIViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun getMaintenanceRecommendations(voitureId: String, mileage: Int, lastMaintenanceDate: String? = null) {
+    fun getMaintenanceRecommendations(carId: String, currentKilometrage: Int) {
         _maintenanceRecommendationsState.value = Resource.Loading()
         viewModelScope.launch {
-            val result = repository.getMaintenanceRecommendations(voitureId, mileage, lastMaintenanceDate)
+            val result = repository.getMaintenanceRecommendations(carId, currentKilometrage)
             _maintenanceRecommendationsState.value = result
         }
     }
@@ -802,7 +754,7 @@ class ReclamationViewModel(application: Application) : AndroidViewModel(applicat
                     imageUrl = null
                 )
             },
-            service = response.service?.let { Service(it.id, it.type) },
+            service = response.service?.let { Service(it.id, it.nom) },
             createdAt = response.createdAt
         )
     }

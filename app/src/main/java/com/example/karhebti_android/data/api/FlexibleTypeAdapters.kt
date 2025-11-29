@@ -30,7 +30,6 @@ class FlexibleUserDeserializer : JsonDeserializer<String?> {
 }
 
 /**
-<<<<<<< HEAD
  * Custom deserializer for user field that preserves the full UserResponse object
  * Used in ConversationResponse to get full user details
  */
@@ -61,8 +60,8 @@ class FlexibleUserObjectDeserializer : JsonDeserializer<UserResponse?> {
                         email = obj.get("email")?.asString ?: "",
                         telephone = obj.get("telephone")?.asString,
                         role = obj.get("role")?.asString ?: "utilisateur",
-                        createdAt = null,
-                        updatedAt = null
+                        createdAt = obj.get("createdAt")?.asString,
+                        updatedAt = obj.get("updatedAt")?.asString
                     )
                 } catch (e: Exception) {
                     null
@@ -74,8 +73,6 @@ class FlexibleUserObjectDeserializer : JsonDeserializer<UserResponse?> {
 }
 
 /**
-=======
->>>>>>> origin/documents1
  * Custom deserializer for garage field that can be either a String (ID) or an object
  */
 class FlexibleGarageDeserializer : JsonDeserializer<String?> {
@@ -128,32 +125,21 @@ class FlexibleCarDeserializer : JsonDeserializer<String?> {
 }
 
 /**
-<<<<<<< HEAD
  * Custom deserializer for car field that preserves the full MarketplaceCarResponse object
  * Used in ConversationResponse to get full car details
  */
 class FlexibleCarObjectDeserializer : JsonDeserializer<MarketplaceCarResponse?> {
-=======
- * Custom deserializer for service field that can be either a String (ID) or an object
- */
-class FlexibleServiceDeserializer : JsonDeserializer<String?> {
->>>>>>> origin/documents1
     override fun deserialize(
         json: JsonElement?,
         typeOfT: Type?,
         context: JsonDeserializationContext?
-<<<<<<< HEAD
     ): MarketplaceCarResponse? {
-=======
-    ): String? {
->>>>>>> origin/documents1
         if (json == null || json.isJsonNull) {
             return null
         }
 
         return when {
             json.isJsonPrimitive && json.asJsonPrimitive.isString -> {
-<<<<<<< HEAD
                 // If it's just an ID string, we can't create a full car response
                 null
             }
@@ -187,13 +173,32 @@ class FlexibleServiceDeserializer : JsonDeserializer<String?> {
                 } catch (e: Exception) {
                     null
                 }
-=======
+            }
+            else -> null
+        }
+    }
+}
+
+/**
+ * Custom deserializer for service field that can be either a String (ID) or an object
+ */
+class FlexibleServiceDeserializer : JsonDeserializer<String?> {
+    override fun deserialize(
+        json: JsonElement?,
+        typeOfT: Type?,
+        context: JsonDeserializationContext?
+    ): String? {
+        if (json == null || json.isJsonNull) {
+            return null
+        }
+
+        return when {
+            json.isJsonPrimitive && json.asJsonPrimitive.isString -> {
                 json.asString
             }
             json.isJsonObject -> {
                 // Extract the _id field from the service object
                 json.asJsonObject.get("_id")?.asString
->>>>>>> origin/documents1
             }
             else -> null
         }
