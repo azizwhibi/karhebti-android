@@ -9,6 +9,7 @@ import com.example.karhebti_android.data.api.*
 import com.example.karhebti_android.data.preferences.TokenManager
 import com.example.karhebti_android.data.repository.ChatRepository
 import com.example.karhebti_android.data.repository.Resource
+import com.example.karhebti_android.utils.NotificationHelper
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 
@@ -33,6 +34,9 @@ class ChatViewModel private constructor(application: Application) : AndroidViewM
     private val repository: ChatRepository by lazy {
         ChatRepository.getInstance(RetrofitClient.apiService, tokenManager.getToken() ?: "")
     }
+
+    // CRITICAL: Add NotificationHelper
+    private val notificationHelper = NotificationHelper(application.applicationContext)
 
     // Current conversation
     private val _currentConversation = MutableLiveData<Resource<ConversationResponse>>()
@@ -180,6 +184,15 @@ class ChatViewModel private constructor(application: Application) : AndroidViewM
                 android.util.Log.d("ChatViewModel", "🔔 Notification received: ${notification.type}")
 
                 viewModelScope.launch(Dispatchers.Main) {
+                    // CRITICAL FIX: Display actual Android notification
+                    android.util.Log.d("ChatViewModel", "📲 Displaying Android notification...")
+                    try {
+                        notificationHelper.showNotification(notification)
+                        android.util.Log.d("ChatViewModel", "✅ Android notification displayed")
+                    } catch (e: Exception) {
+                        android.util.Log.e("ChatViewModel", "❌ Failed to display notification: ${e.message}", e)
+                    }
+
                     // Post notification for UI to handle
                     _realtimeNotification.postValue(notification)
 
