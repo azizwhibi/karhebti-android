@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +34,7 @@ import com.example.karhebti_android.viewmodel.CarViewModel
 import com.example.karhebti_android.viewmodel.MaintenanceViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
 import java.text.SimpleDateFormat
+import java.text.Normalizer
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,6 +50,10 @@ fun VehicleDetailScreen(
     val maintenanceViewModel: MaintenanceViewModel = viewModel(
         factory = ViewModelFactory(context.applicationContext as android.app.Application)
     )
+    // Partage du GarageViewModel depuis le parent pour éviter sa recréation répétée dans le dialog
+    val garageViewModel: com.example.karhebti_android.viewmodel.GarageViewModel = viewModel(
+        factory = ViewModelFactory(context.applicationContext as android.app.Application)
+    )
 
     val carsState by carViewModel.carsState.observeAsState()
     val deleteCarState by carViewModel.deleteCarState.observeAsState()
@@ -59,6 +65,8 @@ fun VehicleDetailScreen(
     LaunchedEffect(Unit) {
         if (carsState == null) carViewModel.getMyCars()
         maintenanceViewModel.getMaintenances()
+        // Charger les garages une seule fois depuis le parent
+        garageViewModel.getGarages()
     }
 
     DisposableEffect(Unit) {
@@ -214,13 +222,17 @@ fun VehicleDetailScreen(
     }
 
     if (showAddMaintenanceDialog && car != null) {
+        // Passer les viewModels depuis le parent pour éviter recréations répétées dans le dialog
         AddMaintenanceDialogWithPrefilledCar(
             onDismiss = { showAddMaintenanceDialog = false },
             prefilledCarId = vehicleId,
             onSuccess = {
                 showAddMaintenanceDialog = false
                 maintenanceViewModel.getMaintenances()
-            }
+            },
+            maintenanceViewModel = maintenanceViewModel,
+            garageViewModel = garageViewModel,
+            carViewModel = carViewModel
         )
     }
 }
@@ -654,39 +666,58 @@ fun CompactMaintenanceCard(maintenance: MaintenanceResponse) {
 fun AddMaintenanceDialogWithPrefilledCar(
     onDismiss: () -> Unit,
     prefilledCarId: String,
-    onSuccess: () -> Unit
+    onSuccess: () -> Unit,
+    maintenanceViewModel: MaintenanceViewModel,
+    garageViewModel: com.example.karhebti_android.viewmodel.GarageViewModel,
+    carViewModel: CarViewModel
 ) {
     val context = LocalContext.current
-    val maintenanceViewModel: MaintenanceViewModel = viewModel(
-        factory = ViewModelFactory(context.applicationContext as android.app.Application)
-    )
-    val garageViewModel: com.example.karhebti_android.viewmodel.GarageViewModel = viewModel(
-        factory = ViewModelFactory(context.applicationContext as android.app.Application)
-    )
-    val carViewModel: CarViewModel = viewModel(
-        factory = ViewModelFactory(context.applicationContext as android.app.Application)
-    )
 
     val createMaintenanceState by maintenanceViewModel.createMaintenanceState.observeAsState()
     val garagesState by garageViewModel.garagesState.observeAsState()
     val carsState by carViewModel.carsState.observeAsState()
 
-    var type by remember { mutableStateOf("vidange") }
-    var selectedDate by remember { mutableStateOf<java.util.Date?>(null) }
-    var cout by remember { mutableStateOf("") }
-    var selectedGarageId by remember { mutableStateOf("") }
-    var expandedType by remember { mutableStateOf(false) }
-    var expandedGarage by remember { mutableStateOf(false) }
-    var hasTriggeredCreation by remember { mutableStateOf(false) }
+    // Utiliser rememberSaveable pour éviter la perte d'état lors de recompositions
+    var type by rememberSaveable { mutableStateOf("vidange") }
+    // On sauvegarde la date en millisecondes (Long) car Date n'est pas directement saveable
+    var selectedDateMillis by rememberSaveable { mutableStateOf<Long?>(null) }
+    var cout by rememberSaveable { mutableStateOf("") }
+    var selectedGarageId by rememberSaveable { mutableStateOf("") }
+    var expandedType by rememberSaveable { mutableStateOf(false) }
+    var expandedGarage by rememberSaveable { mutableStateOf(false) }
+    var hasTriggeredCreation by rememberSaveable { mutableStateOf(false) }
 
-    val types = listOf("vidange", "révision", "réparation", "pneus", "freins", "autre")
+    // Liste correcte des types (une entrée par string)
+    val types = listOf(
+        "vidange",
+        "contrôle technique",
+        "réparation pneu",
+        "changement pneu",
+        "freinage",
+        "batterie",
+        "climatisation",
+        "échappement",
+        "révision complète",
+        "diagnostic électronique",
+        "carrosserie",
+        "peinture",
+        "pare-brise",
+        "suspension",
+        "embrayage",
+        "transmission",
+        "injection",
+        "refroidissement",
+        "démarrage",
+        "lavage auto",
+        "équilibrage roues",
+        "parallélisme",
+        "système électrique",
+        "filtre à air",
+        "filtre à huile",
+        "plaquettes de frein"
+    )
     val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
     val isoDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.FRANCE)
-
-    LaunchedEffect(Unit) {
-        garageViewModel.getGarages()
-        carViewModel.getMyCars()
-    }
 
     LaunchedEffect(createMaintenanceState) {
         if (createMaintenanceState is Resource.Success && hasTriggeredCreation) {
@@ -721,10 +752,57 @@ fun AddMaintenanceDialogWithPrefilledCar(
         (garagesState as? Resource.Success<List<com.example.karhebti_android.data.api.GarageResponse>>)?.data ?: emptyList()
     }
 
+    // Si la liste des garages est vide au moment de l'ouverture du dialog, demander explicitement le chargement
+    LaunchedEffect(allGarages.isEmpty()) {
+        if (allGarages.isEmpty()) {
+            Log.w("AddMaintenance", "allGarages vide au moment d'ouverture du dialog, requête de chargement")
+            garageViewModel.getGarages()
+        }
+    }
+
+    // Normalisation utile pour comparer en ignorant casse, espaces et accents
+    val normalize: (String) -> String = { s ->
+        Normalizer.normalize(s ?: "", Normalizer.Form.NFD)
+            .replace("\\p{M}+".toRegex(), "")
+            .lowercase(Locale.getDefault())
+            .trim()
+    }
+
     val filteredGarages = remember(type, allGarages) {
-        val filtered = allGarages.filter { it.serviceTypes?.contains(type) == true }
-        Log.d("AddMaintenance", "Type sélectionné: $type, Garages filtrés: ${filtered.size}/${allGarages.size}")
+        val target = normalize(type)
+        val filtered = allGarages.filter { garage ->
+            val services = garage.serviceTypes ?: emptyList()
+            // Debug des services du garage (limité)
+            if (services.isNotEmpty()) {
+                Log.d("AddMaintenance", "Garage=${garage.nom}, services=${services.take(5)}")
+            }
+            // découper les valeurs si le backend a envoyé plusieurs types dans une seule string
+            val parts = services.flatMap { serviceTypeRaw ->
+                serviceTypeRaw.split(Regex("[,;/]"))
+                    .map { normalize(it) }
+                    .filter { it.isNotBlank() }
+            }
+            // si pas de séparateur, parts contiendra la version normalisée complète
+            parts.any { s ->
+                // accepter égalité ou inclusion (ex: "vidange moteur" contient "vidange")
+                s == target || s.contains(target) || target.contains(s)
+            }
+        }
+        Log.d("AddMaintenance", "Type sélectionné: $type (normalized='$target'), Garages filtrés: ${filtered.size}/${allGarages.size}")
         filtered
+    }
+
+    // Si aucun garage compatible trouvé, on affichera la liste complète (UX plus conviviale)
+    // Construire une liste ordonnée : d'abord les compatibles, puis les autres
+    val orderedGarages = remember(filteredGarages, allGarages) {
+        if (allGarages.isEmpty()) return@remember emptyList<com.example.karhebti_android.data.api.GarageResponse>()
+        if (filteredGarages.isEmpty()) {
+            Log.w("AddMaintenance", "Aucun garage compatible trouvé pour '$type' — affichage de tous les garages")
+            allGarages
+        } else {
+            val others = allGarages.filter { ag -> filteredGarages.none { it.id == ag.id } }
+            filteredGarages + others
+        }
     }
 
     val carName = remember(carsState, prefilledCarId) {
@@ -734,6 +812,7 @@ fun AddMaintenanceDialogWithPrefilledCar(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = false),
         title = {
             Text(
                 "Nouvel entretien",
@@ -810,7 +889,7 @@ fun AddMaintenanceDialogWithPrefilledCar(
                 }
 
                 OutlinedTextField(
-                    value = selectedDate?.let { dateFormat.format(it) } ?: "",
+                    value = selectedDateMillis?.let { dateFormat.format(java.util.Date(it)) } ?: "",
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Date") },
@@ -822,7 +901,7 @@ fun AddMaintenanceDialogWithPrefilledCar(
                                 context,
                                 { _, year, month, day ->
                                     calendar.set(year, month, day)
-                                    selectedDate = calendar.time
+                                    selectedDateMillis = calendar.timeInMillis
                                 },
                                 calendar.get(java.util.Calendar.YEAR),
                                 calendar.get(java.util.Calendar.MONTH),
@@ -850,11 +929,11 @@ fun AddMaintenanceDialogWithPrefilledCar(
                     onExpandedChange = { expandedGarage = it }
                 ) {
                     OutlinedTextField(
-                        value = filteredGarages.find { it.id == selectedGarageId }?.nom ?: "",
+                        value = orderedGarages.find { it.id == selectedGarageId }?.nom ?: "",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Garage (optionnel)") },
-                        placeholder = { Text("Sélectionner un garage") },
+                        placeholder = { Text(if (filteredGarages.isEmpty()) "Aucun garage compatible — affichage de tous les garages" else "Sélectionner un garage") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedGarage) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -864,20 +943,54 @@ fun AddMaintenanceDialogWithPrefilledCar(
                         expanded = expandedGarage,
                         onDismissRequest = { expandedGarage = false }
                     ) {
-                        if (filteredGarages.isEmpty()) {
+                        if (orderedGarages.isEmpty()) {
                             DropdownMenuItem(
-                                text = { Text("Aucun garage disponible pour ce service") },
+                                text = { Text("Aucun garage disponible") },
                                 onClick = { }
                             )
                         } else {
-                            filteredGarages.forEach { garage ->
-                                DropdownMenuItem(
-                                    text = { Text(garage.nom) },
-                                    onClick = {
-                                        selectedGarageId = garage.id
-                                        expandedGarage = false
+                            // Afficher d'abord les compatibles (si présents)
+                            val hasFiltered = filteredGarages.isNotEmpty()
+                            if (hasFiltered) {
+                                filteredGarages.forEach { garage ->
+                                    DropdownMenuItem(
+                                        text = { Text(garage.nom) },
+                                        onClick = {
+                                            selectedGarageId = garage.id
+                                            expandedGarage = false
+                                        }
+                                    )
+                                }
+                                // Ajouter une séparation et un header pour les autres garages s'il y en a
+                                val others = orderedGarages.drop(filteredGarages.size)
+                                if (others.isNotEmpty()) {
+                                    Divider(modifier = Modifier.padding(vertical = 4.dp))
+                                    DropdownMenuItem(
+                                        text = { Text("Autres garages", style = MaterialTheme.typography.labelSmall) },
+                                        onClick = { /* header non cliquable */ },
+                                        enabled = false
+                                    )
+                                    others.forEach { garage ->
+                                        DropdownMenuItem(
+                                            text = { Text(garage.nom) },
+                                            onClick = {
+                                                selectedGarageId = garage.id
+                                                expandedGarage = false
+                                            }
+                                        )
                                     }
-                                )
+                                }
+                            } else {
+                                // Aucun garage compatible => afficher tous
+                                orderedGarages.forEach { garage ->
+                                    DropdownMenuItem(
+                                        text = { Text(garage.nom) },
+                                        onClick = {
+                                            selectedGarageId = garage.id
+                                            expandedGarage = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -895,9 +1008,9 @@ fun AddMaintenanceDialogWithPrefilledCar(
         confirmButton = {
             Button(
                 onClick = {
-                    selectedDate?.let { date ->
+                    selectedDateMillis?.let { dateMillis ->
                         val coutValue = cout.toDoubleOrNull() ?: 0.0
-                        val dateStr = isoDateFormat.format(date)
+                        val dateStr = isoDateFormat.format(java.util.Date(dateMillis))
                         maintenanceViewModel.createMaintenance(
                             type = type,
                             date = dateStr,
@@ -908,7 +1021,7 @@ fun AddMaintenanceDialogWithPrefilledCar(
                         hasTriggeredCreation = true
                     }
                 },
-                enabled = selectedDate != null && cout.isNotEmpty() && createMaintenanceState !is Resource.Loading,
+                enabled = selectedDateMillis != null && cout.isNotEmpty() && createMaintenanceState !is Resource.Loading,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
