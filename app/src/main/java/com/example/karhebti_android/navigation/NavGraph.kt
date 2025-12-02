@@ -269,7 +269,8 @@ fun NavGraph(
                 onBackClick = { navController.popBackStack() },
                 onVehicleClick = { vehicleId ->
                     navController.navigate(Screen.VehicleDetail.createRoute(vehicleId))
-                }
+                },
+                navController = navController
             )
         }
 
@@ -306,7 +307,8 @@ fun NavGraph(
                 onDocumentClick = { documentId ->
                     navController.navigate(Screen.DocumentDetail.createRoute(documentId))
                 },
-                onAddDocumentClick = { navController.navigate(Screen.AddDocumentChoice.route) }
+                onAddDocumentClick = { navController.navigate(Screen.AddDocumentChoice.route) },
+                navController = navController
             )
         }
 
@@ -472,7 +474,7 @@ fun NavGraph(
                     .addInterceptor(logging)
                     .build()
                 retrofit2.Retrofit.Builder()
-                    .baseUrl("http://10.0.2.2:3000/")
+                    .baseUrl("http://192.168.1.190:3000/")
                     .client(client)
                     .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
                     .build()
@@ -583,7 +585,8 @@ fun NavGraph(
                 onBackClick = { navController.popBackStack() },
                 onNavigateToChat = { conversationId ->
                     navController.navigate(Screen.Chat.createRoute(conversationId))
-                }
+                },
+                navController = navController
             )
         }
 

@@ -34,7 +34,7 @@ private fun getFullImageUrl(imageUrl: String?): String? {
     return if (imageUrl.startsWith("http")) {
         imageUrl
     } else {
-        "http://10.0.2.2:3000${if (imageUrl.startsWith("/")) imageUrl else "/$imageUrl"}"
+        "http://192.168.1.190:3000${if (imageUrl.startsWith("/")) imageUrl else "/$imageUrl"}"
     }
 }
 

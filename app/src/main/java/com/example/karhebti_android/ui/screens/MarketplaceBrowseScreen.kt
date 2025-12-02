@@ -17,12 +17,15 @@ import com.example.karhebti_android.data.repository.Resource
 import com.example.karhebti_android.ui.components.SwipeableCarCard
 import com.example.karhebti_android.viewmodel.MarketplaceViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
+import androidx.navigation.NavController
+import com.example.karhebti_android.ui.components.BottomNavigationBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MarketplaceBrowseScreen(
     onBackClick: () -> Unit,
     onNavigateToChat: (String) -> Unit,
+    navController: NavController? = null,
     viewModel: MarketplaceViewModel = viewModel(
         factory = ViewModelFactory(LocalContext.current.applicationContext as android.app.Application)
     )
@@ -112,6 +115,11 @@ fun MarketplaceBrowseScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            if (navController != null) {
+                BottomNavigationBar(navController = navController)
+            }
         }
     ) { padding ->
         Box(

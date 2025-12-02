@@ -5,7 +5,7 @@ package com.example.karhebti_android.util
  */
 object ImageUrlHelper {
     // Base URL should match your backend
-    private const val BASE_URL = "http://10.0.2.2:3000"
+    private const val BASE_URL = "http://192.168.1.190:3000"
 
     /**
      * Convert relative image path to absolute URL
@@ -39,4 +39,3 @@ object ImageUrlHelper {
                (imageUrl.startsWith("http://") || imageUrl.startsWith("https://") || imageUrl.startsWith("/"))
     }
 }
-

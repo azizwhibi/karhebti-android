@@ -41,7 +41,8 @@ import com.example.karhebti_android.viewmodel.ServiceViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
 import com.example.karhebti_android.ui.screens.GarageMapDialog
 import androidx.compose.material.icons.filled.Navigation
-import com.example.karhebti_android.ui.screens.GarageMapDialog
+import com.example.karhebti_android.ui.components.BottomNavigationBar
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GaragesScreen(
@@ -187,6 +188,9 @@ fun GaragesScreen(
                     navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
+        },
+        bottomBar = {
+            BottomNavigationBar(navController = navController)
         },
         floatingActionButton = {
             if (isPropGarage) {

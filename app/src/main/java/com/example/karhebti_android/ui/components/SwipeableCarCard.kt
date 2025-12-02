@@ -20,9 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
-import coil.compose.SubcomposeAsyncImageContent
 import com.example.karhebti_android.data.api.MarketplaceCarResponse
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -110,7 +108,11 @@ fun SwipeableCarCard(
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 // Car Image
-                val imageUrl = getFullImageUrl(car.imageUrl)
+                val imageUrl = remember(car.imageUrl) {
+                    car.imageUrl?.let { url ->
+                        "http://192.168.1.190:3000${if (url.startsWith("/")) url else "/$url"}"
+                    }
+                }
                 if (imageUrl != null) {
                     SubcomposeAsyncImage(
                         model = imageUrl,

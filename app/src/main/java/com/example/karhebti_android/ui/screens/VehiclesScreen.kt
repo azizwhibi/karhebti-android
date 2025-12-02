@@ -36,13 +36,17 @@ import com.example.karhebti_android.ui.components.UploadProgressIndicator
 import com.example.karhebti_android.ui.components.ImageValidationError
 import com.example.karhebti_android.data.repository.TranslationManager
 import kotlinx.coroutines.launch
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import com.example.karhebti_android.ui.components.BottomNavigationBar
 
 // Backend-Integrated VehiclesScreen with comprehensive image upload
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VehiclesScreen(
     onBackClick: () -> Unit = {},
-    onVehicleClick: (String) -> Unit = {}
+    onVehicleClick: (String) -> Unit = {},
+    navController: NavController? = null
 ) {
     val context = LocalContext.current
     val carViewModel: CarViewModel = viewModel(
@@ -166,6 +170,11 @@ fun VehiclesScreen(
                     navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
+        },
+        bottomBar = {
+            if (navController != null) {
+                BottomNavigationBar(navController = navController)
+            }
         },
         floatingActionButton = {
             FloatingActionButton(

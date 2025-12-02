@@ -30,13 +30,16 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.navigation.NavController
+import com.example.karhebti_android.ui.components.BottomNavigationBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DocumentsScreen(
     onBackClick: () -> Unit,
     onAddDocumentClick: () -> Unit,
-    onDocumentClick: (String) -> Unit
+    onDocumentClick: (String) -> Unit,
+    navController: NavController? = null
 ) {
     val context = LocalContext.current
     val documentViewModel: DocumentViewModel = viewModel(
@@ -129,6 +132,11 @@ fun DocumentsScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
+        },
+        bottomBar = {
+            if (navController != null) {
+                BottomNavigationBar(navController = navController)
+            }
         },
         floatingActionButton = {
             FloatingActionButton(
@@ -473,4 +481,3 @@ fun DocumentCard(
         }
     }
 }
-

@@ -814,12 +814,16 @@ class GarageRepository(private val apiService: KarhebtiApiService = RetrofitClie
             )
             val response = apiService.createGarage(request)
             if (response.isSuccessful && response.body() != null) {
-                Resource.Success(response.body()!!)
+                // ✅ Extraire l'objet garage de la réponse CreateGarageResponse
+                val createGarageResponse = response.body()!!
+                android.util.Log.d("GarageRepository", "Garage créé: ${createGarageResponse.garage.id}, RepairBays: ${createGarageResponse.repairBays?.size ?: 0}")
+                Resource.Success(createGarageResponse.garage)
             } else {
                 val errorBody = response.errorBody()?.string()
                 Resource.Error("Erreur: ${response.code()} - $errorBody")
             }
         } catch (e: Exception) {
+            android.util.Log.e("GarageRepository", "Exception lors de la création du garage", e)
             Resource.Error("Erreur réseau: ${e.localizedMessage}")
         }
     }

@@ -1,6 +1,5 @@
 package com.example.karhebti_android.ui.screens
 
-import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,12 +26,12 @@ import com.example.karhebti_android.data.api.GarageResponse
 import com.example.karhebti_android.data.api.OsmLocationSuggestion
 import com.example.karhebti_android.data.repository.Resource
 import com.example.karhebti_android.ui.theme.DeepPurple
-import com.example.karhebti_android.ui.theme.SoftWhite
 import com.example.karhebti_android.ui.theme.AccentGreen
 import com.example.karhebti_android.viewmodel.GarageViewModel
 import com.example.karhebti_android.viewmodel.ServiceViewModel
 import com.example.karhebti_android.viewmodel.OsmViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
+import java.util.Locale
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -70,6 +69,8 @@ fun AddGarageScreen(
     val createGarageState by garageViewModel.createGarageState.observeAsState()
     val searchResults by osmViewModel.searchResults.observeAsState()
     val selectedLocation by osmViewModel.selectedLocation.observeAsState()
+    // Observer le résultat du reverse geocoding (ajouté)
+    val reverseGeocodeResult by osmViewModel.reverseGeocodeResult.observeAsState()
 
     var nom by remember { mutableStateOf("") }
     var adresse by remember { mutableStateOf("") }
@@ -102,6 +103,9 @@ fun AddGarageScreen(
     var expanded by remember { mutableStateOf(false) }
     var selectedServices by remember { mutableStateOf(listOf<GarageServiceForm>()) }
 
+    // ✅ Variable pour suivre si on a déjà traité ce garage
+    var processedGarageId by remember { mutableStateOf<String?>(null) }
+
     val canSubmit = nom.isNotBlank() &&
             adresse.isNotBlank() &&
             telephone.isNotBlank() &&
@@ -123,6 +127,17 @@ fun AddGarageScreen(
             latitude = location.latitude
             longitude = location.longitude
             showAddressSuggestions = false
+        }
+    }
+
+    // Mettre à jour 'adresse' quand le reverse geocoding renvoie un résultat
+    LaunchedEffect(reverseGeocodeResult) {
+        if (reverseGeocodeResult is Resource.Success) {
+            val data = (reverseGeocodeResult as Resource.Success).data
+            if (data != null) {
+                adresse = data.displayName
+                showAddressSuggestions = false
+            }
         }
     }
 
@@ -279,7 +294,7 @@ fun AddGarageScreen(
                                                 }
                                             }
                                             if (suggestion != suggestions.last()) {
-                                                Divider()
+                                                HorizontalDivider()
                                             }
                                         }
                                     }
@@ -320,7 +335,7 @@ fun AddGarageScreen(
                                     )
                                     Spacer(Modifier.width(8.dp))
                                     Text(
-                                        text = "Position sélectionnée: ${String.format("%.4f", latitude)}, ${String.format("%.4f", longitude)}",
+                                        text = "Position sélectionnée: ${String.format(Locale.getDefault(), "%.4f", latitude ?: 0.0)}, ${String.format(Locale.getDefault(), "%.4f", longitude ?: 0.0)}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = DeepPurple,
                                         fontWeight = FontWeight.Medium
@@ -632,7 +647,6 @@ fun AddGarageScreen(
     // Map Dialog
     if (showMapDialog) {
         MapPickerDialog(
-            context = context,
             initialLat = latitude ?: 36.79952,
             initialLon = longitude ?: 10.17849,
             onLocationSelected = { lat, lon ->
@@ -640,48 +654,77 @@ fun AddGarageScreen(
                 longitude = lon
                 showMapDialog = false
 
-                coroutineScope.launch {
-                    osmViewModel.reverseGeocode(lat, lon)
-                    delay(1000)
-                    val result = osmViewModel.reverseGeocodeResult.value
-                    if (result is Resource.Success) {
-                        adresse = result.data?.displayName ?: adresse
-                    }
-                }
+                // Demander le reverse geocoding ; la LaunchedEffect ci‑dessus mettra à jour 'adresse'
+                osmViewModel.reverseGeocode(lat, lon)
             },
             onDismiss = { showMapDialog = false }
         )
     }
 
-    // Handle successful garage creation
-    if (createGarageState is Resource.Success) {
-        val garageId = (createGarageState as Resource.Success<GarageResponse>).data?.id
-        if (garageId != null) {
-            selectedServices.forEach { serviceForm ->
-                val cout = serviceForm.coutMoyen.toDoubleOrNull()
-                val duree = serviceForm.dureeEstimee.toIntOrNull()
-                if (cout != null && duree != null) {
-                    serviceViewModel.createService(
-                        type = serviceForm.type,
-                        coutMoyen = cout,
-                        dureeEstimee = duree,
-                        garageId = garageId
-                    )
+    // Handle successful garage creation: créer les services ensuite de façon séquentielle
+    LaunchedEffect(createGarageState) {
+        if (createGarageState is Resource.Success) {
+            val garageId = (createGarageState as Resource.Success<GarageResponse>).data?.id
+
+            // ✅ Vérifier si on a déjà traité ce garage pour éviter les doublons
+            if (garageId != null && garageId != processedGarageId) {
+                processedGarageId = garageId
+
+                if (selectedServices.isNotEmpty()) {
+                    android.util.Log.d("AddGarageScreen", "Garage créé avec succès, ID: $garageId. Création de ${selectedServices.size} services...")
+
+                    // Petit délai pour s'assurer que le garage est bien enregistré dans la BD
+                    delay(300)
+
+                    // Créer chaque service de façon séquentielle et attendre la réponse
+                    var createdCount = 0
+                    var failed = false
+                    for (serviceForm in selectedServices) {
+                        val cout = serviceForm.coutMoyen.toDoubleOrNull()
+                        val duree = serviceForm.dureeEstimee.toIntOrNull()
+                        if (cout != null && duree != null) {
+                            android.util.Log.d("AddGarageScreen", "Création service: ${serviceForm.type}, cout=$cout, duree=$duree, garageId=$garageId")
+                            val res = serviceViewModel.createServiceSuspend(
+                                type = serviceForm.type,
+                                coutMoyen = cout,
+                                dureeEstimee = duree,
+                                garageId = garageId
+                            )
+                            when (res) {
+                                is Resource.Success -> {
+                                    createdCount++
+                                    android.util.Log.d("AddGarageScreen", "Service créé avec succès: id=${res.data?.id} type=${serviceForm.type}")
+                                }
+                                is Resource.Error -> {
+                                    failed = true
+                                    android.util.Log.e("AddGarageScreen", "Erreur création service (${serviceForm.type}): ${res.message}")
+                                    android.widget.Toast.makeText(context, "Erreur service '${serviceForm.type}': ${res.message}", android.widget.Toast.LENGTH_LONG).show()
+                                }
+                                else -> {
+                                    failed = true
+                                    android.util.Log.e("AddGarageScreen", "Résultat inattendu pour la création du service ${serviceForm.type}")
+                                }
+                            }
+                        } else {
+                            android.util.Log.w("AddGarageScreen", "Champs invalides pour le service: ${serviceForm.type}, cout=$cout, duree=$duree")
+                        }
+                    }
+
+                    // Afficher le résultat final
+                    if (createdCount > 0) {
+                        android.widget.Toast.makeText(context, "✓ Garage créé avec $createdCount service(s)", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                    if (failed) {
+                        android.widget.Toast.makeText(context, "⚠ Certains services n'ont pas pu être créés", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    android.util.Log.w("AddGarageScreen", "Garage créé sans services")
+                    android.widget.Toast.makeText(context, "✓ Garage créé (sans services)", android.widget.Toast.LENGTH_SHORT).show()
                 }
+
+                // ✅ Naviguer immédiatement vers l'écran précédent
+                onGarageAdded()
             }
-        }
-        LaunchedEffect(Unit) {
-            nom = ""
-            adresse = ""
-            telephone = ""
-            noteUtilisateur = "0.0"
-            heureOuverture = "08:00"
-            heureFermeture = "18:00"
-            latitude = null
-            longitude = null
-            numberOfBays = 1 // ✅ Réinitialiser
-            selectedServices = listOf()
-            onGarageAdded()
         }
     }
 }
@@ -689,7 +732,6 @@ fun AddGarageScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapPickerDialog(
-    context: Context,
     initialLat: Double,
     initialLon: Double,
     onLocationSelected: (Double, Double) -> Unit,
@@ -765,7 +807,7 @@ fun MapPickerDialog(
                 Spacer(Modifier.height(8.dp))
 
                 Text(
-                    "📍 ${String.format("%.5f", selectedLat)}, ${String.format("%.5f", selectedLon)}",
+                    "📍 ${String.format(Locale.getDefault(), "%.5f", selectedLat)}, ${String.format(Locale.getDefault(), "%.5f", selectedLon)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = DeepPurple,
                     fontWeight = FontWeight.Medium

@@ -1056,6 +1056,19 @@ class ServiceViewModel(application: Application) : AndroidViewModel(application)
             }
         }
     }
+    suspend fun createServiceSuspend(
+        type: String,
+        coutMoyen: Double,
+        dureeEstimee: Int,
+        garageId: String
+    ): Resource<ServiceResponse> {
+        return try {
+            repository.createService(type, coutMoyen, dureeEstimee, garageId)
+        } catch (e: Exception) {
+            Resource.Error("Erreur: ${e.message}")
+        }
+    }
+
     fun getServicesByGarage(garageId: String) {
         _servicesState.value = Resource.Loading()
         viewModelScope.launch {
@@ -1233,7 +1246,12 @@ class GarageViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
     }
+    // ✅ Ajouter cette méthode pour réinitialiser l'état de création
+    fun resetCreateGarageState() {
+        _createGarageState.value = Resource.Loading()
+    }
 }
+
 
 class RepairBayViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = RepairBayRepository()

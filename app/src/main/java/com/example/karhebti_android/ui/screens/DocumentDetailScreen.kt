@@ -103,7 +103,7 @@ fun DocumentDetailScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         // Affichage de l'image scannée du document
-                        val baseUrl = "http://10.0.2.2:3000"
+                        val baseUrl = "http://192.168.1.190:3000"
                         val imageUrl = when {
                             document.fichier.isBlank() -> null
                             document.fichier.startsWith("http://") || document.fichier.startsWith("https://") -> document.fichier

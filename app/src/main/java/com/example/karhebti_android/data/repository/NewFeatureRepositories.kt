@@ -124,7 +124,7 @@ class CarImageRepository(
             } else {
                 val errorBody = response.errorBody()?.string()
                 val errorMsg = when {
-                    response.code() == 400 -> "Format ou taille de fichier invalide"
+                    response.code() == 400 -> "Please enter a valid car image"
                     response.code() == 401 -> "Non authentifié. Veuillez vous reconnecter."
                     response.code() == 403 -> "Accès refusé. Vous n'avez pas les droits d'accès."
                     response.code() == 404 -> {

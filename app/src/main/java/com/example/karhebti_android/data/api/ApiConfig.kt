@@ -11,12 +11,12 @@ import com.google.gson.GsonBuilder
 import java.util.concurrent.TimeUnit
 
 object ApiConfig {
-    const val BASE_URL = "http://10.0.2.2:27017/" // For Android Emulator
-    const val MONGODB_URL = "mongodb://10.0.2.2:27017/karhebti"
+    const val BASE_URL = "http://192.168.1.190:27017/" // Real device IP
+    const val MONGODB_URL = "mongodb://192.168.1.190:27017/karhebti"
 }
 
 object RetrofitClient {
-    private const val BASE_URL = "http://10.0.2.2:3000/" // For Android Emulator
+    private const val BASE_URL = "http://192.168.1.190:3000/" // Real device IP
 
     private var context: Context? = null
     private var retrofit: Retrofit? = null

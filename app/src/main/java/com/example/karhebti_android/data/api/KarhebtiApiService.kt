@@ -150,7 +150,7 @@ interface KarhebtiApiService {
         @Query("includePlate") includePlate: Boolean = true
     ): Response<List<UpcomingMaintenanceWidget>>
 
-    // ==================== GARAGES ====================
+// ==================== GARAGES ====================
 
     @GET("garages")
     suspend fun getGarages(): Response<List<GarageResponse>>
@@ -159,7 +159,7 @@ interface KarhebtiApiService {
     suspend fun getGarage(@Path("id") id: String): Response<GarageResponse>
 
     @POST("garages")
-    suspend fun createGarage(@Body request: CreateGarageRequest): Response<GarageResponse>
+    suspend fun createGarage(@Body request: CreateGarageRequest): Response<CreateGarageResponse>
 
     @PATCH("garages/{id}")
     suspend fun updateGarage(
@@ -169,7 +169,6 @@ interface KarhebtiApiService {
 
     @DELETE("garages/{id}")
     suspend fun deleteGarage(@Path("id") id: String): Response<MessageResponse>
-
     // ==================== DOCUMENTS ====================
 
     @GET("documents")

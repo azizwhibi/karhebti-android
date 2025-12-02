@@ -632,7 +632,11 @@ data class GarageResponse(
     val createdAt: Date? = null,
     val updatedAt: Date? = null
 )
-
+// ✅ Nouvelle réponse pour la création de garage qui inclut les repair bays
+data class CreateGarageResponse(
+    val garage: GarageResponse,
+    val repairBays: List<RepairBayResponse>? = null
+)
 data class CreateGarageRequest(
     val nom: String,
     val adresse: String,
