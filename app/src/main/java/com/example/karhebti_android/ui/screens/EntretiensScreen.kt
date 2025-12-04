@@ -2,12 +2,12 @@ package com.example.karhebti_android.ui.screens
 
 import android.app.DatePickerDialog
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.*
@@ -35,7 +36,6 @@ import com.example.karhebti_android.viewmodel.EntretiensFilterViewModel
 import com.example.karhebti_android.util.effectiveDateSafe
 import com.example.karhebti_android.data.repository.TranslationManager
 import java.text.SimpleDateFormat
-import androidx.compose.ui.draw.clip
 import java.util.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -423,7 +423,19 @@ fun EntretiensScreen(
 
                                 MaintenanceCardExtended(
                                     maintenance = maintenance,
-                                    onDelete = { /* deletion via maintenanceViewModel if needed */ },
+                                    onDelete = {
+                                        // Create a MaintenanceResponse object for the delete dialog
+                                        val maintenanceResponse = MaintenanceResponse(
+                                            id = maintenance.id,
+                                            type = maintenance.type,
+                                            date = maintenance.date,
+                                            cout = maintenance.cout,
+                                            voiture = maintenance.voiture,
+                                            garage = maintenance.garage,
+                                            status = maintenance.status
+                                        )
+                                        showDeleteDialog = maintenanceResponse
+                                    },
                                     onClick = { onMaintenanceClick(maintenance.id) },
                                     cars = cars,
                                     garages = garages
@@ -524,7 +536,7 @@ fun EntretiensScreen(
                                             maintenance = maintenance,
                                             onDelete = { showDeleteDialog = maintenance },
                                             onClick = { onMaintenanceClick(maintenance.id) },
-                                            cars = cars // Pass cars list
+                                            cars = cars
                                             , garages = garages
                                         )
                                     }
@@ -602,8 +614,10 @@ fun EntretiensScreen(
                         scope.launch {
                             maintenanceViewModel.deleteMaintenance(maintenance.id)
                             showDeleteDialog = null
-                            delay(500L)
+                            delay(300L) // Reduced delay for faster feedback
+                            // Refresh both data sources
                             maintenanceViewModel.getMaintenances()
+                            filterViewModel.searchMaintenances()
                         }
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = AlertRed)
@@ -628,8 +642,7 @@ fun MaintenanceCardBackendIntegrated(
     cars: List<com.example.karhebti_android.data.api.CarResponse> = emptyList(),
     garages: List<com.example.karhebti_android.data.api.GarageResponse> = emptyList()
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-    val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
+    val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.FRANCE)
 
     val daysUntil = try {
         ((maintenance.date.time - Date().time) / (1000 * 60 * 60 * 24)).toInt()
@@ -637,31 +650,13 @@ fun MaintenanceCardBackendIntegrated(
         Int.MAX_VALUE
     }
 
-    val (urgencyLabel, chipColors) = when {
-        daysUntil == Int.MAX_VALUE -> "Date inconnue" to AssistChipDefaults.assistChipColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        daysUntil < 0 -> "Terminé" to AssistChipDefaults.assistChipColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        daysUntil == 0 -> "Urgent" to AssistChipDefaults.assistChipColors(
-            containerColor = AlertRed.copy(alpha = 0.2f),
-            labelColor = AlertRed
-        )
-        daysUntil <= 7 -> "Urgent" to AssistChipDefaults.assistChipColors(
-            containerColor = AlertRed.copy(alpha = 0.2f),
-            labelColor = AlertRed
-        )
-        daysUntil <= 30 -> "Bientôt" to AssistChipDefaults.assistChipColors(
-            containerColor = AccentYellow.copy(alpha = 0.2f),
-            labelColor = AccentYellow
-        )
-        else -> "Prévu" to AssistChipDefaults.assistChipColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-            labelColor = MaterialTheme.colorScheme.onTertiaryContainer
-        )
+    val (urgencyLabel, urgencyColor, urgencyIcon) = when {
+        daysUntil == Int.MAX_VALUE -> Triple("Date inconnue", MaterialTheme.colorScheme.surfaceVariant, Icons.Default.CalendarToday)
+        daysUntil < 0 -> Triple("Terminé", MaterialTheme.colorScheme.surfaceVariant, Icons.Default.CheckCircle)
+        daysUntil == 0 -> Triple("Aujourd'hui", AlertRed, Icons.Default.Warning)
+        daysUntil <= 7 -> Triple("Urgent", AlertRed, Icons.Default.Warning)
+        daysUntil <= 30 -> Triple("Bientôt", AccentYellow, Icons.Default.Schedule)
+        else -> Triple("Prévu", MaterialTheme.colorScheme.tertiary, Icons.Default.Event)
     }
 
     // Look up the car from the cars list
@@ -669,98 +664,208 @@ fun MaintenanceCardBackendIntegrated(
         cars.find { it.id == carId }
     }
 
+    // Look up the garage from the garages list
+    val garage = maintenance.garage?.let { garageId ->
+        garages.find { it.id == garageId }
+    }
+
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = MaterialTheme.shapes.medium,
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Header section with gradient background
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primaryContainer,
+                                MaterialTheme.colorScheme.secondaryContainer
+                            )
+                        )
+                    )
+                    .padding(16.dp)
             ) {
-                // Leading icon
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(MaterialTheme.shapes.small)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Build,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        // Icon container
+                        Surface(
+                            modifier = Modifier.size(56.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Build,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(14.dp)
+                            )
+                        }
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = maintenance.type.replaceFirstChar { it.uppercase() },
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    car?.let {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = maintenance.type.replaceFirstChar { it.uppercase() },
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold
+                            )
+                            car?.let {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.DirectionsCar,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "${it.marque} ${it.modele}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Delete button - more prominent
+                    IconButton(
+                        onClick = onDelete,
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = AlertRed.copy(alpha = 0.1f),
+                            contentColor = AlertRed
+                        ),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Supprimer",
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            // Details section
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Urgency badge
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = urgencyColor.copy(alpha = 0.15f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            urgencyIcon,
+                            contentDescription = null,
+                            tint = urgencyColor,
+                            modifier = Modifier.size(20.dp)
+                        )
                         Text(
-                            text = "${it.marque} ${it.modele}",
-                            style = MaterialTheme.typography.bodySmall,
+                            urgencyLabel,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = urgencyColor,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            dateFormat.format(maintenance.date),
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                // Cost and garage info
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    AssistChip(
-                        onClick = {},
-                        label = { Text(urgencyLabel) },
-                        colors = chipColors
-                    )
-
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = null)
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            "Coût estimé",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Text(
+                                "${maintenance.cout}",
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "DT",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(bottom = 2.dp)
+                            )
+                        }
                     }
 
-                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(text = { Text("Supprimer") }, onClick = { showMenu = false; onDelete() })
-                    }
-                }
-            }
-
-            // Info row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        "Date: ${dateFormat.format(maintenance.date)}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text("Coût: ${maintenance.cout} DT", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-
-                maintenance.garage?.let { g ->
-                    // Lookup garage name from garages list; do not display raw ID
-                    val garageName = garages.find { it.id == g }?.nom
-                    garageName?.let { name ->
-                        Text(name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    garage?.let { g ->
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                "Garage",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Garage,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
+                                Text(
+                                    g.nom,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -777,8 +882,7 @@ fun MaintenanceCardExtended(
     cars: List<com.example.karhebti_android.data.api.CarResponse> = emptyList(),
     garages: List<com.example.karhebti_android.data.api.GarageResponse> = emptyList()
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-    val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
+    val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.FRANCE)
 
     val daysUntil = try {
         // Try to read dueAt; if that fails at runtime (missing field), fall back to date.
@@ -788,82 +892,217 @@ fun MaintenanceCardExtended(
         Int.MAX_VALUE
     }
 
-    val (urgencyLabel, chipColors) = when {
-        daysUntil == Int.MAX_VALUE -> "Date inconnue" to AssistChipDefaults.assistChipColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        daysUntil < 0 -> "Terminé" to AssistChipDefaults.assistChipColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        daysUntil == 0 -> "Urgent" to AssistChipDefaults.assistChipColors(
-            containerColor = AlertRed.copy(alpha = 0.2f),
-            labelColor = AlertRed
-        )
-        daysUntil <= 7 -> "Urgent" to AssistChipDefaults.assistChipColors(
-            containerColor = AlertRed.copy(alpha = 0.2f),
-            labelColor = AlertRed
-        )
-        daysUntil <= 30 -> "Bientôt" to AssistChipDefaults.assistChipColors(
-            containerColor = AccentYellow.copy(alpha = 0.2f),
-            labelColor = AccentYellow
-        )
-        else -> "Prévu" to AssistChipDefaults.assistChipColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-            labelColor = MaterialTheme.colorScheme.onTertiaryContainer
-        )
+    val (urgencyLabel, urgencyColor, urgencyIcon) = when {
+        daysUntil == Int.MAX_VALUE -> Triple("Date inconnue", MaterialTheme.colorScheme.surfaceVariant, Icons.Default.CalendarToday)
+        daysUntil < 0 -> Triple("Terminé", MaterialTheme.colorScheme.surfaceVariant, Icons.Default.CheckCircle)
+        daysUntil == 0 -> Triple("Aujourd'hui", AlertRed, Icons.Default.Warning)
+        daysUntil <= 7 -> Triple("Urgent", AlertRed, Icons.Default.Warning)
+        daysUntil <= 30 -> Triple("Bientôt", AccentYellow, Icons.Default.Schedule)
+        else -> Triple("Prévu", MaterialTheme.colorScheme.tertiary, Icons.Default.Event)
     }
 
     val car = maintenance.voiture?.let { carId -> cars.find { it.id == carId } }
+    val garage = maintenance.garage?.let { garageId -> garages.find { it.id == garageId } }
 
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = MaterialTheme.shapes.medium,
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Header section with gradient background
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primaryContainer,
+                                MaterialTheme.colorScheme.secondaryContainer
+                            )
+                        )
+                    )
+                    .padding(16.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(MaterialTheme.shapes.small)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Build,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(16.dp)
-                        /*tint = MaterialTheme.colorScheme.onSurfaceVariant*/
-                    )
-                    Text(
-                        text = dateFormat.format(maintenance.date),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        // Icon container
+                        Surface(
+                            modifier = Modifier.size(56.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Build,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(14.dp)
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = maintenance.type.replaceFirstChar { it.uppercase() },
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold
+                            )
+                            car?.let {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.DirectionsCar,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "${it.marque} ${it.modele}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Delete button - more prominent
+                    IconButton(
+                        onClick = onDelete,
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = AlertRed.copy(alpha = 0.1f),
+                            contentColor = AlertRed
+                        ),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Supprimer",
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            // Details section
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Urgency badge
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = urgencyColor.copy(alpha = 0.15f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            urgencyIcon,
+                            contentDescription = null,
+                            tint = urgencyColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            urgencyLabel,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = urgencyColor,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            dateFormat.format(maintenance.date),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
-                Text(
-                    text = "${maintenance.cout} DT",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                // Cost and garage info
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            "Coût estimé",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Text(
+                                "${maintenance.cout}",
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "DT",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(bottom = 2.dp)
+                            )
+                        }
+                    }
+
+                    garage?.let { g ->
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                "Garage",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Garage,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
+                                Text(
+                                    g.nom,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -915,8 +1154,18 @@ fun AddMaintenanceDialog(
 
     // Filter garages by selected service type
     val filteredGarages = remember(type, allGarages) {
-        allGarages.filter { garage ->
-            garage.serviceTypes?.contains(type) == true
+        // If no garages have serviceTypes configured, show all garages
+        val hasServiceTypes = allGarages.any { it.serviceTypes?.isNotEmpty() == true }
+        if (!hasServiceTypes) {
+            // No serviceTypes configured, show all garages
+            allGarages
+        } else {
+            // Filter by serviceTypes, but also include garages without serviceTypes to avoid hiding them
+            allGarages.filter { garage ->
+                garage.serviceTypes == null ||
+                garage.serviceTypes.isEmpty() ||
+                garage.serviceTypes.contains(type)
+            }
         }
     }
 
