@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.Color
 val DeepPurple = Color(0xFF6658DD)
 val SoftWhite = Color(0xFFFAFAFA)
 val LightPurple = Color(0xFFEBEAFE)
+val SoftBlue = Color(0xFF4A90E2)  // Ajout de SoftBlue manquant
 
 // Accent Colors
 val AccentGreen = Color(0xFF00C896)  // Darker, more vibrant green

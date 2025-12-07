@@ -37,21 +37,28 @@ data class ForgotPasswordRequest(
     val email: String
 )
 
+data class VerifyOtpRequest(
+    val email: String,
+    val otp: String
+)
+
 data class ChangePasswordRequest(
     val currentPassword: String,
     val newPassword: String
 )
 
 data class ResetPasswordRequest(
-    val token: String,
-    val nouveauMotDePasse: String
+    val email: String,
+    val otp: String,
+    @SerializedName("newPassword")
+    val newPassword: String
 )
 
 // User DTOs utilisés par KarhebtiApiService et ailleurs
-
+data class IdWrapper(@SerializedName("\$oid") val oid: String)
 data class UserResponse(
     @SerializedName("_id")
-    val id: String?,
+    val id: Any?,
 
     val nom: String,
 
@@ -66,7 +73,17 @@ data class UserResponse(
     val createdAt: String? = null,
 
     val updatedAt: String? = null
-)
+){
+    // Helper method to get ID as String regardless of format
+    fun getIdString(): String? {
+        return when (id) {
+            is String -> id
+            is IdWrapper -> id.oid
+            is Map<*, *> -> (id["\$oid"] as? String) ?: (id["oid"] as? String)
+            else -> null
+        }
+    }
+}
 
 data class UpdateUserRequest(
     val nom: String? = null,
@@ -102,7 +119,9 @@ data class NotificationResponse(
 
     val createdAt: String? = null,
 
-    val updatedAt: String? = null
+    val updatedAt: String? = null,
+
+    val data: Map<String, Any>? = null
 )
 
 // ==================== ERROR DTO ====================

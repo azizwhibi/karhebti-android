@@ -25,23 +25,79 @@ import com.example.karhebti_android.data.api.DocumentResponse
 import com.example.karhebti_android.data.repository.Resource
 import com.example.karhebti_android.viewmodel.DocumentViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
+import com.example.karhebti_android.data.repository.TranslationManager
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.collectAsState
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.navigation.NavController
+import com.example.karhebti_android.ui.components.BottomNavigationBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DocumentsScreen(
     onBackClick: () -> Unit,
     onAddDocumentClick: () -> Unit,
-    onDocumentClick: (String) -> Unit
+    onDocumentClick: (String) -> Unit,
+    navController: NavController? = null
 ) {
     val context = LocalContext.current
     val documentViewModel: DocumentViewModel = viewModel(
         factory = ViewModelFactory(context.applicationContext as android.app.Application)
     )
 
+    // Translation manager setup
+    val db = com.example.karhebti_android.data.database.AppDatabase.getInstance(context.applicationContext)
+    val translationRepository = com.example.karhebti_android.data.repository.TranslationRepository(
+        apiService = com.example.karhebti_android.data.api.RetrofitClient.apiService,
+        translationDao = db.translationDao(),
+        languageCacheDao = db.languageCacheDao(),
+        languageListCacheDao = db.languageListCacheDao()
+    )
+    val translationManager = remember { TranslationManager.getInstance(translationRepository, context) }
+    val coroutineScope = rememberCoroutineScope()
+    val currentLanguage by translationManager.currentLanguage.collectAsState()
+
+    // Translated UI strings
+    var documentsTitle by remember { mutableStateOf("Documents") }
+    var backText by remember { mutableStateOf("Retour") }
+    var refreshText by remember { mutableStateOf("Actualiser") }
+    var addDocumentText by remember { mutableStateOf("Ajouter document") }
+    var allText by remember { mutableStateOf("Tous") }
+    var registrationText by remember { mutableStateOf("Carte grise") }
+    var insuranceText by remember { mutableStateOf("Assurance") }
+    var inspectionText by remember { mutableStateOf("Contrôle technique") }
+    var otherText by remember { mutableStateOf("Autre") }
+    var loadingText by remember { mutableStateOf("Chargement des documents...") }
+    var noDocumentsText by remember { mutableStateOf("Aucun document") }
+    var searchText by remember { mutableStateOf("Rechercher un document...") }
+    var clearText by remember { mutableStateOf("Effacer") }
+    var deleteText by remember { mutableStateOf("Supprimer") }
+    var cancelText by remember { mutableStateOf("Annuler") }
+
+    // Update translations when language changes
+    LaunchedEffect(currentLanguage) {
+        coroutineScope.launch {
+            documentsTitle = translationManager.translate("documents_title", "Documents", currentLanguage)
+            backText = translationManager.translate("back", "Retour", currentLanguage)
+            refreshText = translationManager.translate("refresh", "Actualiser", currentLanguage)
+            addDocumentText = translationManager.translate("add_document", "Ajouter document", currentLanguage)
+            allText = translationManager.translate("all", "Tous", currentLanguage)
+            registrationText = translationManager.translate("registration", "Carte grise", currentLanguage)
+            insuranceText = translationManager.translate("insurance", "Assurance", currentLanguage)
+            inspectionText = translationManager.translate("inspection", "Contrôle technique", currentLanguage)
+            otherText = translationManager.translate("other", "Autre", currentLanguage)
+            loadingText = translationManager.translate("documents_loading", "Chargement des documents...", currentLanguage)
+            noDocumentsText = translationManager.translate("no_documents", "Aucun document", currentLanguage)
+            searchText = translationManager.translate("search_document", "Rechercher un document...", currentLanguage)
+            clearText = translationManager.translate("clear", "Effacer", currentLanguage)
+            deleteText = translationManager.translate("delete", "Supprimer", currentLanguage)
+            cancelText = translationManager.translate("cancel", "Annuler", currentLanguage)
+        }
+    }
+
     val documentsState by documentViewModel.documentsState.observeAsState()
-    var selectedFilter by remember { mutableStateOf("Tous") }
+    var selectedFilter by remember { mutableStateOf(allText) }
     var showDeleteDialog by remember { mutableStateOf<DocumentResponse?>(null) }
     var searchQuery by remember { mutableStateOf("") }
 
@@ -52,12 +108,12 @@ fun DocumentsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Documents") },
+                title = { Text(documentsTitle) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Retour",
+                            contentDescription = backText,
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -66,7 +122,7 @@ fun DocumentsScreen(
                     IconButton(onClick = { documentViewModel.getDocuments() }) {
                         Icon(
                             Icons.Default.Refresh,
-                            contentDescription = "Actualiser",
+                            contentDescription = refreshText,
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -77,13 +133,18 @@ fun DocumentsScreen(
                 )
             )
         },
+        bottomBar = {
+            if (navController != null) {
+                BottomNavigationBar(navController = navController)
+            }
+        },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { onAddDocumentClick() },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Ajouter document")
+                Icon(Icons.Default.Add, contentDescription = addDocumentText)
             }
         }
     ) { paddingValues ->
@@ -103,11 +164,11 @@ fun DocumentsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 8.dp),
-                    placeholder = { Text("Rechercher un document...") },
+                    placeholder = { Text(searchText) },
                     leadingIcon = {
                         Icon(
                             Icons.Default.Search,
-                            contentDescription = "Rechercher",
+                            contentDescription = searchText,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
@@ -116,7 +177,7 @@ fun DocumentsScreen(
                             IconButton(onClick = { searchQuery = "" }) {
                                 Icon(
                                     Icons.Default.Close,
-                                    contentDescription = "Effacer",
+                                    contentDescription = clearText,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -136,7 +197,7 @@ fun DocumentsScreen(
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(listOf("Tous", "Carte grise", "Assurance", "Contrôle technique", "Autre")) { filter ->
+                    items(listOf(allText, registrationText, insuranceText, inspectionText, otherText)) { filter ->
                         FilterChip(
                             selected = selectedFilter == filter,
                             onClick = { selectedFilter = filter },
@@ -163,7 +224,7 @@ fun DocumentsScreen(
                             ) {
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                                 Text(
-                                    "Chargement des documents...",
+                                    loadingText,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -173,7 +234,7 @@ fun DocumentsScreen(
                         val allDocs = state.data ?: emptyList()
 
                         // Filtrage par type
-                        val typeFilteredDocs = if (selectedFilter == "Tous") allDocs
+                        val typeFilteredDocs = if (selectedFilter == allText) allDocs
                         else allDocs.filter { it.type.equals(selectedFilter, ignoreCase = true) }
 
                         // Filtrage par recherche
@@ -205,10 +266,10 @@ fun DocumentsScreen(
                                     Text(
                                         if (searchQuery.isNotEmpty())
                                             "Aucun résultat"
-                                        else if (selectedFilter != "Tous")
+                                        else if (selectedFilter != allText)
                                             "Aucun document de ce type"
                                         else
-                                            "Aucun document",
+                                            noDocumentsText,
                                         style = MaterialTheme.typography.titleLarge,
                                         color = MaterialTheme.colorScheme.onBackground
                                     )
@@ -245,7 +306,7 @@ fun DocumentsScreen(
                                     tint = MaterialTheme.colorScheme.error
                                 )
                                 Text(
-                                    "Erreur de chargement",
+                                    "Erreur",
                                     style = MaterialTheme.typography.titleLarge,
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
@@ -289,12 +350,12 @@ fun DocumentsScreen(
                         contentColor = MaterialTheme.colorScheme.error
                     )
                 ) {
-                    Text("Supprimer")
+                    Text(deleteText)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = null }) {
-                    Text("Annuler")
+                    Text(cancelText)
                 }
             }
         )
@@ -420,4 +481,3 @@ fun DocumentCard(
         }
     }
 }
-

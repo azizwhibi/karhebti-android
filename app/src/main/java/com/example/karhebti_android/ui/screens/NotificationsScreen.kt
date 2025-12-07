@@ -41,12 +41,22 @@ fun NotificationsScreen(
 
     var showMenu by remember { mutableStateOf(false) }
 
+    // Charger les notifications au démarrage
     LaunchedEffect(Unit) {
         try {
+            Log.d(TAG, "🔄 Chargement initial des notifications...")
             notificationViewModel.refreshNotifications()
         } catch (e: Exception) {
-            Log.e(TAG, "Error refreshing notifications: ${e.message}", e)
+            Log.e(TAG, "❌ Erreur lors du chargement des notifications: ${e.message}", e)
         }
+    }
+
+    // Logger les changements d'état pour le debug
+    LaunchedEffect(uiState) {
+        Log.d(TAG, "📊 État des notifications: isLoading=${uiState.isLoading}, " +
+                "count=${uiState.notifications.size}, " +
+                "unread=${uiState.unreadCount}, " +
+                "error=${uiState.error}")
     }
 
     Scaffold(
@@ -79,6 +89,15 @@ fun NotificationsScreen(
                     }
                 },
                 actions = {
+                    // Bouton de rafraîchissement visible
+                    IconButton(
+                        onClick = {
+                            Log.d(TAG, "🔄 Rafraîchissement manuel des notifications")
+                            notificationViewModel.refreshNotifications()
+                        }
+                    ) {
+                        Icon(Icons.Default.Refresh, "Actualiser")
+                    }
                     IconButton(onClick = { showMenu = !showMenu }) {
                         Icon(Icons.Default.MoreVert, "Menu")
                     }
@@ -121,10 +140,15 @@ fun NotificationsScreen(
                 }
                 error != null -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Error,
                                 contentDescription = null,
@@ -133,20 +157,59 @@ fun NotificationsScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = error,
-                                style = MaterialTheme.typography.bodyMedium,
+                                text = "Erreur de connexion",
+                                style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.error
                             )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = error,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            )
                             Spacer(modifier = Modifier.height(16.dp))
-                            Button(onClick = { notificationViewModel.refreshNotifications() }) {
+                            // Informations de debug
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        text = "ℹ️ Informations de connexion",
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Endpoint: GET /notifications",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                    Text(
+                                        text = "Backend: http://10.0.2.2:3000",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = {
+                                    Log.d(TAG, "🔄 Tentative de reconnexion...")
+                                    notificationViewModel.refreshNotifications()
+                                }
+                            ) {
+                                Icon(Icons.Default.Refresh, null)
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text("Réessayer")
                             }
                         }
                     }
                 }
-                notifications.isEmpty() -> {
+                notifications.isEmpty() && !isLoading -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
@@ -162,9 +225,50 @@ fun NotificationsScreen(
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
                                 text = "Aucune notification",
-                                style = MaterialTheme.typography.bodyLarge,
+                                style = MaterialTheme.typography.titleLarge,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Vous n'avez pas encore de notifications",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            // Info card
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                                )
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(
+                                        text = "💡 Les notifications apparaîtront ici",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "• Documents expirant bientôt\n" +
+                                              "• Confirmations de réservation\n" +
+                                              "• Messages de chat\n" +
+                                              "• Alertes importantes",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    Log.d(TAG, "🔄 Vérification manuelle des notifications")
+                                    notificationViewModel.refreshNotifications()
+                                }
+                            ) {
+                                Icon(Icons.Default.Refresh, null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Vérifier maintenant")
+                            }
                         }
                     }
                 }

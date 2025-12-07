@@ -8,24 +8,27 @@ data class BreakdownResponse(
     @SerializedName("_id")
     val id: String,
 
-    @SerializedName("userId")
+    @SerializedName("user_id")
     val userId: String?,
 
-    @SerializedName("vehicleId")
+    @SerializedName("vehicle_id")
     val vehicleId: String?,
 
-    val type: String,
+    val type: String = "UNKNOWN",
+
+    val status: String = "OPEN",
+
     val description: String?,
+
     val latitude: Double?,
     val longitude: Double?,
-    val status: String,
 
-    @SerializedName("assignedTo")
+    @SerializedName("assigned_to")
     val assignedTo: String?,
 
-    @SerializedName("createdAt")
+    @SerializedName("created_at")
     val createdAt: String?,
 
-    @SerializedName("updatedAt")
+    @SerializedName("updated_at")
     val updatedAt: String?
 )

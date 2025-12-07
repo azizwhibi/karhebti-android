@@ -40,6 +40,17 @@ interface NotificationApiService {
     suspend fun deleteNotification(
         @Path("id") notificationId: String
     ): Response<Void>
+
+    // SOS/Breakdown Actions
+    @POST("breakdowns/{id}/accept")
+    suspend fun acceptBreakdownRequest(
+        @Path("id") breakdownId: String
+    ): Response<BreakdownActionResponse>
+
+    @POST("breakdowns/{id}/reject")
+    suspend fun rejectBreakdownRequest(
+        @Path("id") breakdownId: String
+    ): Response<BreakdownActionResponse>
 }
 
 // Request models
@@ -54,14 +65,6 @@ data class UpdateTokenResponse(
 
     @SerializedName("message")
     val message: String
-)
-
-data class UnreadCountResponse(
-    @SerializedName("success")
-    val success: Boolean,
-
-    @SerializedName("count")
-    val count: Int
 )
 
 data class MarkAllReadResponse(
@@ -94,9 +97,27 @@ data class NotificationItemResponse(
     @SerializedName("createdAt")
     val createdAt: String?,
 
+    @SerializedName("type")
+    val type: String? = null, // Type de notification: "BREAKDOWN_REQUEST", "DOCUMENT_EXPIRY", etc.
+
     @SerializedName("data")
     val data: Map<String, String> = emptyMap()
-)
+) {
+    // Helper pour vérifier si c'est une demande SOS
+    fun isBreakdownRequest(): Boolean = type == "BREAKDOWN_REQUEST"
+
+    // Extraire l'ID de la panne depuis les données
+    fun getBreakdownId(): String? = data["breakdownId"]
+
+    // Extraire la latitude de la panne
+    fun getLatitude(): Double? = data["latitude"]?.toDoubleOrNull()
+
+    // Extraire la longitude de la panne
+    fun getLongitude(): Double? = data["longitude"]?.toDoubleOrNull()
+
+    // Extraire le type de panne
+    fun getBreakdownType(): String? = data["breakdownType"]
+}
 
 data class NotificationsResponse(
     @SerializedName("success")
@@ -115,6 +136,17 @@ data class NotificationMetadata(
 
     @SerializedName("unreadCount")
     val unreadCount: Int = 0
+)
+
+data class BreakdownActionResponse(
+    @SerializedName("success")
+    val success: Boolean = false,
+
+    @SerializedName("message")
+    val message: String = "",
+
+    @SerializedName("breakdown")
+    val breakdown: Any? = null
 )
 
 /**

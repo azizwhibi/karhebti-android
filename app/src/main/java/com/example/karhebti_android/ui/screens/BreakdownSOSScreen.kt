@@ -2,14 +2,14 @@
 
 package com.example.karhebti_android.ui.screens
 
-// Écran de déclaration de panne (SOS) - Version améliorée
-// Suit le flux complet : Vérification GPS → Carte interactive → Confirmation → Envoi → Statut
-
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -26,46 +26,35 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import android.util.Log
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
-import com.example.karhebti_android.ui.theme.RedSOS
-import com.example.karhebti_android.viewmodel.BreakdownViewModel
-import com.example.karhebti_android.viewmodel.BreakdownViewModelFactory
-import com.example.karhebti_android.repository.BreakdownsRepository
-import com.example.karhebti_android.network.BreakdownsApi
-import com.example.karhebti_android.utils.LocationSettingsHelper
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.location.Priority
-import android.os.Looper
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.karhebti_android.ui.components.OpenStreetMapView
-import coil.compose.AsyncImage
-import androidx.compose.ui.draw.clip
-import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
-import com.example.karhebti_android.data.api.AuthInterceptor
-import com.example.karhebti_android.data.preferences.TokenManager
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import android.content.Context
-import android.util.Base64
-import org.json.JSONObject
+import coil.compose.AsyncImage
+import com.example.karhebti_android.data.preferences.TokenManager
+import com.example.karhebti_android.network.BreakdownsApi
+import com.example.karhebti_android.repository.BreakdownsRepository
+import com.example.karhebti_android.ui.components.OpenStreetMapView
+import com.example.karhebti_android.ui.theme.RedSOS
+import com.example.karhebti_android.utils.LocationSettingsHelper
 import com.example.karhebti_android.viewmodel.BreakdownUiState
-
+import com.example.karhebti_android.viewmodel.BreakdownViewModel
+import com.example.karhebti_android.viewmodel.BreakdownViewModelFactory
+import com.google.android.gms.location.*
+import com.google.gson.Gson
+import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,23 +66,19 @@ fun BreakdownSOSScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
-    
+
     // États du flux SOS
     var currentStep by remember { mutableStateOf(SOSStep.CHECKING_PERMISSION) }
-    // Use rememberSaveable so the state is preserved across process death and analyzer recognizes usage
     var showConfirmDialog by rememberSaveable { mutableStateOf(false) }
-
-    // Add a log statement to confirm dialog state changes
-    Log.d("BreakdownSOSScreen", "showConfirmDialog state changed: $showConfirmDialog")
 
     // Setup ViewModel avec AuthInterceptor
     val retrofit = remember {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
-        
+
         val client = OkHttpClient.Builder()
-            .addInterceptor(AuthInterceptor(context))
+            .addInterceptor(com.example.karhebti_android.data.api.AuthInterceptor(context))
             .addInterceptor(loggingInterceptor)
             .build()
 
@@ -103,30 +88,31 @@ fun BreakdownSOSScreen(
             .addConverterFactory(GsonConverterFactory.create())
             .build()
     }
-    
+
     val api = remember { retrofit.create(BreakdownsApi::class.java) }
     val repo = remember { BreakdownsRepository(api) }
     val factory = remember { BreakdownViewModelFactory(repo) }
     val viewModel: BreakdownViewModel = viewModel(factory = factory)
-    
-    // Fix collectAsState issue by ensuring the function is called within a @Composable context
-    val uiState by viewModel.uiState.collectAsState(initial = BreakdownUiState.Idle)
 
-     var lastRequestJson by remember { mutableStateOf<String?>(null) }
-     var lastError by remember { mutableStateOf<String?>(null) }
-     val topCoroutineScope = rememberCoroutineScope()
+    val uiState by viewModel.uiState.collectAsState()
+    var lastRequestJson by remember { mutableStateOf<String?>(null) }
+    var lastError by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
 
     // États du formulaire
     var type by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
+    var showTypeMenu by remember { mutableStateOf(false) }
+
+    // États de localisation
     var latitude by remember { mutableStateOf<Double?>(null) }
     var longitude by remember { mutableStateOf<Double?>(null) }
-    var showTypeMenu by remember { mutableStateOf(false) }
-    val types = listOf("PNEU", "BATTERIE", "MOTEUR", "CARBURANT", "REMORQUAGE", "AUTRE")
-    
-    // États de localisation
-    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     var locationError by remember { mutableStateOf<String?>(null) }
+    var isManualLocation by remember { mutableStateOf(false) }
+
+    val types = listOf("PNEU", "BATTERIE", "MOTEUR", "CARBURANT", "REMORQUAGE", "AUTRE")
+
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
     // Image picker
     var photoUri by remember { mutableStateOf<String?>(null) }
@@ -134,16 +120,16 @@ fun BreakdownSOSScreen(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri -> photoUri = uri?.toString() }
     )
-    
+
     // Vérification permission GPS
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted ->
             if (granted) {
-                // Permission accordée, vérifier si GPS est activé
                 if (LocationSettingsHelper.isGPSEnabled(context)) {
                     currentStep = SOSStep.FETCHING_LOCATION
                     fetchLocation(
+                        context = context,
                         fusedLocationClient = fusedLocationClient,
                         onLocation = { lat, lon ->
                             latitude = lat
@@ -164,7 +150,7 @@ fun BreakdownSOSScreen(
             }
         }
     )
-    
+
     // Launcher pour les paramètres de localisation
     val locationSettingsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -172,6 +158,7 @@ fun BreakdownSOSScreen(
         if (LocationSettingsHelper.isGPSEnabled(context)) {
             currentStep = SOSStep.FETCHING_LOCATION
             fetchLocation(
+                context = context,
                 fusedLocationClient = fusedLocationClient,
                 onLocation = { lat, lon ->
                     latitude = lat
@@ -188,18 +175,19 @@ fun BreakdownSOSScreen(
             currentStep = SOSStep.GPS_DISABLED
         }
     }
-    
+
     // Vérification initiale au lancement
     LaunchedEffect(Unit) {
         val hasPermission = ActivityCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
-        
+
         if (hasPermission) {
             if (LocationSettingsHelper.isGPSEnabled(context)) {
                 currentStep = SOSStep.FETCHING_LOCATION
                 fetchLocation(
+                    context = context,
                     fusedLocationClient = fusedLocationClient,
                     onLocation = { lat, lon ->
                         latitude = lat
@@ -219,25 +207,19 @@ fun BreakdownSOSScreen(
             locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
-    
+
     // Gérer le succès de l'envoi
     LaunchedEffect(uiState) {
-        if (uiState is com.example.karhebti_android.viewmodel.BreakdownUiState.Success) {
-            val response = (uiState as com.example.karhebti_android.viewmodel.BreakdownUiState.Success).data as com.example.karhebti_android.data.BreakdownResponse
+        if (uiState is BreakdownUiState.Success) {
+            val response = (uiState as BreakdownUiState.Success).data as com.example.karhebti_android.data.BreakdownResponse
             onSOSSuccess(response.id, type, latitude ?: 0.0, longitude ?: 0.0)
         }
     }
 
-
-
     // Dialogue de confirmation
     if (showConfirmDialog) {
         AlertDialog(
-            onDismissRequest = {
-                // Add explicit logging to track state changes
-                Log.d("BreakdownSOSScreen", "Dialog dismissed, updating showConfirmDialog to false")
-                showConfirmDialog = false
-            },
+            onDismissRequest = { showConfirmDialog = false },
             icon = {
                 Icon(
                     Icons.Default.Warning,
@@ -247,18 +229,64 @@ fun BreakdownSOSScreen(
                 )
             },
             title = {
-                Text("Confirmer l'envoi du SOS", fontWeight = FontWeight.Bold)
+                Text("Confirmer la demande SOS")
             },
             text = {
-                Text("Vous êtes sur le point d'envoyer une demande d'assistance.")
+                Column {
+                    Text("Vous êtes sur le point d'envoyer une demande d'assistance.")
+                    Spacer(Modifier.height(8.dp))
+                    Text("• Type: $type", fontWeight = FontWeight.Medium)
+                    if (description.isNotBlank()) {
+                        Text("• Description: $description")
+                    }
+                    Text("• Position: ${latitude?.format(4)}, ${longitude?.format(4)}")
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Un technicien sera notifié et se dirigera vers votre position.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             },
             confirmButton = {
-                TextButton(onClick = { showConfirmDialog = false }) {
-                    Text("Confirmer")
+                Button(
+                    onClick = {
+                        showConfirmDialog = false
+
+                        val tokenNow = TokenManager.getInstance(context).getToken()
+                        if (tokenNow.isNullOrBlank()) {
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Erreur : utilisateur non identifié. Veuillez vous reconnecter.")
+                            }
+                            return@Button
+                        }
+
+                        val normalizedType = type
+                        val photoLocal = photoUri
+                        val normalizedPhoto = if (photoLocal != null && (photoLocal.startsWith("http") || photoLocal.startsWith("/uploads") || photoLocal.startsWith("file://"))) {
+                            photoLocal
+                        } else {
+                            null
+                        }
+
+                        val request = com.example.karhebti_android.data.CreateBreakdownRequest(
+                            vehicleId = null,
+                            type = normalizedType,
+                            description = description.takeIf { it.isNotBlank() },
+                            latitude = latitude!!,
+                            longitude = longitude!!,
+                            photo = normalizedPhoto
+                        )
+
+                        lastRequestJson = try { Gson().toJson(request) } catch (_: Exception) { null }
+                        viewModel.declareBreakdown(request)
+                    }
+                ) {
+                    Text("Confirmer et envoyer")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirmDialog = false }) {
+                OutlinedButton(onClick = { showConfirmDialog = false }) {
                     Text("Annuler")
                 }
             }
@@ -296,7 +324,7 @@ fun BreakdownSOSScreen(
                 SOSStep.CHECKING_PERMISSION -> {
                     LoadingStep(message = "Vérification des permissions...")
                 }
-                
+
                 SOSStep.PERMISSION_DENIED -> {
                     ErrorStep(
                         icon = Icons.Default.LocationOff,
@@ -309,34 +337,45 @@ fun BreakdownSOSScreen(
                         onCancel = onBackClick
                     )
                 }
-                
+
                 SOSStep.GPS_DISABLED -> {
                     ErrorStep(
                         icon = Icons.Default.GpsOff,
                         title = "GPS désactivé",
-                        message = "Veuillez activer le GPS pour utiliser le service SOS. Cela nous permet de localiser votre position exacte.",
-                        actionLabel = "Activer le GPS",
+                        message = "Le GPS doit être activé pour utiliser le service SOS. Veuillez l'activer dans les paramètres.",
+                        actionLabel = "Ouvrir les paramètres",
                         onAction = {
-                            val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
-                            locationSettingsLauncher.launch(intent)
+                            locationSettingsLauncher.launch(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
                         },
                         onCancel = onBackClick
                     )
                 }
-                
+
                 SOSStep.FETCHING_LOCATION -> {
                     LoadingStep(message = "Récupération de votre position...")
                 }
-                
+
                 SOSStep.GPS_ERROR -> {
                     ErrorStep(
-                        icon = Icons.Default.ErrorOutline,
-                        title = "Erreur de localisation",
-                        message = locationError ?: "Impossible d'obtenir votre position. Vérifiez que le GPS est activé et réessayez.",
-                        actionLabel = "Réessayer",
+                        icon = Icons.Default.TouchApp,
+                        title = "🗺️ Choisissez votre position",
+                        message = "Le GPS n'est pas disponible, mais pas de problème !\n\n" +
+                                "✅ SOLUTION RAPIDE :\n" +
+                                "Appuyez sur le bouton ci-dessous pour ouvrir la carte.\n\n" +
+                                "📍 Vous pourrez ensuite :\n" +
+                                "• Toucher n'importe où sur la carte\n" +
+                                "• Le marqueur rouge se déplacera instantanément\n" +
+                                "• Vos coordonnées seront mises à jour\n\n" +
+                                "💡 C'est aussi simple que ça !\n\n" +
+                                "──────────────────\n\n" +
+                                "ℹ️ Conseil : Si vous utilisez un émulateur,\n" +
+                                "vous pouvez aussi définir votre position dans :\n" +
+                                "Menu (⋮) > Location",
+                        actionLabel = "📍 Réessayer GPS",
                         onAction = {
                             currentStep = SOSStep.FETCHING_LOCATION
                             fetchLocation(
+                                context = context,
                                 fusedLocationClient = fusedLocationClient,
                                 onLocation = { lat, lon ->
                                     latitude = lat
@@ -350,74 +389,73 @@ fun BreakdownSOSScreen(
                                 }
                             )
                         },
+                        onSkipToManual = {
+                            // Use default position (Tunis, Tunisia) and let user select manually
+                            latitude = 36.8065
+                            longitude = 10.1815
+                            isManualLocation = true
+                            locationError = null
+                            currentStep = SOSStep.SHOWING_MAP
+                        },
                         onCancel = onBackClick
                     )
                 }
-                
+
                 SOSStep.SHOWING_MAP -> {
-                    // Formulaire principal avec carte
-                    // compute token info for debug (try encrypted storage first like AuthInterceptor)
                     val currentToken = readAnyToken(context)
-                     val tokenMasked = currentToken?.let { t ->
-                         if (t.length <= 10) t else t.take(6) + "..." + t.takeLast(4)
-                     }
+                    val tokenMasked = currentToken?.let { t ->
+                        if (t.length <= 10) t else t.take(6) + "..." + t.takeLast(4)
+                    }
 
                     SOSFormContent(
-                          latitude = latitude,
-                          longitude = longitude,
-                          type = type,
-                          description = description,
-                          photoUri = photoUri,
-                          types = types,
-                          showTypeMenu = showTypeMenu,
-                          onTypeMenuChange = { showTypeMenu = it },
-                          onTypeChange = { type = it },
-                          onDescriptionChange = { description = it },
-                          onPhotoClick = { pickImageLauncher.launch("image/*") },
-                          onSendClick = {
-                              if (type.isNotBlank() && latitude != null && longitude != null /* now allow without userId */) {
-                                  // Added explicit logging to track state changes
-                                  Log.d("BreakdownSOSScreen", "showConfirmDialog updated to true")
-                                  // Ensure the state change is explicitly tied to UI rendering
-                                  showConfirmDialog = true
-                                  if (showConfirmDialog) {
-                                      Log.d("BreakdownSOSScreen", "Dialog should now be visible")
-                                  }
-                              }
-                          },
-                          sendEnabled = type.isNotBlank() && latitude != null && longitude != null,
-                          userId = TokenManager.getInstance(context).getUser()?.id, // kept for UI info only
-                          tokenPresent = !currentToken.isNullOrBlank(),
-                          tokenMasked = tokenMasked,
-                          lastRequestJson = lastRequestJson,
-                          lastError = lastError
-                      )
-                  }
-
-                SOSStep.DISPLAYING_BREAKDOWNS -> {
-                    // Handle displaying breakdowns
-                }
-
-                SOSStep.ERROR -> {
-                    // Handle generic error
-                }
-
-                // Add an 'else' branch to ensure the 'when' expression is exhaustive
-                else -> {
-                    // Handle unexpected cases
-                    ErrorStep(
-                        icon = Icons.Default.Warning,
-                        title = "Étape inconnue",
-                        message = "Une erreur inattendue s'est produite. Veuillez réessayer.",
-                        actionLabel = "Retour",
-                        onAction = onBackClick,
-                        onCancel = onBackClick
+                        latitude = latitude,
+                        longitude = longitude,
+                        type = type,
+                        description = description,
+                        photoUri = photoUri,
+                        types = types,
+                        showTypeMenu = showTypeMenu,
+                        isManualLocation = isManualLocation,
+                        onTypeChange = { type = it },
+                        onTypeMenuChange = { showTypeMenu = it },
+                        onDescriptionChange = { description = it },
+                        onPhotoClick = { pickImageLauncher.launch("image/*") },
+                        onSendClick = { showConfirmDialog = true },
+                        onRefreshLocation = {
+                            isManualLocation = false
+                            currentStep = SOSStep.FETCHING_LOCATION
+                            fetchLocation(
+                                context = context,
+                                fusedLocationClient = fusedLocationClient,
+                                onLocation = { lat, lon ->
+                                    latitude = lat
+                                    longitude = lon
+                                    locationError = null
+                                    currentStep = SOSStep.SHOWING_MAP
+                                },
+                                onError = { err ->
+                                    locationError = err
+                                    currentStep = SOSStep.GPS_ERROR
+                                }
+                            )
+                        },
+                        onLocationSelected = { lat, lon ->
+                            latitude = lat
+                            longitude = lon
+                            isManualLocation = true
+                        },
+                        sendEnabled = type.isNotBlank() && latitude != null && longitude != null,
+                        userId = TokenManager.getInstance(context).getUser()?.id,
+                        tokenPresent = !currentToken.isNullOrBlank(),
+                        tokenMasked = tokenMasked,
+                        lastRequestJson = lastRequestJson,
+                        lastError = lastError
                     )
                 }
-             }
+            }
 
             // Afficher le loader pendant l'envoi
-            if (uiState is com.example.karhebti_android.viewmodel.BreakdownUiState.Loading) {
+            if (uiState is BreakdownUiState.Loading) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -443,12 +481,12 @@ fun BreakdownSOSScreen(
             }
         }
     }
-    
+
     // Gestion des erreurs
     LaunchedEffect(uiState) {
         when (uiState) {
-            is com.example.karhebti_android.viewmodel.BreakdownUiState.Error -> {
-                val msg = (uiState as com.example.karhebti_android.viewmodel.BreakdownUiState.Error).message
+            is BreakdownUiState.Error -> {
+                val msg = (uiState as BreakdownUiState.Error).message
                 lastError = msg
                 snackbarHostState.showSnackbar("Erreur : $msg")
             }
@@ -457,23 +495,15 @@ fun BreakdownSOSScreen(
     }
 }
 
-/**
- * Enum représentant les différentes étapes du flux SOS
- */
 enum class SOSStep {
-    CHECKING_PERMISSION,    // Vérification de la permission GPS
-    PERMISSION_DENIED,      // Permission GPS refusée
-    GPS_DISABLED,           // GPS désactivé
-    FETCHING_LOCATION,      // Récupération de la position
-    GPS_ERROR,              // Erreur lors de la récupération
-    SHOWING_MAP,            // Affichage de la carte et du formulaire
-    DISPLAYING_BREAKDOWNS,  // Affichage des pannes (historique)
-    ERROR                    // Affichage d'une erreur générique
+    CHECKING_PERMISSION,
+    PERMISSION_DENIED,
+    GPS_DISABLED,
+    FETCHING_LOCATION,
+    GPS_ERROR,
+    SHOWING_MAP
 }
 
-/**
- * Composant d'étape de chargement
- */
 @Composable
 fun LoadingStep(message: String) {
     Box(
@@ -497,9 +527,6 @@ fun LoadingStep(message: String) {
     }
 }
 
-/**
- * Composant d'étape d'erreur
- */
 @Composable
 fun ErrorStep(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -507,7 +534,8 @@ fun ErrorStep(
     message: String,
     actionLabel: String,
     onAction: () -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onSkipToManual: (() -> Unit)? = null
 ) {
     Box(
         modifier = Modifier
@@ -525,23 +553,23 @@ fun ErrorStep(
                 tint = RedSOS,
                 modifier = Modifier.size(80.dp)
             )
-            
+
             Text(
                 title,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
-            
+
             Text(
                 message,
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
+
             Spacer(Modifier.height(16.dp))
-            
+
             Button(
                 onClick = onAction,
                 modifier = Modifier.fillMaxWidth(0.8f),
@@ -549,7 +577,58 @@ fun ErrorStep(
             ) {
                 Text(actionLabel, modifier = Modifier.padding(vertical = 4.dp))
             }
-            
+
+            // Add "Skip to manual selection" button for GPS errors
+            onSkipToManual?.let { skipAction ->
+                Button(
+                    onClick = skipAction,
+                    modifier = Modifier.fillMaxWidth(0.9f),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 8.dp,
+                        pressedElevation = 12.dp
+                    )
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.TouchApp,
+                            contentDescription = null,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "👆 JE CHOISIS MA POSITION",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            "sur la carte",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Normal,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    "👆 Recommandé : Plus rapide et précis",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            }
+
             OutlinedButton(
                 onClick = onCancel,
                 modifier = Modifier.fillMaxWidth(0.8f),
@@ -561,34 +640,34 @@ fun ErrorStep(
     }
 }
 
-/**
- * Contenu principal du formulaire SOS avec carte
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SOSFormContent(
-     latitude: Double?,
-     longitude: Double?,
-     type: String,
-     description: String,
-     photoUri: String?,
-     types: List<String>,
-     showTypeMenu: Boolean,
-     onTypeMenuChange: (Boolean) -> Unit,
-     onTypeChange: (String) -> Unit,
-     onDescriptionChange: (String) -> Unit,
-     onPhotoClick: () -> Unit,
-     onSendClick: () -> Unit,
-     sendEnabled: Boolean,
-     userId: String?,
-     tokenPresent: Boolean,
-     tokenMasked: String?,
-     lastRequestJson: String?,
-     lastError: String?
- ) {
-     val scrollState = rememberScrollState()
-     var showValidation by remember { mutableStateOf(false) }
-     val coroutineScope = rememberCoroutineScope()
+    latitude: Double?,
+    longitude: Double?,
+    type: String,
+    description: String,
+    photoUri: String?,
+    types: List<String>,
+    showTypeMenu: Boolean,
+    isManualLocation: Boolean,
+    onTypeChange: (String) -> Unit,
+    onTypeMenuChange: (Boolean) -> Unit,
+    tokenPresent: Boolean,
+    tokenMasked: String?,
+    onDescriptionChange: (String) -> Unit,
+    onPhotoClick: () -> Unit,
+    onSendClick: () -> Unit,
+    onRefreshLocation: () -> Unit,
+    onLocationSelected: (Double, Double) -> Unit,
+    sendEnabled: Boolean,
+    userId: String?,
+    lastRequestJson: String?,
+    lastError: String?
+) {
+    val scrollState = rememberScrollState()
+    var showValidation by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -614,48 +693,222 @@ fun SOSFormContent(
 
         Spacer(Modifier.height(24.dp))
 
-        // Carte OpenStreetMap (osmdroid) - Gratuite et open source !
+        // Carte OpenStreetMap
         if (latitude != null && longitude != null) {
+            // 🎯 INSTRUCTION CARD - More prominent guidance
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Animated icon
+                    Icon(
+                        Icons.Default.TouchApp,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(48.dp)
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Text(
+                        "TOUCHEZ LA CARTE",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Text(
+                        "pour choisir votre position exacte",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            "📍",
+                            style = MaterialTheme.typography.headlineSmall
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Le marqueur rouge se déplacera\ninstantanément où vous touchez",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Indication du mode de localisation
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isManualLocation)
+                        MaterialTheme.colorScheme.tertiaryContainer
+                    else
+                        MaterialTheme.colorScheme.secondaryContainer
+                ),
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        if (isManualLocation) Icons.Default.CheckCircle else Icons.Default.GpsFixed,
+                        contentDescription = null,
+                        tint = if (isManualLocation)
+                            MaterialTheme.colorScheme.onTertiaryContainer
+                        else
+                            MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            if (isManualLocation)
+                                "Position manuelle"
+                            else
+                                "Position GPS",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isManualLocation)
+                                MaterialTheme.colorScheme.onTertiaryContainer
+                            else
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Text(
+                            if (isManualLocation)
+                                "✅ Vous avez choisi cette position"
+                            else
+                                "📡 Détectée automatiquement",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isManualLocation)
+                                MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
+                            else
+                                MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(300.dp),
+                    .height(350.dp),
                 shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
             ) {
-                OpenStreetMapView(
-                    latitude = latitude,
-                    longitude = longitude,
-                    zoom = 15.0,
-                    markerTitle = "Votre position"
-                )
+                Box {
+                    OpenStreetMapView(
+                        latitude = latitude,
+                        longitude = longitude,
+                        zoom = 15.0,
+                        markerTitle = if (isManualLocation) "📍 Position choisie" else "📍 Votre position GPS",
+                        onLocationSelected = onLocationSelected
+                    )
+
+                    // Hint overlay for first-time users
+                    if (!isManualLocation) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .background(
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .padding(12.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.TouchApp,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Text(
+                                    "Touchez ici pour ajuster",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
             }
-            
+
             Spacer(Modifier.height(8.dp))
-            
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(
-                    Icons.Default.LocationOn,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    "Lat: ${latitude.format(4)}, Lon: ${longitude.format(4)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        "Lat: ${latitude.format(4)}, Lon: ${longitude.format(4)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                IconButton(
+                    onClick = onRefreshLocation
+                ) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = "Actualiser avec GPS",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
 
         Spacer(Modifier.height(24.dp))
 
-        // Type de problème (fallback dropdown: OutlinedTextField + DropdownMenu)
+        // Type de problème
         Box(modifier = Modifier.fillMaxWidth()) {
-            // TextField visible
             OutlinedTextField(
                 value = type,
                 onValueChange = {},
@@ -670,12 +923,10 @@ fun SOSFormContent(
                         )
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 isError = showValidation && type.isBlank()
             )
 
-            // Transparent overlay to ensure taps are always received (fixes cases where TextField consumes clicks)
             Spacer(
                 modifier = Modifier
                     .matchParentSize()
@@ -685,7 +936,6 @@ fun SOSFormContent(
                     }
             )
 
-            // Use a modal AlertDialog for selection (reliable across devices/emulators)
             if (showTypeMenu) {
                 AlertDialog(
                     onDismissRequest = { onTypeMenuChange(false) },
@@ -712,17 +962,15 @@ fun SOSFormContent(
                 )
             }
 
-            // Inline validation message shown below field if needed
             if (showValidation && type.isBlank()) {
                 Text(
                     text = "⚠️ Veuillez sélectionner un type de panne",
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier
-                        .padding(top = 8.dp)
+                    modifier = Modifier.padding(top = 8.dp)
                 )
             }
-         }
+        }
 
         Spacer(Modifier.height(16.dp))
 
@@ -769,13 +1017,11 @@ fun SOSFormContent(
 
         Spacer(Modifier.height(24.dp))
 
-        // Bouton Envoyer avec validation locale
+        // Bouton Envoyer
         Button(
             onClick = {
                 if (!sendEnabled) {
-                    // trigger validation messages
                     showValidation = true
-                    // scroll to top so user sees validation (use coroutine scope)
                     coroutineScope.launch { scrollState.animateScrollTo(0) }
                 } else {
                     onSendClick()
@@ -783,26 +1029,23 @@ fun SOSFormContent(
             },
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth(),
-            // keep it clickable so user can ask for validation messages; visually show disabled style
             enabled = true,
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (sendEnabled) RedSOS else Color.Gray,
                 contentColor = Color.White
             )
         ) {
-             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
-             Spacer(Modifier.width(8.dp))
-             Text("Envoyer la demande SOS", modifier = Modifier.padding(vertical = 4.dp))
-         }
+            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("Envoyer la demande SOS", modifier = Modifier.padding(vertical = 4.dp))
+        }
 
-        // Message d'erreur (affiché uniquement après tentative d'envoi)
         if (showValidation && !sendEnabled) {
             val missingFields = buildList {
                 if (type.isBlank()) add("Type de panne")
                 if (latitude == null || longitude == null) add("Localisation GPS")
-                // DO NOT require userId here: backend extracts user from JWT
             }
-            
+
             Text(
                 text = "⚠️ Champs manquants : ${missingFields.joinToString(", ")}",
                 color = MaterialTheme.colorScheme.error,
@@ -812,32 +1055,31 @@ fun SOSFormContent(
             )
         }
 
-        // Reset validation when fields become valid
         LaunchedEffect(type, latitude, longitude) {
             if (type.isNotBlank() && latitude != null && longitude != null) showValidation = false
         }
 
         Spacer(Modifier.height(32.dp))
 
-        // Debug panel (developer): show last request and last error to help diagnose 400 responses
+        // Debug panel
         if (lastRequestJson != null || lastError != null) {
-             Card(
-                 modifier = Modifier
-                     .fillMaxWidth()
-                     .padding(top = 8.dp),
-                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-             ) {
-                 Column(modifier = Modifier.padding(12.dp)) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
                     lastRequestJson?.let { req ->
                         Text("Dernière requête:", style = MaterialTheme.typography.labelSmall)
                         Text(req, style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.height(8.dp))
                     }
                     lastError?.let { err ->
-                        Text("Dernière erreur:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                        Text("Dernière erreur:", style = MaterialTheme.typography.labelSmall)
                         Text(err, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.height(8.dp))
                     }
-                    // show token status and masked token
                     Text("État du token:", style = MaterialTheme.typography.labelSmall)
                     Text(
                         if (tokenPresent) "Présent" else "Absent",
@@ -848,16 +1090,14 @@ fun SOSFormContent(
                         Text("Token masqué:", style = MaterialTheme.typography.labelSmall)
                         Text(it, style = MaterialTheme.typography.bodySmall)
                     }
-                 }
-             }
-         }
+                }
+            }
+        }
     }
 }
 
-// Helper: try to read token from EncryptedSharedPreferences, fallback to TokenManager
 private fun readAnyToken(context: Context): String? {
     try {
-        // 1) Try EncryptedSharedPreferences (primary)
         try {
             val masterKey = MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -873,35 +1113,27 @@ private fun readAnyToken(context: Context): String? {
 
             val tokenEnc = encryptedPrefs.getString("jwt_token", null)
             if (!tokenEnc.isNullOrBlank()) {
-                Log.d("BreakdownSOS", "readAnyToken: found token in EncryptedSharedPreferences")
                 return tokenEnc
-            } else {
-                Log.d("BreakdownSOS", "readAnyToken: no token in EncryptedSharedPreferences")
             }
         } catch (e: Exception) {
             Log.w("BreakdownSOS", "readAnyToken: encrypted prefs read failed: ${e.message}")
         }
 
-        // 2) Try plain SharedPreferences with same name (some environments may write unencrypted)
         try {
             val plainPrefs = context.getSharedPreferences("secret_shared_prefs", Context.MODE_PRIVATE)
             val tokenPlain = plainPrefs.getString("jwt_token", null)
             if (!tokenPlain.isNullOrBlank()) {
-                Log.d("BreakdownSOS", "readAnyToken: found token in plain SharedPreferences(secret_shared_prefs)")
                 return tokenPlain
             }
         } catch (e: Exception) {
             Log.w("BreakdownSOS", "readAnyToken: plain prefs read failed: ${e.message}")
         }
 
-        // 3) Fallback to TokenManager (app-level prefs)
         val tmToken = TokenManager.getInstance(context).getToken()
         if (!tmToken.isNullOrBlank()) {
-            Log.d("BreakdownSOS", "readAnyToken: found token in TokenManager prefs")
             return tmToken
         }
 
-        Log.d("BreakdownSOS", "readAnyToken: no token found in any store")
         return null
     } catch (e: Exception) {
         Log.e("BreakdownSOS", "readAnyToken: unexpected error: ${e.message}", e)
@@ -909,83 +1141,134 @@ private fun readAnyToken(context: Context): String? {
     }
 }
 
-/**
- * Fonction utilitaire pour obtenir la localisation rapidement
- */
 @SuppressLint("MissingPermission")
 private fun fetchLocation(
-    fusedLocationClient: com.google.android.gms.location.FusedLocationProviderClient,
+    context: Context,
+    fusedLocationClient: FusedLocationProviderClient,
     onLocation: (Double, Double) -> Unit,
     onError: (String) -> Unit
 ) {
-    fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-        if (loc != null) {
-            onLocation(loc.latitude, loc.longitude)
-        } else {
-            // Si lastLocation est null, demander une mise à jour active
-            val request = LocationRequest.Builder(1000L)
-                .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
-                .setMaxUpdates(1)
-                .build()
-            fusedLocationClient.requestLocationUpdates(
-                request,
-                object : LocationCallback() {
-                    override fun onLocationResult(result: LocationResult) {
-                        val l = result.lastLocation
-                        if (l != null) {
-                            onLocation(l.latitude, l.longitude)
-                        } else {
-                            onError("Impossible d'obtenir la position")
-                        }
-                        fusedLocationClient.removeLocationUpdates(this)
-                    }
-                },
-                Looper.getMainLooper()
-            )
-        }
-    }.addOnFailureListener {
-        onError("Erreur d'accès à la localisation")
+    val hasPermission = ActivityCompat.checkSelfPermission(
+        context,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+
+    if (!hasPermission) {
+        onError("Permission de localisation non accordée")
+        return
     }
+
+    // Check if GPS is enabled
+    if (!LocationSettingsHelper.isGPSEnabled(context)) {
+        onError("GPS désactivé. Veuillez l'activer dans les paramètres.")
+        return
+    }
+
+    Log.d("BreakdownSOS", "Starting location request...")
+
+    var timeoutHandler: android.os.Handler? = null
+    var hasReceivedLocation = false
+
+    // Create a timeout handler (15 seconds)
+    timeoutHandler = android.os.Handler(Looper.getMainLooper())
+    val timeoutRunnable = Runnable {
+        if (!hasReceivedLocation) {
+            Log.e("BreakdownSOS", "Location request timed out")
+            // Try to get last known location as fallback
+            fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
+                if (lastLoc != null && !hasReceivedLocation) {
+                    Log.w("BreakdownSOS", "Using last known location: lat=${lastLoc.latitude}, lon=${lastLoc.longitude}")
+                    hasReceivedLocation = true
+                    onLocation(lastLoc.latitude, lastLoc.longitude)
+                } else {
+                    onError("Impossible d'obtenir votre position. Sur émulateur : utilisez Extended Controls > Location pour définir une position. Sur appareil réel : assurez-vous d'être à l'extérieur avec le GPS activé.")
+                }
+            }
+        }
+    }
+    timeoutHandler.postDelayed(timeoutRunnable, 15000) // 15 seconds timeout
+
+    // Try multiple strategies in parallel for best results
+
+    // Strategy 1: Get last known location immediately (fastest, but may be old)
+    fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
+        if (lastLoc != null && !hasReceivedLocation) {
+            val age = System.currentTimeMillis() - lastLoc.time
+            Log.d("BreakdownSOS", "Last known location: lat=${lastLoc.latitude}, lon=${lastLoc.longitude}, age=${age}ms")
+
+            // If location is recent (less than 2 minutes old), use it immediately
+            if (age < 120000) {
+                hasReceivedLocation = true
+                timeoutHandler?.removeCallbacks(timeoutRunnable)
+                Log.d("BreakdownSOS", "Using recent last known location")
+                onLocation(lastLoc.latitude, lastLoc.longitude)
+            }
+        }
+    }
+
+    // Strategy 2: Request fresh location with balanced priority (works better in emulators)
+    val locationRequest = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 2000)
+        .setMinUpdateIntervalMillis(1000)
+        .setMaxUpdateDelayMillis(5000)
+        .setMaxUpdates(3) // Get a few updates to improve accuracy
+        .build()
+
+    val locationCallback = object : LocationCallback() {
+        override fun onLocationResult(locationResult: LocationResult) {
+            val loc = locationResult.lastLocation
+            if (loc != null && !hasReceivedLocation) {
+                Log.d("BreakdownSOS", "Fresh location received: lat=${loc.latitude}, lon=${loc.longitude}, accuracy=${loc.accuracy}m")
+                hasReceivedLocation = true
+                timeoutHandler?.removeCallbacks(timeoutRunnable)
+                fusedLocationClient.removeLocationUpdates(this)
+                onLocation(loc.latitude, loc.longitude)
+            }
+        }
+
+        override fun onLocationAvailability(availability: LocationAvailability) {
+            super.onLocationAvailability(availability)
+            Log.d("BreakdownSOS", "Location availability: ${availability.isLocationAvailable}")
+        }
+    }
+
+    // Start location updates
+    fusedLocationClient.requestLocationUpdates(
+        locationRequest,
+        locationCallback,
+        Looper.getMainLooper()
+    ).addOnFailureListener { exception ->
+        Log.e("BreakdownSOS", "Failed to request location updates: ${exception.message}")
+        if (!hasReceivedLocation) {
+            timeoutHandler?.removeCallbacks(timeoutRunnable)
+            // Try last known location as final fallback
+            fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
+                if (lastLoc != null && !hasReceivedLocation) {
+                    hasReceivedLocation = true
+                    Log.w("BreakdownSOS", "Using last known location as fallback")
+                    onLocation(lastLoc.latitude, lastLoc.longitude)
+                } else {
+                    onError("Erreur de localisation: ${exception.message}. Sur émulateur, définissez une position via Extended Controls.")
+                }
+            }
+        }
+    }
+
+    // Strategy 3: Try getCurrentLocation for modern devices
+    fusedLocationClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+        .addOnSuccessListener { currentLoc ->
+            if (currentLoc != null && !hasReceivedLocation) {
+                Log.d("BreakdownSOS", "Current location obtained: lat=${currentLoc.latitude}, lon=${currentLoc.longitude}")
+                hasReceivedLocation = true
+                timeoutHandler?.removeCallbacks(timeoutRunnable)
+                fusedLocationClient.removeLocationUpdates(locationCallback)
+                onLocation(currentLoc.latitude, currentLoc.longitude)
+            }
+        }
+        .addOnFailureListener { exception ->
+            Log.w("BreakdownSOS", "getCurrentLocation failed: ${exception.message}, waiting for updates...")
+        }
 }
 
-// Extension pour formater les doubles
-private fun Double.format(digits: Int): String {
-    // Clamp digits to a safe range to avoid IllegalFormatPrecisionException
-    val d = digits.coerceIn(0, 8)
-    return String.format(java.util.Locale.US, "%.${d}f", this)
-}
-
-// Helper to decode JWT and extract the "sub" claim without external libs (best-effort)
-private fun jwtSubClaim(token: String): String? {
-    try {
-        var t = token
-        // remove Bearer prefix if present
-        if (t.startsWith("Bearer ", true)) t = t.substringAfter(" ")
-        val parts = t.split('.')
-        if (parts.size < 2) return null
-        var payload = parts[1]
-        // base64url -> base64
-        payload = payload.replace('-', '+').replace('_', '/')
-        // Pad base64 if necessary
-        val padLen = (4 - payload.length % 4) % 4
-        payload += "=".repeat(padLen)
-        val decoded = Base64.decode(payload, Base64.DEFAULT)
-        val json = String(decoded, Charsets.UTF_8)
-        val obj = JSONObject(json)
-        // common name for user id claim could be 'sub' or 'userId' depending on backend
-        if (obj.has("sub")) return obj.getString("sub")
-        if (obj.has("userId")) return obj.getString("userId")
-        if (obj.has("id")) return obj.getString("id")
-        // some tokens include a nested user object: { user: { id: '...' } }
-        if (obj.has("user")) {
-            try {
-                val u = obj.get("user")
-                if (u is JSONObject && u.has("id")) return u.getString("id")
-            } catch (_: Exception) { /* ignore */ }
-        }
-        return null
-    } catch (e: Exception) {
-        Log.w("BreakdownSOS", "jwtSubClaim parse failed: ${e.message}")
-        return null
-    }
+fun Double.format(decimals: Int): String {
+    return "%.${decimals}f".format(this)
 }

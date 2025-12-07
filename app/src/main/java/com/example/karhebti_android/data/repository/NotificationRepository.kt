@@ -131,7 +131,7 @@ class NotificationRepository(
 
             when {
                 response.isSuccessful -> {
-                    val count = response.body()?.count ?: 0
+                    val count = response.body()?.unreadCount ?: 0
                     Log.d(TAG, "✅ Unread count: $count")
                     emit(Result.success(count))
                 }

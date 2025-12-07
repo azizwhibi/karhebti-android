@@ -1,14 +1,11 @@
-package com.example.karhebti_android.ui.components
+ package com.example.karhebti_android.ui.components
 
 import android.content.Context
-import android.graphics.drawable.BitmapDrawable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
-import com.example.karhebti_android.R
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
@@ -23,6 +20,7 @@ import org.osmdroid.views.overlay.Marker
  * @param modifier Modificateur Compose
  * @param zoom Niveau de zoom initial (défaut: 15.0)
  * @param markerTitle Titre du marqueur (défaut: "Votre position")
+ * @param onLocationSelected Callback appelé lorsque l'utilisateur tape sur la carte (optionnel)
  */
 @Composable
 fun OpenStreetMapView(
@@ -30,7 +28,8 @@ fun OpenStreetMapView(
     longitude: Double,
     modifier: Modifier = Modifier,
     zoom: Double = 15.0,
-    markerTitle: String = "Votre position"
+    markerTitle: String = "Votre position",
+    onLocationSelected: ((Double, Double) -> Unit)? = null
 ) {
     val context = LocalContext.current
     
@@ -67,6 +66,33 @@ fun OpenStreetMapView(
                 
                 overlays.add(marker)
                 
+                // Ajouter un écouteur de clic sur la carte si onLocationSelected est fourni
+                onLocationSelected?.let { callback ->
+                    overlays.add(object : org.osmdroid.views.overlay.Overlay() {
+                        override fun onSingleTapConfirmed(
+                            e: android.view.MotionEvent,
+                            mapView: MapView
+                        ): Boolean {
+                            val projection = mapView.projection
+                            val geoPoint = projection.fromPixels(e.x.toInt(), e.y.toInt()) as GeoPoint
+
+                            // Mettre à jour la position du marqueur
+                            // Le marqueur est toujours à l'index 0, le tap overlay est à l'index 1
+                            val markerOverlay = mapView.overlays.firstOrNull { it is Marker } as? Marker
+                            markerOverlay?.let {
+                                it.position = geoPoint
+                                it.title = markerTitle
+                                mapView.invalidate()
+                            }
+
+                            // Notifier le callback avec les nouvelles coordonnées
+                            callback(geoPoint.latitude, geoPoint.longitude)
+
+                            return true
+                        }
+                    })
+                }
+
                 // Activer le zoom avec les boutons
                 zoomController.setVisibility(
                     org.osmdroid.views.CustomZoomButtonsController.Visibility.SHOW_AND_FADEOUT
@@ -79,9 +105,10 @@ fun OpenStreetMapView(
             mapView.controller.setCenter(newPoint)
             
             // Mettre à jour le marqueur
-            if (mapView.overlays.isNotEmpty()) {
-                val marker = mapView.overlays[0] as? Marker
-                marker?.position = newPoint
+            val markerOverlay = mapView.overlays.firstOrNull { it is Marker } as? Marker
+            markerOverlay?.let {
+                it.position = newPoint
+                it.title = markerTitle
             }
             
             mapView.invalidate()

@@ -49,6 +49,12 @@ class MainActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.background
                     ) {
                         val navController = rememberNavController()
+
+                        // Handle notification intent navigation
+                        androidx.compose.runtime.LaunchedEffect(Unit) {
+                            handleNotificationIntent(navController)
+                        }
+
                         NavGraph(navController = navController)
                     }
                 }
@@ -89,5 +95,51 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             Log.e("MainActivity", "❌ Erreur lors de l'initialisation FCM: ${e.message}", e)
         }
+    }
+
+    /**
+     * Handle notification intent and navigate to appropriate screen
+     */
+    private fun handleNotificationIntent(navController: androidx.navigation.NavHostController) {
+        try {
+            val fromNotification = intent.getBooleanExtra("from_notification", false)
+
+            if (fromNotification) {
+                val notificationType = intent.getStringExtra("notification_type")
+
+                Log.d("MainActivity", "📱 Opened from notification: type=$notificationType")
+
+                when (notificationType) {
+                    "BREAKDOWN_REQUEST" -> {
+                        // Garage owner received SOS notification
+                        val breakdownId = intent.getStringExtra("breakdownId")
+
+                        if (!breakdownId.isNullOrBlank()) {
+                            Log.d("MainActivity", "🚨 Navigating to breakdown details: $breakdownId")
+
+                            // Navigate to garage breakdown details screen
+                            navController.navigate(
+                                com.example.karhebti_android.navigation.Screen.GarageBreakdownDetails.createRoute(breakdownId)
+                            )
+                        } else {
+                            Log.w("MainActivity", "⚠️ No breakdownId in notification intent")
+                        }
+                    }
+                    else -> {
+                        Log.d("MainActivity", "ℹ️ Unknown notification type: $notificationType")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "❌ Error handling notification intent: ${e.message}", e)
+        }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+
+        // Handle notification when app is already running
+        Log.d("MainActivity", "onNewIntent called")
     }
 }

@@ -74,15 +74,24 @@ class BreakdownViewModel(private val repo: BreakdownsRepository) : ViewModel() {
         }
     }
 
-    fun fetchBreakdown(id: Int) {
-        _uiState.value = BreakdownUiState.Loading
-        viewModelScope.launch {
-            repo.getBreakdown(id).collect { result ->
-                _uiState.value = result.fold(
-                    onSuccess = { BreakdownUiState.Success(it) },
-                    onFailure = { BreakdownUiState.Error(it.message ?: "Erreur") }
-                )
+    /**
+     * Récupérer le statut d'une panne spécifique (pour le polling)
+     * Retourne un Result pour permettre un traitement direct sans UI state
+     */
+    suspend fun getBreakdownStatus(breakdownId: String): Result<BreakdownResponse> {
+        return try {
+            android.util.Log.d("BreakdownViewModel", "getBreakdownStatus: $breakdownId")
+            var result: Result<BreakdownResponse>? = null
+
+            // Utiliser getBreakdownString pour accepter les IDs MongoDB String
+            repo.getBreakdownString(breakdownId).collect {
+                result = it
             }
+
+            result ?: Result.failure(Exception("Aucune réponse"))
+        } catch (e: Exception) {
+            android.util.Log.e("BreakdownViewModel", "getBreakdownStatus error: ${e.message}", e)
+            Result.failure(e)
         }
     }
 }

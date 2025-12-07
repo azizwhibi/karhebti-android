@@ -77,21 +77,31 @@ fun OCRDocumentScanScreen(
     val extractedData by ocrViewModel.extractedData.collectAsState()
     val scanProgress by ocrViewModel.progress.collectAsState()
 
-    // Extracted data (for each image, use a list or map if needed)
+    // Extracted data - TOUS LES CHAMPS
     var extractedType by remember { mutableStateOf("") }
     var extractedDateEmission by remember { mutableStateOf<Calendar?>(null) }
     var extractedDateExpiration by remember { mutableStateOf<Calendar?>(null) }
+    var extractedDocumentNumber by remember { mutableStateOf("") }
+    var extractedHolderName by remember { mutableStateOf("") }
+    var extractedImmatriculation by remember { mutableStateOf("") }
+    var extractedRawText by remember { mutableStateOf("") }
     var selectedCarId by remember { mutableStateOf<String?>(null) }
 
-    // Mettre à jour les champs locaux quand les données extraites changent
+    // Mettre à jour TOUS les champs locaux quand les données extraites changent
     LaunchedEffect(extractedData) {
         extractedData?.let { data ->
             extractedType = data.documentType
-            
+            extractedDocumentNumber = data.documentNumber
+            extractedHolderName = data.holderName
+            extractedImmatriculation = data.immatriculation
+            extractedRawText = data.rawText
+
             // Parser les dates (format attendu: JJ/MM/AAAA ou JJ-MM-AAAA)
             extractedDateEmission = parseLocalDate(data.issuedDate)
             extractedDateExpiration = parseLocalDate(data.expiryDate)
             
+            android.util.Log.d("OCRExtraction", "✅ Données extraites: Type=$extractedType, Numéro=$extractedDocumentNumber, Titulaire=$extractedHolderName, Immat=$extractedImmatriculation")
+
             currentStep = 2
         }
     }
@@ -323,6 +333,42 @@ fun OCRDocumentScanScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    // Numéro de document (modifiable)
+                    OutlinedTextField(
+                        value = extractedDocumentNumber,
+                        onValueChange = { extractedDocumentNumber = it },
+                        label = { Text("Numéro de document") },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Ex: 123456789") },
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Nom du titulaire (modifiable)
+                    OutlinedTextField(
+                        value = extractedHolderName,
+                        onValueChange = { extractedHolderName = it },
+                        label = { Text("Nom du titulaire") },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Ex: MOSBEH Eya") },
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Immatriculation (modifiable)
+                    OutlinedTextField(
+                        value = extractedImmatriculation,
+                        onValueChange = { extractedImmatriculation = it },
+                        label = { Text("Immatriculation") },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Ex: 123 TU 4567") },
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     // Date d'émission (modifiable avec DatePicker)
                     val dateEmissionPicker = remember {
                         android.app.DatePickerDialog(
@@ -462,7 +508,7 @@ fun OCRDocumentScanScreen(
                                     }
 
                                     val request = CreateDocumentRequest(
-                                        type = extractedType.lowercase().replace(" ", "_"), // Normaliser pour le backend
+                                        type = extractedType.lowercase(), // Format: "carte grise" (with spaces, not underscores)
                                         dateEmission = sdfIso.format(extractedDateEmission!!.time),
                                         dateExpiration = expirationDateStr,
                                         fichier = selectedFilePaths.joinToString(","),

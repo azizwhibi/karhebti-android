@@ -17,7 +17,8 @@ class KarhebtiMessagingService : FirebaseMessagingService() {
 
     companion object {
         private const val TAG = "KarhebtiMessaging"
-        private const val CHANNEL_ID = "document_expiration"
+        private const val CHANNEL_ID_DOCUMENT = "document_expiration"
+        private const val CHANNEL_ID_SOS = "sos_breakdown_requests"
     }
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
@@ -26,19 +27,46 @@ class KarhebtiMessagingService : FirebaseMessagingService() {
         Log.d(TAG, "Notification: ${remoteMessage.notification}")
         Log.d(TAG, "Data: ${remoteMessage.data}")
 
-        // Afficher la notification peu importe la source
-        val title = remoteMessage.notification?.title ?: "Karhebti"
-        val body = remoteMessage.notification?.body ?: "Notification reçue"
+        // Extraire le type de notification depuis les données
+        val notificationType = remoteMessage.data["type"] ?: "GENERAL"
 
+        // Afficher la notification peu importe la source
+        val title = remoteMessage.notification?.title
+            ?: remoteMessage.data["title"]
+            ?: remoteMessage.data["titre"]
+            ?: "Karhebti"
+        val body = remoteMessage.notification?.body
+            ?: remoteMessage.data["body"]
+            ?: remoteMessage.data["message"]
+            ?: "Notification reçue"
+
+        Log.d(TAG, "Type: $notificationType")
         Log.d(TAG, "Affichage: $title - $body")
-        showNotification(title, body, remoteMessage.data)
+
+        // Choisir le bon channel selon le type
+        val channelId = if (notificationType == "BREAKDOWN_REQUEST") {
+            CHANNEL_ID_SOS
+        } else {
+            CHANNEL_ID_DOCUMENT
+        }
+
+        showNotification(title, body, remoteMessage.data, channelId, notificationType)
     }
 
     override fun onNewToken(token: String) {
-        Log.d(TAG, "✅ Token FCM: $token")
+        Log.d(TAG, "✅ Nouveau Token FCM: $token")
+        // Envoyer automatiquement le token au backend
+        val fcmTokenService = FCMTokenService(applicationContext)
+        fcmTokenService.registerDeviceToken()
     }
 
-    private fun showNotification(title: String, message: String, data: Map<String, String>) {
+    private fun showNotification(
+        title: String,
+        message: String,
+        data: Map<String, String>,
+        channelId: String = CHANNEL_ID_DOCUMENT,
+        notificationType: String = "GENERAL"
+    ) {
         try {
             Log.d(TAG, "🔔 Création de la notification...")
 
@@ -46,42 +74,76 @@ class KarhebtiMessagingService : FirebaseMessagingService() {
             val intent = Intent(this, MainActivity::class.java)
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             intent.putExtra("from_notification", true)
+            intent.putExtra("notification_type", notificationType)
+
+            // Ajouter les données de la notification pour accès direct
+            data.forEach { (key, value) ->
+                intent.putExtra(key, value)
+            }
 
             val pendingIntent = PendingIntent.getActivity(
                 this,
-                0,
+                System.currentTimeMillis().toInt(), // ID unique pour chaque notification
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            // Créer le channel (Android 8+)
+            // Créer les channels (Android 8+)
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val channel = NotificationChannel(
-                    CHANNEL_ID,
+                // Channel pour les documents
+                val documentChannel = NotificationChannel(
+                    CHANNEL_ID_DOCUMENT,
                     "Document Expiration Alerts",
                     NotificationManager.IMPORTANCE_HIGH
                 )
-                channel.description = "Alerts for documents expiring soon"
-                notificationManager.createNotificationChannel(channel)
-                Log.d(TAG, "✅ Channel créé")
+                documentChannel.description = "Alerts for documents expiring soon"
+                notificationManager.createNotificationChannel(documentChannel)
+
+                // Channel pour les demandes SOS (haute priorité)
+                val sosChannel = NotificationChannel(
+                    CHANNEL_ID_SOS,
+                    "SOS Breakdown Requests",
+                    NotificationManager.IMPORTANCE_HIGH
+                )
+                sosChannel.description = "Urgent breakdown assistance requests"
+                sosChannel.enableVibration(true)
+                sosChannel.vibrationPattern = longArrayOf(0, 500, 250, 500, 250, 500)
+                notificationManager.createNotificationChannel(sosChannel)
+
+                Log.d(TAG, "✅ Channels créés")
             }
 
-            // Créer la notification
-            val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            // Créer la notification avec priorité selon le type
+            val notificationBuilder = NotificationCompat.Builder(this, channelId)
                 .setContentTitle(title)
                 .setContentText(message)
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent)
-                .setVibrate(longArrayOf(0, 500, 250, 500))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .build()
+                .setStyle(NotificationCompat.BigTextStyle().bigText(message))
 
-            // Afficher la notification
-            notificationManager.notify(1, notification)
-            Log.d(TAG, "✅✅✅ NOTIFICATION AFFICHÉE: $title")
+            // Ajouter vibration et son pour les demandes SOS
+            if (notificationType == "BREAKDOWN_REQUEST") {
+                notificationBuilder
+                    .setVibrate(longArrayOf(0, 500, 250, 500, 250, 500))
+                    .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
+            } else {
+                notificationBuilder.setVibrate(longArrayOf(0, 500, 250, 500))
+            }
+
+            // Afficher la notification avec un ID unique
+            val notificationId = if (notificationType == "BREAKDOWN_REQUEST") {
+                // Utiliser l'ID de breakdown si disponible, sinon timestamp
+                data["breakdownId"]?.hashCode() ?: System.currentTimeMillis().toInt()
+            } else {
+                1
+            }
+
+            notificationManager.notify(notificationId, notificationBuilder.build())
+            Log.d(TAG, "✅✅✅ NOTIFICATION AFFICHÉE: $title (Type: $notificationType, ID: $notificationId)")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Erreur: ${e.message}", e)
         }

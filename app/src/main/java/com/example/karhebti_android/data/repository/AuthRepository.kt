@@ -4,9 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import com.example.karhebti_android.data.api.AuthApiService
-import com.example.karhebti_android.data.api.LoginRequest
-import com.example.karhebti_android.data.api.AuthResponse
+import com.example.karhebti_android.data.api.*
 import com.example.karhebti_android.data.preferences.TokenManager
 import com.example.karhebti_android.data.preferences.UserData
 import kotlinx.coroutines.flow.Flow
@@ -21,6 +19,11 @@ class AuthRepository(
 ) {
     companion object {
         private const val TAG = "AuthRepository"
+    }
+
+    // Get the main API service for signup and password reset endpoints
+    private val karhebtiApiService: KarhebtiApiService by lazy {
+        RetrofitClient.apiService
     }
 
     fun login(email: String, motDePasse: String): Flow<Result<AuthResponse>> = flow {
@@ -44,7 +47,7 @@ class AuthRepository(
                             body.user.let { user ->
                                 TokenManager.getInstance(context).saveUser(
                                     UserData(
-                                        id = user.id,
+                                        id = user.id?.toString(),
                                         email = user.email,
                                         nom = user.nom,
                                         prenom = user.prenom,
@@ -53,7 +56,7 @@ class AuthRepository(
                                     )
                                 )
                                 Log.d(TAG, "✅ User saved: ${user.email}")
-                                cacheUserId(user.id ?: "")
+                                cacheUserId(user.id?.toString() ?: "")
                             }
 
                             emit(Result.success(body))
@@ -96,6 +99,132 @@ class AuthRepository(
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error during logout: ${e.message}", e)
             emit(Result.failure(e))
+        }
+    }
+
+    suspend fun signup(nom: String, prenom: String, email: String, password: String, telephone: String): Resource<AuthResponse> {
+        return try {
+            Log.d(TAG, "Starting signup for: $email")
+            val request = SignupRequest(nom, prenom, email, password, telephone)
+            val response = karhebtiApiService.signup(request)
+
+            if (response.isSuccessful && response.body() != null) {
+                Log.d(TAG, "✅ Signup initiated successfully")
+                Resource.Success(response.body()!!)
+            } else {
+                val errorMsg = "Signup failed: ${response.code()}"
+                Log.e(TAG, "❌ $errorMsg")
+                Resource.Error(errorMsg)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Signup error: ${e.message}", e)
+            Resource.Error("Erreur d'inscription: ${e.localizedMessage}")
+        }
+    }
+
+    suspend fun verifySignupOtp(email: String, otpCode: String): Resource<AuthResponse> {
+        return try {
+            Log.d(TAG, "Verifying signup OTP for: $email")
+            val request = VerifySignupOtpRequest(email, otpCode)
+            val response = karhebtiApiService.verifySignupOtp(request)
+
+            if (response.isSuccessful && response.body() != null) {
+                Log.d(TAG, "✅ Signup OTP verified successfully")
+                Resource.Success(response.body()!!)
+            } else {
+                val errorMsg = "OTP verification failed: ${response.code()}"
+                Log.e(TAG, "❌ $errorMsg")
+                Resource.Error(errorMsg)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Verify signup OTP error: ${e.message}", e)
+            Resource.Error("Erreur de vérification: ${e.localizedMessage}")
+        }
+    }
+
+    suspend fun forgotPassword(email: String): Resource<MessageResponse> {
+        return try {
+            Log.d(TAG, "Initiating forgot password for: $email")
+            val request = ForgotPasswordRequest(email)
+            val response = karhebtiApiService.forgotPassword(request)
+
+            if (response.isSuccessful && response.body() != null) {
+                Log.d(TAG, "✅ Forgot password request sent successfully")
+                Resource.Success(response.body()!!)
+            } else {
+                val errorMsg = when (response.code()) {
+                    404 -> "Email not found"
+                    else -> "Request failed: ${response.code()}"
+                }
+                Log.e(TAG, "❌ $errorMsg")
+                Resource.Error(errorMsg)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Forgot password error: ${e.message}", e)
+            Resource.Error("Erreur: ${e.localizedMessage}")
+        }
+    }
+
+    suspend fun verifyOtp(email: String, otp: String): Resource<MessageResponse> {
+        return try {
+            Log.d(TAG, "Verifying OTP for: $email")
+            val request = VerifyOtpRequest(email, otp)
+            val response = karhebtiApiService.verifyOtp(request)
+
+            if (response.isSuccessful && response.body() != null) {
+                Log.d(TAG, "✅ OTP verified successfully")
+                Resource.Success(response.body()!!)
+            } else {
+                val errorMsg = "OTP verification failed: ${response.code()}"
+                Log.e(TAG, "❌ $errorMsg")
+                Resource.Error(errorMsg)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Verify OTP error: ${e.message}", e)
+            Resource.Error("Erreur de vérification: ${e.localizedMessage}")
+        }
+    }
+
+    suspend fun resetPassword(email: String, otp: String, newPassword: String): Resource<MessageResponse> {
+        return try {
+            Log.d(TAG, "Resetting password for: $email")
+            val request = ResetPasswordRequest(email, otp, newPassword)
+            val response = karhebtiApiService.resetPassword(request)
+
+            if (response.isSuccessful && response.body() != null) {
+                Log.d(TAG, "✅ Password reset successfully")
+                Resource.Success(response.body()!!)
+            } else {
+                val errorMsg = "Password reset failed: ${response.code()}"
+                Log.e(TAG, "❌ $errorMsg")
+                Resource.Error(errorMsg)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Reset password error: ${e.message}", e)
+            Resource.Error("Erreur de réinitialisation: ${e.localizedMessage}")
+        }
+    }
+
+    suspend fun changePassword(currentPassword: String, newPassword: String): Resource<MessageResponse> {
+        return try {
+            Log.d(TAG, "Changing password")
+            val request = ChangePasswordRequest(currentPassword, newPassword)
+            val response = karhebtiApiService.changePassword(request)
+
+            if (response.isSuccessful && response.body() != null) {
+                Log.d(TAG, "✅ Password changed successfully")
+                Resource.Success(response.body()!!)
+            } else {
+                val errorMsg = when (response.code()) {
+                    401 -> "Current password is incorrect"
+                    else -> "Password change failed: ${response.code()}"
+                }
+                Log.e(TAG, "❌ $errorMsg")
+                Resource.Error(errorMsg)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Change password error: ${e.message}", e)
+            Resource.Error("Erreur de changement de mot de passe: ${e.localizedMessage}")
         }
     }
 

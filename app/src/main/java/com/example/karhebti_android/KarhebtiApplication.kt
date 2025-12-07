@@ -3,11 +3,15 @@ package com.example.karhebti_android
 import android.app.Application
 import android.util.Log
 import com.google.firebase.FirebaseApp
+import com.example.karhebti_android.data.api.RetrofitClient
 import com.example.karhebti_android.data.preferences.TokenManager
 
 class KarhebtiApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+
+        // Initialize RetrofitClient with context
+        RetrofitClient.initialize(this)
 
         try {
             // Initialiser Firebase
@@ -21,4 +25,3 @@ class KarhebtiApplication : Application() {
         TokenManager.getInstance(this).initializeToken()
     }
 }
-

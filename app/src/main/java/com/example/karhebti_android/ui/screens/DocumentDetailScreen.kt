@@ -35,7 +35,8 @@ fun fixEmulatorImageUrl(url: String?): String? {
 fun DocumentDetailScreen(
     documentId: String,
     onBackClick: () -> Unit,
-    onEditClick: (String) -> Unit
+    onEditClick: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val documentViewModel: DocumentViewModel = viewModel(
@@ -107,48 +108,49 @@ fun DocumentDetailScreen(
                             document.fichier.isBlank() -> null
                             document.fichier.startsWith("http://") || document.fichier.startsWith("https://") -> document.fichier
                             document.fichier.startsWith("/uploads/") -> baseUrl + document.fichier
+                            document.fichier.startsWith("/") -> baseUrl + document.fichier
                             else -> "$baseUrl/uploads/documents/${document.fichier}"
                         }
                         val fixedImageUrl = fixEmulatorImageUrl(imageUrl)
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(16.dp)
+                            ) {
                                 Text(
                                     "Image du document",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(16.dp)
+                                    modifier = Modifier.padding(bottom = 12.dp)
                                 )
+
                                 if (fixedImageUrl != null) {
-                                    var imageLoadState by remember { mutableStateOf(true) }
                                     AsyncImage(
                                         model = fixedImageUrl,
                                         contentDescription = "Image du document",
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(250.dp),
-                                        onError = { imageLoadState = false },
-                                        onSuccess = { imageLoadState = true }
+                                            .height(250.dp)
                                     )
+
                                     // Affichage de l'URL pour debug
                                     Text(
                                         fixedImageUrl,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(top = 4.dp)
+                                        modifier = Modifier.padding(top = 8.dp)
                                     )
-                                    if (!imageLoadState) {
-                                        Text(
-                                            "Erreur de chargement de l'image. Vérifiez l'URL ou le serveur.",
-                                            color = MaterialTheme.colorScheme.error,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            modifier = Modifier.padding(8.dp)
-                                        )
-                                    }
                                 } else {
                                     Text(
                                         "Aucune image disponible",
-                                        style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodyMedium,
                                         modifier = Modifier.padding(32.dp)
                                     )
                                 }

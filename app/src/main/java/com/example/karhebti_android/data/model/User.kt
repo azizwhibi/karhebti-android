@@ -8,6 +8,7 @@ data class User(
     val avatarUrl: String? = null,
     val isPremium: Boolean = false,
     val memberSince: String,
+    val emailVerified: Boolean = false,
     val preferences: UserPreferences = UserPreferences()
 )
 
@@ -17,4 +18,3 @@ data class UserPreferences(
     val language: String = "fr",
     val twoFactorEnabled: Boolean = false
 )
-

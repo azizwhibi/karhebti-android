@@ -410,7 +410,7 @@ fun MaintenanceDetailsContent(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        it.typeService.take(3).forEach { service ->
+                        it.serviceTypes?.take(3)?.forEach { service ->
                             AssistChip(
                                 onClick = {},
                                 label = { Text(service) },
