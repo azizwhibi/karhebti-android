@@ -43,6 +43,11 @@ data class CarResponse(
     val prochainEntretien: String? = null,
     val joursProchainEntretien: Int? = null,
     val imageUrl: String? = null,
+    val price: Double? = null,
+    val description: String? = null,
+    @SerializedName("forSale")
+    val isForSale: Boolean = false,
+    val saleStatus: String? = null,
     @JsonAdapter(FlexibleUserDeserializer::class)
     val user: String? = null, // Can be either user ID string or user object
     val createdAt: Date,
@@ -52,7 +57,9 @@ data class CarResponse(
 // Maintenance DTOs
 data class CreateMaintenanceRequest(
     val type: String, // vidange, révision, réparation
+    val title: String, // vidange, révision, réparation
     val date: String, // ISO 8601 format
+    val dueAt: String, // ISO 8601 format
     val cout: Double,
     val garage: String, // Garage ID
     val voiture: String // Car ID
@@ -84,17 +91,25 @@ data class MaintenanceResponse(
 data class CreateGarageRequest(
     val nom: String,
     val adresse: String,
-    val typeService: List<String>,
     val telephone: String,
-    val noteUtilisateur: Double? = null
+    val noteUtilisateur: Double? = null,
+    val heureOuverture: String? = null,
+    val heureFermeture: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val numberOfBays: Int? = null
 )
 
 data class UpdateGarageRequest(
     val nom: String? = null,
     val adresse: String? = null,
-    val typeService: List<String>? = null,
     val telephone: String? = null,
-    val noteUtilisateur: Double? = null
+    val noteUtilisateur: Double? = null,
+    val heureOuverture: String? = null,
+    val heureFermeture: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val numberOfBays: Int? = null
 )
 
 data class GarageResponse(
@@ -102,9 +117,14 @@ data class GarageResponse(
     val id: String,
     val nom: String,
     val adresse: String,
-    val typeService: List<String>,
     val telephone: String,
     val noteUtilisateur: Double,
+    val heureOuverture: String? = null,
+    val heureFermeture: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    @SerializedName("numberOfBays") val numberOfBays: Int? = null,
+    val serviceTypes: List<String>? = null,
     val createdAt: Date? = null,
     val updatedAt: Date? = null
 )
@@ -135,7 +155,7 @@ data class DocumentResponse(
     val dateExpiration: Date,
     val fichier: String,
     @JsonAdapter(FlexibleCarDeserializer::class)
-    val voiture: String? = null,
+    val voiture: String? = null, // Can be either car ID string or car object
     val createdAt: Date,
     val updatedAt: Date,
     val description: String? = null,
@@ -170,99 +190,115 @@ data class PartResponse(
     val type: String,
     val dateInstallation: Date,
     val kilometrageRecommande: Int,
-    val voiture: String? = null,
+    val voiture: String? = null, // Changed from CarResponse to String (car ID)
     val createdAt: Date,
     val updatedAt: Date
 )
 
-// AI DTOs
-data class ReportRoadIssueRequest(
-    val latitude: Double,
-    val longitude: Double,
-    val typeAnomalie: String,
-    val description: String
+// ==================== NEW FEATURES DTOs ====================
+
+// Image Upload DTOs
+data class ImageMeta(
+    val width: Int? = null,
+    val height: Int? = null,
+    val format: String? = null,
+    val size: Int? = null
 )
 
-data class RoadIssueResponse(
+data class CarImageResponse(
+    @SerializedName("_id")
+    val id: String,
+    val imageUrl: String?,
+    val imageMeta: ImageMeta?
+)
+
+// OTP Login DTOs
+data class SendOtpLoginRequest(
+    val identifier: String // email or phone
+)
+
+data class VerifyOtpLoginRequest(
+    val identifier: String,
+    val code: String
+)
+
+data class OtpResponse(
+    val ok: Boolean,
     val message: String,
-    val roadIssue: RoadIssue
+    val code: String? = null // Only in dev mode
 )
 
-data class RoadIssue(
-    @SerializedName("_id")
-    val id: String,
-    val latitude: Double,
-    val longitude: Double,
-    val typeAnomalie: String,
-    val description: String,
-    val signalements: Int,
-    val createdAt: Date
+// Email Verification DTOs
+data class SendEmailVerificationRequest(
+    val email: String
 )
 
-data class DangerZone(
-    val id: String,
-    val type: String,
-    val description: String,
-    val latitude: Double,
-    val longitude: Double,
-    val signalements: Int,
-    val niveauDanger: String
+data class VerifyEmailRequest(
+    val email: String,
+    val code: String
 )
 
-data class MaintenanceRecommendationRequest(
-    val voitureId: String
+data class EmailVerificationResponse(
+    val ok: Boolean,
+    val message: String
 )
 
-data class MaintenanceRecommendation(
-    val type: String,
-    val priorite: String,
-    val raison: String,
-    val estimationCout: Double,
-    val delaiRecommande: String
+// Entretiens Filter/Search DTOs
+data class EntretiensFilterParams(
+    val search: String? = null,
+    val status: String? = null, // urgent, bientot, overdue
+    val dateFrom: String? = null, // ISO-8601
+    val dateTo: String? = null, // ISO-8601
+    val tags: List<String>? = null,
+    val minCost: Double? = null,
+    val maxCost: Double? = null,
+    val minMileage: Int? = null,
+    val maxMileage: Int? = null,
+    val sort: String? = "dueAt", // dueAt, createdAt, cout, mileage
+    val order: String? = "asc", // asc, desc
+    val page: Int = 1,
+    val limit: Int = 20
 )
 
-data class MaintenanceRecommendationResponse(
-    val voiture: VoitureInfo,
-    val recommandations: List<MaintenanceRecommendation>,
-    val scoreEntretien: Int
-)
-
-data class VoitureInfo(
-    val marque: String,
-    val modele: String,
-    val annee: Int,
-    val age: Int
-)
-
-data class GarageRecommendation(
-    val id: String,
-    val nom: String,
-    val adresse: String,
-    val telephone: String,
-    val note: Double,
-    val services: List<String>,
-    val distanceEstimee: String,
-    val recommande: Boolean
-)
-
-// Service DTOs
-data class CreateServiceRequest(
-    val type: String,
-    val coutMoyen: Double,
-    val dureeEstimee: Int,
-    val garage: String
-)
-
-data class ServiceResponse(
+data class MaintenanceExtendedResponse(
     @SerializedName("_id")
     val id: String,
     val type: String,
-    val coutMoyen: Double,
-    val dureeEstimee: Int,
+    val title: String,
+    val notes: String? = null,
+    val tags: List<String> = emptyList(),
+    val status: String, // urgent, bientot
+    val date: Date,
+    val dueAt: Date,
+    val cout: Double = 0.0,
+    val mileage: Int? = null,
+    val isOverdue: Boolean = false,
     @JsonAdapter(FlexibleGarageDeserializer::class)
     val garage: String? = null,
+    @JsonAdapter(FlexibleCarDeserializer::class)
+    val voiture: String? = null,
+    val ownerId: String? = null,
     val createdAt: Date? = null,
     val updatedAt: Date? = null
+)
+
+data class PaginatedMaintenancesResponse(
+    val data: List<MaintenanceExtendedResponse>,
+    val page: Int,
+    val limit: Int,
+    val total: Int,
+    val totalPages: Int
+)
+
+// Widget DTOs
+data class UpcomingMaintenanceWidget(
+    @SerializedName("_id")
+    val id: String,
+    val title: String,
+    val voiture: String,
+    val dueAt: Date,
+    val status: String,
+    val plate: String? = null
 )
 
 // Reclamation (Feedback) DTOs
@@ -293,5 +329,555 @@ data class ReclamationResponse(
     val updatedAt: Date? = null
 )
 
-// Notification DTOs - already defined in DTOs.kt, keeping for reference
-// ...existing code...
+// ==================== SERVICES DTOs ====================
+
+
+
+// ==================== AI FEATURES DTOs ====================
+
+// Road Issue Reporting
+data class ReportRoadIssueRequest(
+    val type: String, // pothole, accident, etc.
+    val description: String,
+    val latitude: Double,
+    val longitude: Double,
+    val typeAnomalie: String,
+    val severity: String? = null // low, medium, high
+)
+
+data class RoadIssueResponse(
+    val message: String,
+    val roadIssue: RoadIssue
+)
+
+data class RoadIssue(
+    @SerializedName("_id")
+    val id: String,
+    val type: String,
+    val description: String,
+    val latitude: Double,
+    val longitude: Double,
+    val typeAnomalie: String,
+    val signalements: Int,
+    val severity: String,
+    val status: String,
+    val createdAt: Date
+)
+
+// Danger Zones
+data class DangerZone(
+    @SerializedName("_id")
+    val id: String,
+    val type: String,
+    val description: String,
+    val latitude: Double,
+    val longitude: Double,
+    val signalements: Int,
+    val niveauDanger: String,
+    val severity: String,
+    val radius: Double? = null,
+    val reportCount: Int? = null
+)
+
+data class MaintenanceRecommendationRequest(
+    val carId: String,
+    val mileage: Int,
+    val lastMaintenanceDate: String? = null
+)
+
+data class MaintenanceRecommendationResponse(
+    val recommendations: List<MaintenanceRecommendation>,
+    val urgentItems: List<MaintenanceRecommendation>,
+    val estimatedTotalCost: Double,
+    val voiture: VoitureInfo? = null,
+    val recommandations: List<MaintenanceRecommendation>? = null,
+    val scoreEntretien: Int? = null
+)
+
+data class MaintenanceRecommendation(
+    val type: String,
+    val priorite: String,
+    val raison: String,
+    val estimationCout: Double,
+    val delaiRecommande: String,
+    val description: String,
+    val priority: String, // low, medium, high, urgent
+    val estimatedCost: Double,
+    val dueInKm: Int? = null,
+    val dueInDays: Int? = null
+)
+
+data class VoitureInfo(
+    val marque: String,
+    val modele: String,
+    val annee: Int,
+    val kilometrage: Int
+)
+
+// Garage Recommendations
+data class GarageRecommendation(
+    val id: String,
+    val nom: String,
+    val adresse: String,
+    val telephone: String,
+    val note: Double,
+    val services: List<String>,
+    val distanceEstimee: String,
+    val recommande: Boolean
+)
+
+// ==================== SIGNUP VERIFICATION DTOs ====================
+// Request to verify OTP and complete signup
+data class VerifySignupOtpRequest(
+    val email: String,
+    val code: String
+)
+
+// ==================== TRANSLATION API MODELS ====================
+
+// Translation API DTOs
+data class TranslateRequest(
+    val text: List<String>,  // Can send multiple strings
+    val targetLanguage: String,
+    val sourceLanguage: String? = null
+)
+
+data class TranslateResponse(
+    val translations: List<String>
+)
+
+data class BatchTranslateItem(
+    val key: String,
+    val text: String
+)
+
+data class BatchTranslateRequest(
+    val items: List<BatchTranslateItem>,
+    val targetLanguage: String,
+    val sourceLanguage: String? = null
+)
+
+data class BatchTranslateResponse(
+    val translations: Map<String, String>
+)
+
+data class Language(
+    val code: String,
+    val name: String,
+    val nativeName: String
+)
+
+data class LanguagesResponse(
+    val languages: List<Language>
+)
+
+data class CachedTranslationsResponse(
+    val translations: Map<String, String>,
+    val count: Int
+)
+
+// Local model for Room database
+data class TranslationEntity(
+    val id: String = "",
+    val key: String,
+    val languageCode: String,
+    val originalText: String,
+    val translatedText: String,
+    val updatedAt: Long = System.currentTimeMillis()
+)
+
+// ==================== MARKETPLACE / SWIPE FEATURE DTOs ====================
+
+// Car listing for marketplace
+data class MarketplaceCarResponse(
+    @SerializedName("_id")
+    val id: String,
+    val marque: String,
+    val modele: String,
+    val annee: Int,
+    val age: Int,
+    val immatriculation: String,
+    val typeCarburant: String,
+    val kilometrage: Int? = null,
+    val statut: String? = null,
+    val imageUrl: String? = null,
+    val images: List<String>? = null,
+    val imageMeta: ImageMeta? = null,
+    val price: Double? = null,
+    val description: String? = null,
+    @SerializedName("forSale")
+    val isForSale: Boolean = false,
+    val saleStatus: String? = null,
+    @JsonAdapter(FlexibleUserDeserializer::class)
+    val user: String? = null,
+    val ownerName: String? = null,
+    val ownerPhone: String? = null,
+    val createdAt: Date? = null,
+    val updatedAt: Date? = null,
+    @SerializedName("__v")
+    val version: Int? = null
+)
+
+// Swipe request
+data class CreateSwipeRequest(
+    val carId: String,
+    val direction: String // "left" or "right"
+)
+
+// Swipe response
+data class SwipeResponse(
+    @SerializedName("_id")
+    val id: String,
+    @SerializedName("carId")
+    @JsonAdapter(FlexibleCarObjectDeserializer::class)
+    val carDetails: MarketplaceCarResponse? = null,
+    @SerializedName("userId")
+    @JsonAdapter(FlexibleUserObjectDeserializer::class)
+    val buyerDetails: UserResponse? = null,
+    @JsonAdapter(FlexibleUserObjectDeserializer::class)
+    val sellerId: UserResponse? = null,
+    val direction: String? = null,
+    val status: String? = null, // "pending", "accepted", "declined"
+    val createdAt: Date? = null,
+    @SerializedName("__v")
+    val version: Int? = null
+) {
+    // Helper properties for backward compatibility
+    val carId: String? get() = carDetails?.id
+    val buyerId: String? get() = buyerDetails?.getIdString()
+    val sellerDetails: UserResponse? get() = sellerId
+}
+
+// Response when seller accepts/declines
+data class SwipeStatusResponse(
+    @SerializedName("_id")
+    val id: String,
+    val status: String,
+    val conversationId: String? = null,
+    val message: String
+)
+
+// My swipes list
+data class MySwipesResponse(
+    val sent: List<SwipeResponse>,
+    val received: List<SwipeResponse>
+)
+
+// Conversation response
+data class ConversationResponse(
+    @SerializedName("_id")
+    val id: String,
+    @JsonAdapter(FlexibleCarObjectDeserializer::class)
+    val carId: MarketplaceCarResponse? = null,
+    @JsonAdapter(FlexibleUserObjectDeserializer::class)
+    val buyerId: UserResponse? = null,
+    @JsonAdapter(FlexibleUserObjectDeserializer::class)
+    val sellerId: UserResponse? = null,
+    val participants: List<String>? = null,
+    val status: String? = null,
+    val messages: List<Any>? = null, // Can be message objects or IDs
+    val lastMessage: String? = null,
+    val lastMessageAt: Date? = null,
+    val unreadCount: Int? = null,
+    val unreadCountBuyer: Int? = null,
+    val unreadCountSeller: Int? = null,
+    val carDetails: MarketplaceCarResponse? = null,
+    val otherUser: UserResponse? = null,
+    val createdAt: Date? = null,
+    val updatedAt: Date? = null,
+    @SerializedName("__v")
+    val version: Int? = null
+) {
+    // Helper property to get the car (prioritizes carId over carDetails)
+    val car: MarketplaceCarResponse?
+        get() = carId ?: carDetails
+
+    // Helper property to determine which user is "other" based on current user
+    fun getOtherUser(currentUserId: String): UserResponse? {
+        return when {
+            otherUser != null -> otherUser
+            buyerId?.id == currentUserId -> sellerId
+            sellerId?.id == currentUserId -> buyerId
+            else -> buyerId ?: sellerId // Fallback to any available user
+        }
+    }
+}
+
+// Chat message
+data class ChatMessage(
+    @SerializedName("_id")
+    val id: String,
+    val conversationId: String,
+    val senderId: String,
+    val content: String,
+    val isRead: Boolean = false,
+    val createdAt: Date
+)
+
+// Send message request
+data class SendMessageRequest(
+    val content: String
+)
+
+// Unread count
+data class UnreadCountResponse(
+    val count: Int
+)
+
+// List car for sale request
+data class ListCarForSaleRequest(
+    val price: Double,
+    val description: String? = null
+)
+
+// ==================== SERVICE DTOs ====================
+
+data class ServiceResponse(
+    @SerializedName("_id")
+    val id: String,
+    val type: String,
+    val coutMoyen: Double,
+    val dureeEstimee: Int,
+    @JsonAdapter(FlexibleGarageDeserializer::class)
+    val garage: Any? = null,
+    val createdAt: Date? = null,
+    val updatedAt: Date? = null
+)
+
+data class CreateServiceRequest(
+    val type: String,
+    val coutMoyen: Double,
+    val dureeEstimee: Int,
+    val garage: String
+)
+
+data class UpdateServiceRequest(
+    val type: String? = null,
+    val coutMoyen: Double? = null,
+    val dureeEstimee: Int? = null
+)
+
+// ==================== LOCATION DTOs ====================
+
+data class LocationSuggestion(
+    val display_name: String,
+    val lat: String,
+    val lon: String,
+    val address: OsmAddress?
+)
+
+data class OsmAddress(
+    val road: String?,
+    val city: String?,
+    val country: String?,
+    val postcode: String?
+)
+
+data class OsmLocationSuggestion(
+    val displayName: String,
+    val latitude: Double,
+    val longitude: Double,
+    val address: AddressDetails
+)
+
+data class AddressDetails(
+    val road: String?,
+    val city: String?,
+    val country: String?,
+    val postcode: String?
+)
+
+// ==================== RESERVATION DTOs ====================
+
+data class CreateReservationRequest(
+    @SerializedName("userId") val userId: String? = null,
+    val email: String? = null,
+    @SerializedName("garageId") val garageId: String,
+    val date: String,
+    @SerializedName("heureDebut") val heureDebut: String,
+    @SerializedName("heureFin") val heureFin: String,
+    val services: List<String>? = null,
+    val status: String = "en_attente",
+    val commentaires: String? = null
+)
+
+data class UpdateReservationRequest(
+    val date: String? = null,
+    @SerializedName("heureDebut") val heureDebut: String? = null,
+    @SerializedName("heureFin") val heureFin: String? = null,
+    val services: List<String>? = null,
+    val status: String? = null,
+    val commentaires: String? = null,
+    val isPaid: Boolean? = null
+)
+
+data class UpdateReservationStatusRequest(
+    val status: String
+)
+
+data class ReservationResponse(
+    @SerializedName("_id") val id: String,
+    @SerializedName("userId") val userId: Any?,
+    @SerializedName("garageId") val garageId: Any?,
+    @SerializedName("repairBayId") val repairBayId: Any? = null,
+    val date: Date,
+    @SerializedName("heureDebut") val heureDebut: String,
+    @SerializedName("heureFin") val heureFin: String,
+    val services: List<String>? = null,
+    val status: String,
+    val commentaires: String? = null,
+    @SerializedName("updatedBy") val updatedBy: Any? = null,
+    @SerializedName("isPaid") val isPaid: Boolean = false,
+    @SerializedName("totalAmount") val totalAmount: Double = 0.0,
+    @SerializedName("createdAt") val createdAt: Date? = null,
+    @SerializedName("updatedAt") val updatedAt: Date? = null
+) {
+    // Helper methods with support for both String and IdWrapper formats
+    fun getUserId(): String? {
+        return when (userId) {
+            is String -> userId
+            is UserResponse -> userId.getIdString()
+            is Map<*, *> -> (userId["_id"] as? String) ?: (userId["id"] as? String)
+            else -> null
+        }
+    }
+
+    fun getUserName(): String? {
+        return when (userId) {
+            is UserResponse -> "${userId.prenom} ${userId.nom}"
+            is Map<*, *> -> {
+                val prenom = userId["prenom"] as? String ?: ""
+                val nom = userId["nom"] as? String ?: ""
+                "$prenom $nom".trim()
+            }
+            else -> null
+        }
+    }
+
+    fun getUserEmail(): String? {
+        return when (userId) {
+            is UserResponse -> userId.email
+            is Map<*, *> -> userId["email"] as? String
+            else -> null
+        }
+    }
+
+    fun getGarageId(): String? {
+        return when (garageId) {
+            is String -> garageId
+            is GarageResponse -> garageId.id
+            is Map<*, *> -> (garageId["_id"] as? String) ?: (garageId["id"] as? String)
+            else -> null
+        }
+    }
+
+    fun getGarageName(): String? {
+        return when (garageId) {
+            is GarageResponse -> garageId.nom
+            is Map<*, *> -> garageId["nom"] as? String
+            else -> null
+        }
+    }
+
+    fun getGarageAddress(): String? {
+        return when (garageId) {
+            is GarageResponse -> garageId.adresse
+            is Map<*, *> -> garageId["adresse"] as? String
+            else -> null
+        }
+    }
+
+    fun getGaragePhone(): String? {
+        return when (garageId) {
+            is GarageResponse -> garageId.telephone
+            is Map<*, *> -> garageId["telephone"] as? String
+            else -> null
+        }
+    }
+
+    fun getUpdatedByName(): String? {
+        return when (updatedBy) {
+            is UserResponse -> "${updatedBy.prenom} ${updatedBy.nom}"
+            is Map<*, *> -> {
+                val prenom = updatedBy["prenom"] as? String ?: ""
+                val nom = updatedBy["nom"] as? String ?: ""
+                "$prenom $nom".trim()
+            }
+            else -> null
+        }
+    }
+
+    fun getRepairBayId(): String? {
+        return when (repairBayId) {
+            is String -> repairBayId
+            is RepairBayResponse -> repairBayId.id
+            is Map<*, *> -> (repairBayId["_id"] as? String) ?: (repairBayId["id"] as? String)
+            else -> null
+        }
+    }
+
+    fun getRepairBayName(): String? {
+        return when (repairBayId) {
+            is RepairBayResponse -> repairBayId.name
+            is Map<*, *> -> repairBayId["name"] as? String
+            else -> null
+        }
+    }
+
+    fun getRepairBayNumber(): Int? {
+        return when (repairBayId) {
+            is RepairBayResponse -> repairBayId.bayNumber
+            is Map<*, *> -> repairBayId["bayNumber"] as? Int
+            else -> null
+        }
+    }
+}
+
+data class ReservationListResponse(
+    val reservations: List<ReservationResponse>,
+    val total: Int? = null,
+    val page: Int? = null,
+    val limit: Int? = null,
+    val totalPages: Int? = null
+)
+
+data class PopulatedReservationResponse(
+    @SerializedName("_id") val id: String,
+    val userId: UserResponse?,
+    val garageId: GarageResponse?,
+    val date: String,
+    val heureDebut: String,
+    val heureFin: String,
+    val status: String,
+    val createdAt: Date?,
+    val updatedAt: Date?
+)
+
+// ==================== REPAIR BAY DTOs ====================
+
+data class RepairBayResponse(
+    @SerializedName("_id") val id: String,
+    @SerializedName("garageId") val garageId: String,
+    @SerializedName("bayNumber") val bayNumber: Int,
+    val name: String,
+    @SerializedName("heureOuverture") val heureOuverture: String,
+    @SerializedName("heureFermeture") val heureFermeture: String,
+    @SerializedName("isActive") val isActive: Boolean = true,
+    @SerializedName("createdAt") val createdAt: Date? = null,
+    @SerializedName("updatedAt") val updatedAt: Date? = null
+)
+
+data class CreateRepairBayRequest(
+    @SerializedName("garageId") val garageId: String,
+    @SerializedName("bayNumber") val bayNumber: Int,
+    val name: String,
+    @SerializedName("heureOuverture") val heureOuverture: String,
+    @SerializedName("heureFermeture") val heureFermeture: String,
+    @SerializedName("isActive") val isActive: Boolean = true
+)
+
+data class CreateGarageResponse(
+    val garage: GarageResponse,
+    val repairBays: List<RepairBayResponse>? = null
+)
+

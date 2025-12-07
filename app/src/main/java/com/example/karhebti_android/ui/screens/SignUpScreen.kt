@@ -23,6 +23,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.karhebti_android.data.api.SignupData
 import com.example.karhebti_android.viewmodel.AuthUiState
 import com.example.karhebti_android.viewmodel.AuthViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
@@ -30,6 +31,7 @@ import com.example.karhebti_android.viewmodel.ViewModelFactory
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignUpScreen(
+    onSignupInitiated: (SignupData) -> Unit = {},
     onSignUpSuccess: () -> Unit = {},
     onLoginClick: () -> Unit = {},
     onBackClick: () -> Unit = {}
@@ -64,6 +66,8 @@ fun SignUpScreen(
         }
     }
 
+    // When signup is initiated we simply emit the pending signup data to the caller
+    // The caller will start the email verification flow before creating the account.
     fun validateNom(): Boolean {
         nomError = if (nom.isBlank()) "Le nom est requis" else null
         return nomError == null
@@ -345,10 +349,7 @@ fun SignUpScreen(
                 Button(
                     onClick = {
                         if (validateAll()) {
-                            // TODO: implémenter un vrai endpoint /auth/signup côté backend
-                            // Pour l’instant, on peut soit appeler onLoginClick() pour rediriger vers login,
-                            // soit simplement afficher un message.
-                            onLoginClick()
+                            onSignupInitiated(SignupData(nom = nom, prenom = prenom, email = email, telephone = telephone, password = password))
                         }
                     },
                     modifier = Modifier

@@ -19,19 +19,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.karhebti_android.data.api.RetrofitClient
+import com.example.karhebti_android.repository.BreakdownsRepository
 import com.example.karhebti_android.ui.theme.RedSOS
+import com.example.karhebti_android.viewmodel.BreakdownViewModel
+import com.example.karhebti_android.viewmodel.BreakdownViewModelFactory
+import com.example.karhebti_android.viewmodel.BreakdownUiState
+import com.example.karhebti_android.data.BreakdownResponse
+import kotlinx.coroutines.delay
 
 /**
- * Écran affichant le statut d'une demande SOS
- * Affiche l'état de la demande : En attente (PENDING), Acceptée (ACCEPTED), 
- * Refusée (REFUSED), En cours (IN_PROGRESS), Terminée (COMPLETED)
- * 
- * Flux selon le flowchart :
- * 1. PENDING → En attente de réponse du garage
- * 2. ACCEPTED → Garage a accepté, bouton d'appel activé
- * 3. REFUSED → Garage a refusé
- * 4. IN_PROGRESS → Assistance en cours (appel possible)
- * 5. COMPLETED → Assistance terminée
+ * Écran affichant le statut d'une demande SOS avec polling automatique
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,9 +41,53 @@ fun SOSStatusScreen(
     longitude: Double,
     status: String = "PENDING",
     onBackClick: () -> Unit = {},
+    onNavigateToTracking: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+
+    // ViewModel for polling
+    val api = remember { RetrofitClient.breakdownsApiService }
+    val repo = remember { BreakdownsRepository(api) }
+    val factory = remember { BreakdownViewModelFactory(repo) }
+    val viewModel: BreakdownViewModel = viewModel(factory = factory)
+
+    val uiState by viewModel.uiState.collectAsState()
+    var currentBreakdown by remember { mutableStateOf<BreakdownResponse?>(null) }
+    var currentStatus by remember { mutableStateOf(status) }
+
+    // Poll for status changes every 5 seconds
+    LaunchedEffect(breakdownId) {
+        if (breakdownId != null) {
+            while (true) {
+                viewModel.fetchBreakdownById(breakdownId.toInt())
+                delay(5000) // Poll every 5 seconds
+            }
+        }
+    }
+
+    // Handle state changes
+    LaunchedEffect(uiState) {
+        when (val state = uiState) {
+            is BreakdownUiState.Success -> {
+                val data = state.data
+                if (data is BreakdownResponse) {
+                    currentBreakdown = data
+                    val newStatus = data.status
+
+                    // Auto-navigate to tracking when status changes to ACCEPTED
+                    if (currentStatus == "PENDING" && newStatus == "ACCEPTED") {
+                        android.util.Log.d("SOSStatus", "✅ Status changed to ACCEPTED! Navigating to tracking...")
+                        onNavigateToTracking(breakdownId ?: "")
+                    }
+
+                    currentStatus = newStatus
+                }
+            }
+            else -> {}
+        }
+    }
+
     // Animation pour le pulse du bouton SOS
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val scale by infiniteTransition.animateFloat(
@@ -82,7 +125,7 @@ fun SOSStatusScreen(
             verticalArrangement = Arrangement.Center
         ) {
             // Icône animée selon le statut
-            when (status) {
+            when (currentStatus) {
                 "PENDING" -> {
                     Box(
                         modifier = Modifier
@@ -98,9 +141,16 @@ fun SOSStatusScreen(
                             modifier = Modifier.size(60.dp)
                         )
                     }
+
+                    Spacer(Modifier.height(16.dp))
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    Text(
+                        "Recherche d'un garage...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 "ACCEPTED" -> {
-                    // Garage a accepté la demande - afficher une icône verte avec animation
                     Box(
                         modifier = Modifier
                             .size(120.dp)
@@ -117,7 +167,6 @@ fun SOSStatusScreen(
                     }
                 }
                 "REFUSED" -> {
-                    // Garage a refusé la demande
                     Icon(
                         Icons.Default.Cancel,
                         contentDescription = "Refusé",
@@ -154,9 +203,9 @@ fun SOSStatusScreen(
 
             // Titre du statut
             Text(
-                text = when (status) {
+                text = when (currentStatus) {
                     "PENDING" -> "Demande SOS reçue"
-                    "ACCEPTED" -> "SOS Accepté ✓"
+                    "ACCEPTED" -> "🎉 Garage trouvé!"
                     "REFUSED" -> "SOS Refusé"
                     "IN_PROGRESS" -> "Assistance en route"
                     "COMPLETED" -> "Assistance terminée"
@@ -171,9 +220,9 @@ fun SOSStatusScreen(
 
             // Message de statut
             Text(
-                text = when (status) {
+                text = when (currentStatus) {
                     "PENDING" -> "Votre demande d'assistance a été enregistrée. Un technicien sera bientôt assigné."
-                    "ACCEPTED" -> "Le garage a accepté votre demande ! Vous pouvez maintenant lancer un appel vocal/vidéo."
+                    "ACCEPTED" -> "Le garage a accepté votre demande ! Redirection vers le suivi..."
                     "REFUSED" -> "Le garage a refusé votre demande. Veuillez réessayer ou contacter un autre garage."
                     "IN_PROGRESS" -> "Un technicien est en route vers votre position. Veuillez rester sur place."
                     "COMPLETED" -> "L'assistance a été effectuée avec succès. Merci d'avoir utilisé notre service."
@@ -200,7 +249,7 @@ fun SOSStatusScreen(
                 ) {
                     // ID de la demande
                     if (breakdownId != null) {
-                        InfoRow(label = "ID Demande", value = "#$breakdownId")
+                        InfoRow(label = "ID Demande", value = "#${breakdownId.take(8)}...")
                     }
 
                     // Type de panne
@@ -234,13 +283,13 @@ fun SOSStatusScreen(
                     // Statut
                     InfoRow(
                         label = "Statut",
-                        value = when (status) {
-                            "PENDING" -> "En attente"
-                            "ACCEPTED" -> "Accepté"
-                            "REFUSED" -> "Refusé"
-                            "IN_PROGRESS" -> "En cours"
-                            "COMPLETED" -> "Terminé"
-                            else -> status
+                        value = when (currentStatus) {
+                            "PENDING" -> "⏱️ En attente de réponse du garage..."
+                            "ACCEPTED" -> "✅ Accepté"
+                            "REFUSED" -> "❌ Refusé"
+                            "IN_PROGRESS" -> "🚗 En cours"
+                            "COMPLETED" -> "✓ Terminé"
+                            else -> currentStatus
                         }
                     )
                 }
@@ -248,104 +297,35 @@ fun SOSStatusScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Bouton d'appel vocal/vidéo (Jitsi)
-            // Activé uniquement si le garage a accepté (ACCEPTED) ou si l'assistance est en cours (IN_PROGRESS)
-            if (status == "ACCEPTED" || status == "IN_PROGRESS") {
+            // Action button
+            if (currentStatus == "ACCEPTED") {
                 Button(
-                    onClick = {
-                        // Lancer Jitsi via navigateur web (temporaire jusqu'à configuration du SDK)
-                        val roomName = "sos-${breakdownId ?: "unknown"}"
-                        val jitsiUrl = "https://meet.jit.si/$roomName"
-                        val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(jitsiUrl))
-                        context.startActivity(intent)
-                        
-                        // TODO: Une fois le SDK Jitsi configuré, utiliser:
-                        // val intent = Intent(context, JitsiCallActivity::class.java).apply {
-                        //     putExtra("ROOM_NAME", roomName)
-                        // }
-                        // context.startActivity(intent)
-                    },
+                    onClick = { onNavigateToTracking(breakdownId ?: "") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF4CAF50)
                     )
                 ) {
-                    Icon(
-                        Icons.Default.Phone,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    Icon(Icons.Default.Navigation, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Appeler le technicien (Vocal/Vidéo)")
+                    Text("Voir le suivi", modifier = Modifier.padding(vertical = 8.dp))
                 }
-                
-                Spacer(Modifier.height(12.dp))
-            }
-            
-            // Bouton "Contacter" désactivé si en attente
-            if (status == "PENDING") {
-                OutlinedButton(
-                    onClick = { /* Disabled */ },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = false
-                ) {
-                    Icon(
-                        Icons.Default.Phone,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text("En attente de réponse du garage...")
-                }
-                
-                Spacer(Modifier.height(12.dp))
-            }
-            
-            // Message si refusé
-            if (status == "REFUSED") {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = RedSOS.copy(alpha = 0.1f)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Info,
-                            contentDescription = null,
-                            tint = RedSOS
-                        )
-                        Text(
-                            "Le garage n'est pas disponible pour cette demande. Veuillez créer une nouvelle demande SOS.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-                
-                Spacer(Modifier.height(12.dp))
             }
 
-            Button(
-                onClick = onBackClick,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Retour à l'accueil")
+            if (currentStatus == "PENDING") {
+                OutlinedButton(
+                    onClick = onBackClick,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Retour à l'accueil")
+                }
             }
         }
     }
 }
 
 @Composable
-private fun InfoRow(label: String, value: String) {
+fun InfoRow(label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween

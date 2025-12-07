@@ -15,5 +15,5 @@ data class CreateBreakdownRequest(
 
     val photo: String? = null, // URL ou chemin serveur. Ne pas envoyer content:// URIs
 
-    val userId: String? = null // optional: send only if you can extract it from JWT
+    val userId: String? = null // facultatif - rempli depuis le token si disponible
 )

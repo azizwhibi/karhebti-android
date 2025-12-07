@@ -74,13 +74,31 @@ class BreakdownViewModel(private val repo: BreakdownsRepository) : ViewModel() {
         }
     }
 
-    fun fetchBreakdown(id: Int) {
+    /**
+     * Fetch a single breakdown by ID
+     */
+    fun fetchBreakdownById(id: Int) {
         _uiState.value = BreakdownUiState.Loading
         viewModelScope.launch {
-            repo.getBreakdown(id).collect { result ->
+            repo.getBreakdownById(id).collect { result ->
                 _uiState.value = result.fold(
                     onSuccess = { BreakdownUiState.Success(it) },
                     onFailure = { BreakdownUiState.Error(it.message ?: "Erreur") }
+                )
+            }
+        }
+    }
+
+    /**
+     * Update breakdown status (ACCEPTED, REFUSED, IN_PROGRESS, COMPLETED)
+     */
+    fun updateBreakdownStatus(id: Int, status: String) {
+        _uiState.value = BreakdownUiState.Loading
+        viewModelScope.launch {
+            repo.updateBreakdownStatus(id, status).collect { result ->
+                _uiState.value = result.fold(
+                    onSuccess = { BreakdownUiState.Success(it) },
+                    onFailure = { BreakdownUiState.Error(it.message ?: "Erreur de mise à jour") }
                 )
             }
         }

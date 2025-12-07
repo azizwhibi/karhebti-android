@@ -35,7 +35,8 @@ fun fixEmulatorImageUrl(url: String?): String? {
 fun DocumentDetailScreen(
     documentId: String,
     onBackClick: () -> Unit,
-    onEditClick: (String) -> Unit
+    onEditClick: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val documentViewModel: DocumentViewModel = viewModel(
@@ -101,61 +102,41 @@ fun DocumentDetailScreen(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Affichage de l'image scannée du document
                         val baseUrl = "http://10.0.2.2:3000"
                         val imageUrl = when {
                             document.fichier.isBlank() -> null
                             document.fichier.startsWith("http://") || document.fichier.startsWith("https://") -> document.fichier
-                            document.fichier.startsWith("/uploads/") -> baseUrl + document.fichier
+                            document.fichier.startsWith("/") -> baseUrl + document.fichier
                             else -> "$baseUrl/uploads/documents/${document.fichier}"
                         }
+
                         val fixedImageUrl = fixEmulatorImageUrl(imageUrl)
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    "Image du document",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(16.dp)
-                                )
-                                if (fixedImageUrl != null) {
-                                    var imageLoadState by remember { mutableStateOf(true) }
+
+                        if (fixedImageUrl != null) {
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        "Image du document",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        modifier = Modifier.padding(16.dp)
+                                    )
                                     AsyncImage(
                                         model = fixedImageUrl,
                                         contentDescription = "Image du document",
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(250.dp),
-                                        onError = { imageLoadState = false },
-                                        onSuccess = { imageLoadState = true }
+                                            .height(250.dp)
                                     )
-                                    // Affichage de l'URL pour debug
                                     Text(
                                         fixedImageUrl,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(top = 4.dp)
-                                    )
-                                    if (!imageLoadState) {
-                                        Text(
-                                            "Erreur de chargement de l'image. Vérifiez l'URL ou le serveur.",
-                                            color = MaterialTheme.colorScheme.error,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            modifier = Modifier.padding(8.dp)
-                                        )
-                                    }
-                                } else {
-                                    Text(
-                                        "Aucune image disponible",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(32.dp)
+                                        modifier = Modifier.padding(8.dp)
                                     )
                                 }
                             }
                         }
 
-                        // Type de document
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(
@@ -188,10 +169,8 @@ fun DocumentDetailScreen(
                             }
                         }
 
-                        // Dates
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                // Date d'émission
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -220,7 +199,6 @@ fun DocumentDetailScreen(
 
                                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                                // Date d'expiration
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -249,7 +227,6 @@ fun DocumentDetailScreen(
                             }
                         }
 
-                        // Informations de la voiture
                         document.voiture?.let { voitureId ->
                             (carsState as? Resource.Success)?.data?.find { it.id == voitureId }?.let { car ->
                                 Card(
@@ -280,7 +257,6 @@ fun DocumentDetailScreen(
 
                                         Spacer(modifier = Modifier.height(12.dp))
 
-                                        // Marque et Modèle
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween
@@ -300,7 +276,6 @@ fun DocumentDetailScreen(
 
                                         Spacer(modifier = Modifier.height(8.dp))
 
-                                        // Année
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween
@@ -320,7 +295,6 @@ fun DocumentDetailScreen(
 
                                         Spacer(modifier = Modifier.height(8.dp))
 
-                                        // Immatriculation
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween
@@ -338,10 +312,8 @@ fun DocumentDetailScreen(
                                             )
                                         }
 
-                                        Spacer(modifier = Modifier.height(8.dp))
-
-                                        // Kilométrage
                                         car.kilometrage?.let { km ->
+                                            Spacer(modifier = Modifier.height(8.dp))
                                             Row(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 horizontalArrangement = Arrangement.SpaceBetween
@@ -363,80 +335,13 @@ fun DocumentDetailScreen(
                                 }
                             }
                         }
-
-
-
-                        // Informations supplémentaires
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    "Informations",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                // État
-                                document.etat?.let { etat ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("État", style = MaterialTheme.typography.bodyMedium)
-                                        Text(
-                                            etat.replaceFirstChar { it.uppercase() },
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                }
-
-                                // Description
-                                document.description?.let { desc ->
-                                    Text("Description", style = MaterialTheme.typography.bodyMedium)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        desc,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                }
-
-                                // Date de création
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("Créé le", style = MaterialTheme.typography.bodySmall)
-                                    Text(
-                                        dateFormat.format(document.createdAt),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                    )
-                                }
-                            }
-                        }
                     }
                 } else {
                     Box(
                         modifier = Modifier.fillMaxSize().padding(paddingValues),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Default.Warning,
-                                contentDescription = null,
-                                modifier = Modifier.size(48.dp),
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                "Document non trouvé",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                        }
+                        Text("Document introuvable")
                     }
                 }
             }
@@ -445,34 +350,18 @@ fun DocumentDetailScreen(
                     modifier = Modifier.fillMaxSize().padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(16.dp)
-                    ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
                             Icons.Default.Error,
                             contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.error
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(48.dp)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            "Erreur lors de la récupération du document",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            resource.message ?: "Erreur lors du chargement",
+                            color = MaterialTheme.colorScheme.error
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            resource.message ?: "Erreur inconnue",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { documentViewModel.getDocumentById(documentId) }) {
-                            Icon(Icons.Default.Refresh, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Réessayer")
-                        }
                     }
                 }
             }

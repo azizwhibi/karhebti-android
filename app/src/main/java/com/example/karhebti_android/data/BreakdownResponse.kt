@@ -8,24 +8,29 @@ data class BreakdownResponse(
     @SerializedName("_id")
     val id: String,
 
-    @SerializedName("userId")
     val userId: String?,
 
-    @SerializedName("vehicleId")
     val vehicleId: String?,
 
-    val type: String,
+    val type: String = "",
+    val status: String = "pending",
     val description: String?,
     val latitude: Double?,
     val longitude: Double?,
-    val status: String,
 
-    @SerializedName("assignedTo")
     val assignedTo: String?,
 
-    @SerializedName("createdAt")
     val createdAt: String?,
 
-    @SerializedName("updatedAt")
     val updatedAt: String?
 )
+
+// Wrapper for breakdowns list response
+data class BreakdownsListResponse(
+    val breakdowns: List<BreakdownResponse>? = null,
+    val data: List<BreakdownResponse>? = null
+) {
+    fun toList(): List<BreakdownResponse> {
+        return breakdowns ?: data ?: emptyList()
+    }
+}

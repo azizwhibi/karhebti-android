@@ -2,8 +2,10 @@ package com.example.karhebti_android.data.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Base64
 import com.example.karhebti_android.data.api.RetrofitClient
 import com.google.gson.Gson
+import org.json.JSONObject
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
@@ -30,7 +32,9 @@ class TokenManager(context: Context) {
     }
 
     fun saveToken(token: String) {
+        android.util.Log.d("TokenManager", "Saving token: $token")
         prefs.edit().putString(KEY_TOKEN, token).apply()
+        android.util.Log.d("TokenManager", "Token saved. Verifying: ${getToken()}")
         RetrofitClient.setAuthToken(token)
         // Also attempt to save into EncryptedSharedPreferences under "jwt_token" so
         // other readers (AuthInterceptor / readAnyToken) can find it.
@@ -54,7 +58,9 @@ class TokenManager(context: Context) {
     }
 
     fun getToken(): String? {
-        return prefs.getString(KEY_TOKEN, null)
+        val token = prefs.getString(KEY_TOKEN, null)
+        android.util.Log.d("TokenManager", "Getting token: ${if (token != null) "Found (length: ${token.length})" else "NULL"}")
+        return token
     }
 
     fun saveUser(user: UserData) {
@@ -90,6 +96,27 @@ class TokenManager(context: Context) {
         if (token != null) {
             RetrofitClient.setAuthToken(token)
         }
+    }
+
+    // Extract user ID from JWT token
+    fun getUserIdFromToken(token: String): String? {
+        return try {
+            val splitToken = token.split(".")
+            if (splitToken.size > 1) {
+                val payload = String(Base64.decode(splitToken[1], Base64.DEFAULT))
+                val jsonObject = JSONObject(payload)
+                jsonObject.getString("sub")
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    // Get current user ID
+    fun getUserId(): String? {
+        return getUser()?.id ?: (getToken()?.let { getUserIdFromToken(it) })
     }
 }
 

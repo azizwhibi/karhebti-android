@@ -7,10 +7,15 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- Media permissions for image picking (API 33+) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
     <!-- Camera and Media permissions -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Audio record permission required for Jitsi / calls -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Legacy permission for older Android versions -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
@@ -51,7 +56,6 @@
             android:theme="@style/Theme.Karhebtiandroid">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

@@ -18,11 +18,35 @@ interface KarhebtiApiService {
     @POST("auth/forgot-password")
     suspend fun forgotPassword(@Body request: ForgotPasswordRequest): Response<MessageResponse>
 
-    @POST("auth/change-password")
-    suspend fun changePassword(@Body request: ChangePasswordRequest): Response<MessageResponse>
+    @POST("auth/verify-otp")
+    suspend fun verifyOtp(@Body request: VerifyOtpRequest): Response<MessageResponse>
 
     @POST("auth/reset-password")
     suspend fun resetPassword(@Body request: ResetPasswordRequest): Response<MessageResponse>
+
+    @POST("auth/change-password")
+    suspend fun changePassword(@Body request: ChangePasswordRequest): Response<MessageResponse>
+
+    // ==================== NEW: OTP LOGIN ====================
+
+    @POST("auth/otp/send")
+    suspend fun sendOtpLogin(@Body request: SendOtpLoginRequest): Response<OtpResponse>
+
+    @POST("auth/otp/verify")
+    suspend fun verifyOtpLogin(@Body request: VerifyOtpLoginRequest): Response<AuthResponse>
+
+    // ==================== NEW: EMAIL VERIFICATION ====================
+
+    @POST("auth/email/send")
+    suspend fun sendEmailVerification(@Body request: SendEmailVerificationRequest): Response<EmailVerificationResponse>
+
+    @POST("auth/email/verify")
+    suspend fun verifyEmail(@Body request: VerifyEmailRequest): Response<EmailVerificationResponse>
+
+    // ==================== NEW: SIGNUP VERIFY ====================
+
+    @POST("auth/signup/verify")
+    suspend fun verifySignupOtp(@Body request: VerifySignupOtpRequest): Response<AuthResponse>
 
     // ==================== USERS ====================
 
@@ -68,7 +92,16 @@ interface KarhebtiApiService {
     ): Response<CarResponse>
 
     @DELETE("cars/{id}")
-    suspend fun deleteCar(@Path("id") id: String): Response<Unit>
+    suspend fun deleteCar(@Path("id") id: String): Response<MessageResponse>
+
+    // ==================== NEW: CAR IMAGE UPLOAD ====================
+
+    @Multipart
+    @POST("cars/{id}/image")
+    suspend fun uploadCarImage(
+        @Path("id") id: String,
+        @Part image: MultipartBody.Part
+    ): Response<CarResponse>
 
     // ==================== MAINTENANCES ====================
 
@@ -90,7 +123,34 @@ interface KarhebtiApiService {
     @DELETE("maintenances/{id}")
     suspend fun deleteMaintenance(@Path("id") id: String): Response<MessageResponse>
 
-    // ==================== GARAGES ====================
+    // ==================== NEW: MAINTENANCES SEARCH/FILTER ====================
+
+    @GET("maintenances/search/filter")
+    suspend fun searchMaintenances(
+        @Query("search") search: String? = null,
+        @Query("status") status: String? = null,
+        @Query("dateFrom") dateFrom: String? = null,
+        @Query("dateTo") dateTo: String? = null,
+        @Query("tags[]") tags: List<String>? = null,
+        @Query("minCost") minCost: Double? = null,
+        @Query("maxCost") maxCost: Double? = null,
+        @Query("minMileage") minMileage: Int? = null,
+        @Query("maxMileage") maxMileage: Int? = null,
+        @Query("sort") sort: String? = "dueAt",
+        @Query("order") order: String? = "asc",
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20
+    ): Response<PaginatedMaintenancesResponse>
+
+    // ==================== NEW: UPCOMING MAINTENANCES WIDGET ====================
+
+    @GET("maintenances/upcoming/widget")
+    suspend fun getUpcomingMaintenances(
+        @Query("limit") limit: Int = 5,
+        @Query("includePlate") includePlate: Boolean = true
+    ): Response<List<UpcomingMaintenanceWidget>>
+
+// ==================== GARAGES ====================
 
     @GET("garages")
     suspend fun getGarages(): Response<List<GarageResponse>>
@@ -99,7 +159,7 @@ interface KarhebtiApiService {
     suspend fun getGarage(@Path("id") id: String): Response<GarageResponse>
 
     @POST("garages")
-    suspend fun createGarage(@Body request: CreateGarageRequest): Response<GarageResponse>
+    suspend fun createGarage(@Body request: CreateGarageRequest): Response<CreateGarageResponse>
 
     @PATCH("garages/{id}")
     suspend fun updateGarage(
@@ -196,7 +256,7 @@ interface KarhebtiApiService {
     @PATCH("services/{id}")
     suspend fun updateService(
         @Path("id") id: String,
-        @Body request: CreateServiceRequest
+        @Body request: UpdateServiceRequest
     ): Response<ServiceResponse>
 
     @DELETE("services/{id}")
@@ -253,6 +313,77 @@ interface KarhebtiApiService {
         @Query("rayon") rayon: Double? = null
     ): Response<List<GarageRecommendation>>
 
+    // ==================== TRANSLATION API ====================
+
+    @POST("api/translation/translate")
+    suspend fun translateText(@Body request: TranslateRequest): Response<TranslateResponse>
+
+    @POST("api/translation/batch")
+    suspend fun batchTranslate(@Body request: BatchTranslateRequest): Response<BatchTranslateResponse>
+
+    @GET("api/translation/languages")
+    suspend fun getLanguages(): Response<LanguagesResponse>
+
+    @GET("api/translation/cached/{languageCode}")
+    suspend fun getCachedTranslations(
+        @Path("languageCode") languageCode: String
+    ): Response<CachedTranslationsResponse>
+
+    @DELETE("api/translation/cache")
+    suspend fun clearTranslationCache(
+        @Query("languageCode") languageCode: String? = null
+    ): Response<MessageResponse>
+
+    // ==================== MARKETPLACE / SWIPE FEATURE ====================
+
+    // Cars - Marketplace
+    @GET("cars/marketplace/available")
+    suspend fun getAvailableCars(): Response<List<MarketplaceCarResponse>>
+
+    @POST("cars/{id}/list-for-sale")
+    suspend fun listCarForSale(
+        @Path("id") id: String,
+        @Body request: ListCarForSaleRequest
+    ): Response<MarketplaceCarResponse>
+
+    @POST("cars/{id}/unlist")
+    suspend fun unlistCar(@Path("id") id: String): Response<MarketplaceCarResponse>
+
+    // Swipes
+    @POST("swipes")
+    suspend fun createSwipe(@Body request: CreateSwipeRequest): Response<SwipeResponse>
+
+    @POST("swipes/{id}/accept")
+    suspend fun acceptSwipe(@Path("id") id: String): Response<SwipeStatusResponse>
+
+    @POST("swipes/{id}/decline")
+    suspend fun declineSwipe(@Path("id") id: String): Response<SwipeStatusResponse>
+
+    @GET("swipes/my-swipes")
+    suspend fun getMySwipes(): Response<MySwipesResponse>
+
+    @GET("swipes/pending")
+    suspend fun getPendingSwipes(): Response<List<SwipeResponse>>
+
+    // Conversations
+    @GET("conversations")
+    suspend fun getConversations(): Response<List<ConversationResponse>>
+
+    @GET("conversations/{id}")
+    suspend fun getConversation(@Path("id") id: String): Response<ConversationResponse>
+
+    @GET("conversations/{id}/messages")
+    suspend fun getMessages(@Path("id") id: String): Response<List<ChatMessage>>
+
+    @POST("conversations/{id}/messages")
+    suspend fun sendMessage(
+        @Path("id") id: String,
+        @Body request: SendMessageRequest
+    ): Response<ChatMessage>
+
+    @POST("conversations/{id}/mark-read")
+    suspend fun markConversationAsRead(@Path("id") id: String): Response<MessageResponse>
+
     // ==================== NOTIFICATIONS ====================
 
     @GET("notifications")
@@ -272,4 +403,95 @@ interface KarhebtiApiService {
 
     @DELETE("notifications/{id}")
     suspend fun deleteNotification(@Path("id") id: String): Response<MessageResponse>
+
+    // ==================== RESERVATIONS ====================
+
+    @GET("reservations")
+    suspend fun getReservations(
+        @Query("userId") userId: String? = null,
+        @Query("garageId") garageId: String? = null,
+        @Query("status") status: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 10
+    ): Response<ReservationListResponse>
+
+    @GET("reservations/me")
+    suspend fun getMyReservations(
+        @Query("status") status: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 10
+    ): Response<ReservationListResponse>
+
+    @GET("reservations/{id}")
+    suspend fun getReservation(@Path("id") id: String): Response<ReservationResponse>
+
+    @POST("reservations")
+    suspend fun createReservation(@Body request: CreateReservationRequest): Response<ReservationResponse>
+
+    @PATCH("reservations/{id}")
+    suspend fun updateReservation(
+        @Path("id") id: String,
+        @Body request: UpdateReservationRequest
+    ): Response<ReservationResponse>
+
+    @DELETE("reservations/{id}")
+    suspend fun deleteReservation(@Path("id") id: String): Response<MessageResponse>
+
+    @PATCH("reservations/{id}/status")
+    suspend fun updateReservationStatus(
+        @Path("id") id: String,
+        @Body request: UpdateReservationStatusRequest
+    ): Response<ReservationResponse>
+
+    @GET("reservations/garage/{garageId}")
+    suspend fun getGarageReservations(
+        @Path("garageId") garageId: String,
+        @Query("status") status: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 10
+    ): Response<ReservationListResponse>
+
+    // ==================== OSM ====================
+
+    @GET("osm/search")
+    suspend fun searchAddress(
+        @Query("query") query: String
+    ): Response<List<LocationSuggestion>>
+
+    @GET("osm/reverse")
+    suspend fun reverseGeocode(
+        @Query("lat") lat: Double,
+        @Query("lon") lon: Double
+    ): Response<LocationSuggestion>
+
+    // ==================== REPAIR BAYS ====================
+
+    @GET("repair-bays/garage/{garageId}")
+    suspend fun getRepairBaysByGarage(
+        @Path("garageId") garageId: String
+    ): Response<List<RepairBayResponse>>
+
+    @GET("repair-bays/garage/{garageId}/available")
+    suspend fun getAvailableRepairBays(
+        @Path("garageId") garageId: String,
+        @Query("date") date: String,
+        @Query("heureDebut") heureDebut: String,
+        @Query("heureFin") heureFin: String
+    ): Response<List<RepairBayResponse>>
+
+    @POST("repair-bays")
+    suspend fun createRepairBay(
+        @Body request: CreateRepairBayRequest
+    ): Response<RepairBayResponse>
+
+    @PATCH("repair-bays/{id}")
+    suspend fun updateRepairBay(
+        @Path("id") id: String,
+        @Body request: CreateRepairBayRequest
+    ): Response<RepairBayResponse>
+
+    @DELETE("repair-bays/{id}")
+    suspend fun deleteRepairBay(
+        @Path("id") id: String
+    ): Response<MessageResponse>
 }

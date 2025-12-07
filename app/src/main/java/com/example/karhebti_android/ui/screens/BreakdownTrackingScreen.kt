@@ -66,13 +66,13 @@ fun BreakdownTrackingScreen(
         Spacer(Modifier.height(16.dp))
         // Statut de la panne
         Row(verticalAlignment = Alignment.CenterVertically) {
-            StatusBadge(type = breakdown.type, status = breakdown.status)
+            StatusBadge(type = breakdown.description ?: "N/A", status = "OPEN")
             Spacer(Modifier.width(8.dp))
-            Text(breakdown.status, color = statusColor(breakdown.status), fontWeight = FontWeight.Bold)
+            Text("OPEN", color = statusColor("OPEN"), fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(16.dp))
         // Timeline simple
-        Timeline(status = breakdown.status)
+        Timeline(status = "OPEN")
     }
 }
 

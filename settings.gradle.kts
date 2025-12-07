@@ -21,6 +21,5 @@ dependencyResolutionManagement {
         }
     }
 }
-
 rootProject.name = "karhebti-android"
 include(":app")

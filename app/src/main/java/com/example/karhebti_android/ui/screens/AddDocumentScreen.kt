@@ -375,7 +375,7 @@ fun AddDocumentScreen(
                             dateEmission = dateEmissionStr,
                             dateExpiration = dateExpirationStr
                         )
-                        documentId.let { id ->
+                        documentId?.let { id ->
                             documentViewModel.updateDocument(id, request, selectedFilePath)
                         }
                     } else {
@@ -395,7 +395,7 @@ fun AddDocumentScreen(
                             dateEmission = dateEmissionStr,
                             dateExpiration = dateExpirationStr,
                             fichier = selectedFilePath ?: "",
-                            voiture = selectedCarId!!
+                            voiture = selectedCarId ?: ""
                         )
                         documentViewModel.createDocument(request, selectedFilePath)
                     }
@@ -452,4 +452,3 @@ private fun getExtension(resolver: ContentResolver, uri: Uri): String? {
         else -> null
     }
 }
-

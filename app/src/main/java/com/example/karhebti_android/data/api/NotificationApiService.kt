@@ -24,6 +24,7 @@ interface NotificationApiService {
     @GET("notifications")
     suspend fun getNotifications(): Response<NotificationsResponse>
 
+    // Notifications - Unread Count
     @GET("notifications/unread-count")
     suspend fun getUnreadCount(): Response<UnreadCountResponse>
 
@@ -54,14 +55,6 @@ data class UpdateTokenResponse(
 
     @SerializedName("message")
     val message: String
-)
-
-data class UnreadCountResponse(
-    @SerializedName("success")
-    val success: Boolean,
-
-    @SerializedName("count")
-    val count: Int
 )
 
 data class MarkAllReadResponse(

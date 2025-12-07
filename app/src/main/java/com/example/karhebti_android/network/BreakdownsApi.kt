@@ -2,6 +2,7 @@ package com.example.karhebti_android.network
 
 // Retrofit interface pour le module Gestion des pannes
 import com.example.karhebti_android.data.BreakdownResponse
+import com.example.karhebti_android.data.BreakdownsListResponse
 import com.example.karhebti_android.data.CreateBreakdownRequest
 import retrofit2.Response
 import retrofit2.http.*
@@ -22,7 +23,7 @@ interface BreakdownsApi {
     suspend fun getAllBreakdowns(
         @Query("status") status: String? = null,
         @Query("userId") userId: Int? = null
-    ): List<BreakdownResponse>
+    ): BreakdownsListResponse
 
     /**
      * Récupérer les pannes d'un utilisateur spécifique

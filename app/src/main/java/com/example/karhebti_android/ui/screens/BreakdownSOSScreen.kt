@@ -2,14 +2,14 @@
 
 package com.example.karhebti_android.ui.screens
 
-// Écran de déclaration de panne (SOS) - Version améliorée
-// Suit le flux complet : Vérification GPS → Carte interactive → Confirmation → Envoi → Statut
-
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -26,46 +26,34 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import android.util.Log
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
-import com.example.karhebti_android.ui.theme.RedSOS
-import com.example.karhebti_android.viewmodel.BreakdownViewModel
-import com.example.karhebti_android.viewmodel.BreakdownViewModelFactory
-import com.example.karhebti_android.repository.BreakdownsRepository
-import com.example.karhebti_android.network.BreakdownsApi
-import com.example.karhebti_android.utils.LocationSettingsHelper
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.location.Priority
-import android.os.Looper
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.karhebti_android.ui.components.OpenStreetMapView
-import coil.compose.AsyncImage
-import androidx.compose.ui.draw.clip
-import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
-import com.example.karhebti_android.data.api.AuthInterceptor
-import com.example.karhebti_android.data.preferences.TokenManager
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import android.content.Context
-import android.util.Base64
-import org.json.JSONObject
-import com.example.karhebti_android.viewmodel.BreakdownUiState
-
+import coil.compose.AsyncImage
+import com.example.karhebti_android.data.preferences.TokenManager
+import com.example.karhebti_android.network.BreakdownsApi
+import com.example.karhebti_android.repository.BreakdownsRepository
+import com.example.karhebti_android.ui.components.OpenStreetMapView
+import com.example.karhebti_android.ui.theme.RedSOS
+import com.example.karhebti_android.utils.LocationSettingsHelper
+import com.example.karhebti_android.viewmodel.BreakdownViewModel
+import com.example.karhebti_android.viewmodel.BreakdownViewModelFactory
+import com.google.android.gms.location.*
+import com.google.gson.Gson
+import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,70 +65,71 @@ fun BreakdownSOSScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
-    
-    // États du flux SOS
+
     var currentStep by remember { mutableStateOf(SOSStep.CHECKING_PERMISSION) }
-    // Use rememberSaveable so the state is preserved across process death and analyzer recognizes usage
     var showConfirmDialog by rememberSaveable { mutableStateOf(false) }
 
-    // Add a log statement to confirm dialog state changes
-    Log.d("BreakdownSOSScreen", "showConfirmDialog state changed: $showConfirmDialog")
-
-    // Setup ViewModel avec AuthInterceptor
-    val retrofit = remember {
-        val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+    // Use the authenticated API client from RetrofitClient
+    val api = remember {
+        try {
+            com.example.karhebti_android.data.api.RetrofitClient.breakdownsApiService
+        } catch (e: Exception) {
+            Log.e("BreakdownSOSScreen", "Failed to get authenticated API service: ${e.message}")
+            null
         }
-        
-        val client = OkHttpClient.Builder()
-            .addInterceptor(AuthInterceptor(context))
-            .addInterceptor(loggingInterceptor)
-            .build()
-
-        Retrofit.Builder()
-            .baseUrl("http://10.0.2.2:3000/")
-            .client(client)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
     }
-    
-    val api = remember { retrofit.create(BreakdownsApi::class.java) }
-    val repo = remember { BreakdownsRepository(api) }
+
+    val repo = remember {
+        if (api != null) {
+            BreakdownsRepository(api)
+        } else {
+            // Fallback to local retrofit instance (should not happen if app is properly initialized)
+            val loggingInterceptor = HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BODY
+            }
+
+            val client = OkHttpClient.Builder()
+                .addInterceptor(loggingInterceptor)
+                .build()
+
+            val retrofit = Retrofit.Builder()
+                .baseUrl("http://10.0.2.2:3000/")
+                .client(client)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+
+            BreakdownsRepository(retrofit.create(BreakdownsApi::class.java))
+        }
+    }
     val factory = remember { BreakdownViewModelFactory(repo) }
     val viewModel: BreakdownViewModel = viewModel(factory = factory)
-    
-    // Fix collectAsState issue by ensuring the function is called within a @Composable context
-    val uiState by viewModel.uiState.collectAsState(initial = BreakdownUiState.Idle)
 
-     var lastRequestJson by remember { mutableStateOf<String?>(null) }
-     var lastError by remember { mutableStateOf<String?>(null) }
-     val topCoroutineScope = rememberCoroutineScope()
+    val uiState by viewModel.uiState.collectAsState()
+    var lastRequestJson by remember { mutableStateOf<String?>(null) }
+    var lastError by remember { mutableStateOf<String?>(null) }
+    val topCoroutineScope = rememberCoroutineScope()
 
-    // États du formulaire
     var type by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var latitude by remember { mutableStateOf<Double?>(null) }
     var longitude by remember { mutableStateOf<Double?>(null) }
     var showTypeMenu by remember { mutableStateOf(false) }
+
     val types = listOf("PNEU", "BATTERIE", "MOTEUR", "CARBURANT", "REMORQUAGE", "AUTRE")
-    
-    // États de localisation
+
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     var locationError by remember { mutableStateOf<String?>(null) }
 
-    // Image picker
     var photoUri by remember { mutableStateOf<String?>(null) }
     val pickImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri -> photoUri = uri?.toString() }
     )
-    
-    // Vérification permission GPS
+
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted ->
             if (granted) {
-                // Permission accordée, vérifier si GPS est activé
                 if (LocationSettingsHelper.isGPSEnabled(context)) {
                     currentStep = SOSStep.FETCHING_LOCATION
                     fetchLocation(
@@ -164,8 +153,7 @@ fun BreakdownSOSScreen(
             }
         }
     )
-    
-    // Launcher pour les paramètres de localisation
+
     val locationSettingsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { _ ->
@@ -188,14 +176,13 @@ fun BreakdownSOSScreen(
             currentStep = SOSStep.GPS_DISABLED
         }
     }
-    
-    // Vérification initiale au lancement
+
     LaunchedEffect(Unit) {
         val hasPermission = ActivityCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
-        
+
         if (hasPermission) {
             if (LocationSettingsHelper.isGPSEnabled(context)) {
                 currentStep = SOSStep.FETCHING_LOCATION
@@ -219,8 +206,7 @@ fun BreakdownSOSScreen(
             locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
-    
-    // Gérer le succès de l'envoi
+
     LaunchedEffect(uiState) {
         if (uiState is com.example.karhebti_android.viewmodel.BreakdownUiState.Success) {
             val response = (uiState as com.example.karhebti_android.viewmodel.BreakdownUiState.Success).data as com.example.karhebti_android.data.BreakdownResponse
@@ -228,16 +214,9 @@ fun BreakdownSOSScreen(
         }
     }
 
-
-
-    // Dialogue de confirmation
     if (showConfirmDialog) {
         AlertDialog(
-            onDismissRequest = {
-                // Add explicit logging to track state changes
-                Log.d("BreakdownSOSScreen", "Dialog dismissed, updating showConfirmDialog to false")
-                showConfirmDialog = false
-            },
+            onDismissRequest = { showConfirmDialog = false },
             icon = {
                 Icon(
                     Icons.Default.Warning,
@@ -246,19 +225,61 @@ fun BreakdownSOSScreen(
                     modifier = Modifier.size(48.dp)
                 )
             },
-            title = {
-                Text("Confirmer l'envoi du SOS", fontWeight = FontWeight.Bold)
-            },
+            title = { Text("Confirmer la demande SOS") },
             text = {
-                Text("Vous êtes sur le point d'envoyer une demande d'assistance.")
+                Column {
+                    Text("Vous êtes sur le point d'envoyer une demande d'assistance.")
+                    Spacer(Modifier.height(8.dp))
+                    Text("• Type: $type", fontWeight = FontWeight.Medium)
+                    if (description.isNotBlank()) {
+                        Text("• Description: $description")
+                    }
+                    Text("• Position: ${latitude?.format(4)}, ${longitude?.format(4)}")
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Un technicien sera notifié et se dirigera vers votre position.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             },
             confirmButton = {
-                TextButton(onClick = { showConfirmDialog = false }) {
-                    Text("Confirmer")
+                TextButton(
+                    onClick = {
+                        showConfirmDialog = false
+
+                        val tokenNow = TokenManager.getInstance(context).getToken()
+                        if (tokenNow.isNullOrBlank()) {
+                            topCoroutineScope.launch {
+                                snackbarHostState.showSnackbar("Erreur : utilisateur non identifié.")
+                            }
+                            return@TextButton
+                        }
+
+                        val normalizedPhoto = if (photoUri != null && (photoUri!!.startsWith("http") || photoUri!!.startsWith("/uploads"))) {
+                            photoUri
+                        } else {
+                            null
+                        }
+
+                        val request = com.example.karhebti_android.data.CreateBreakdownRequest(
+                            vehicleId = null,
+                            type = type,
+                            description = description.takeIf { it.isNotBlank() },
+                            latitude = latitude!!,
+                            longitude = longitude!!,
+                            photo = normalizedPhoto
+                        )
+
+                        lastRequestJson = try { Gson().toJson(request) } catch (_: Exception) { null }
+                        viewModel.declareBreakdown(request)
+                    }
+                ) {
+                    Text("Confirmer et envoyer")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirmDialog = false }) {
+                OutlinedButton(onClick = { showConfirmDialog = false }) {
                     Text("Annuler")
                 }
             }
@@ -296,12 +317,12 @@ fun BreakdownSOSScreen(
                 SOSStep.CHECKING_PERMISSION -> {
                     LoadingStep(message = "Vérification des permissions...")
                 }
-                
+
                 SOSStep.PERMISSION_DENIED -> {
                     ErrorStep(
                         icon = Icons.Default.LocationOff,
                         title = "Permission refusée",
-                        message = "L'accès à la localisation est nécessaire pour utiliser le service SOS. Veuillez accorder la permission dans les paramètres de l'application.",
+                        message = "L'accès à la localisation est nécessaire pour utiliser le service SOS.",
                         actionLabel = "Réessayer",
                         onAction = {
                             locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -309,12 +330,12 @@ fun BreakdownSOSScreen(
                         onCancel = onBackClick
                     )
                 }
-                
+
                 SOSStep.GPS_DISABLED -> {
                     ErrorStep(
                         icon = Icons.Default.GpsOff,
                         title = "GPS désactivé",
-                        message = "Veuillez activer le GPS pour utiliser le service SOS. Cela nous permet de localiser votre position exacte.",
+                        message = "Veuillez activer le GPS pour continuer.",
                         actionLabel = "Activer le GPS",
                         onAction = {
                             val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
@@ -323,16 +344,16 @@ fun BreakdownSOSScreen(
                         onCancel = onBackClick
                     )
                 }
-                
+
                 SOSStep.FETCHING_LOCATION -> {
                     LoadingStep(message = "Récupération de votre position...")
                 }
-                
+
                 SOSStep.GPS_ERROR -> {
                     ErrorStep(
                         icon = Icons.Default.ErrorOutline,
                         title = "Erreur de localisation",
-                        message = locationError ?: "Impossible d'obtenir votre position. Vérifiez que le GPS est activé et réessayez.",
+                        message = locationError ?: "Impossible d'obtenir votre position.",
                         actionLabel = "Réessayer",
                         onAction = {
                             currentStep = SOSStep.FETCHING_LOCATION
@@ -353,70 +374,36 @@ fun BreakdownSOSScreen(
                         onCancel = onBackClick
                     )
                 }
-                
+
                 SOSStep.SHOWING_MAP -> {
-                    // Formulaire principal avec carte
-                    // compute token info for debug (try encrypted storage first like AuthInterceptor)
                     val currentToken = readAnyToken(context)
-                     val tokenMasked = currentToken?.let { t ->
-                         if (t.length <= 10) t else t.take(6) + "..." + t.takeLast(4)
-                     }
+                    val tokenMasked = currentToken?.let { t ->
+                        if (t.length <= 10) t else t.take(6) + "..." + t.takeLast(4)
+                    }
 
                     SOSFormContent(
-                          latitude = latitude,
-                          longitude = longitude,
-                          type = type,
-                          description = description,
-                          photoUri = photoUri,
-                          types = types,
-                          showTypeMenu = showTypeMenu,
-                          onTypeMenuChange = { showTypeMenu = it },
-                          onTypeChange = { type = it },
-                          onDescriptionChange = { description = it },
-                          onPhotoClick = { pickImageLauncher.launch("image/*") },
-                          onSendClick = {
-                              if (type.isNotBlank() && latitude != null && longitude != null /* now allow without userId */) {
-                                  // Added explicit logging to track state changes
-                                  Log.d("BreakdownSOSScreen", "showConfirmDialog updated to true")
-                                  // Ensure the state change is explicitly tied to UI rendering
-                                  showConfirmDialog = true
-                                  if (showConfirmDialog) {
-                                      Log.d("BreakdownSOSScreen", "Dialog should now be visible")
-                                  }
-                              }
-                          },
-                          sendEnabled = type.isNotBlank() && latitude != null && longitude != null,
-                          userId = TokenManager.getInstance(context).getUser()?.id, // kept for UI info only
-                          tokenPresent = !currentToken.isNullOrBlank(),
-                          tokenMasked = tokenMasked,
-                          lastRequestJson = lastRequestJson,
-                          lastError = lastError
-                      )
-                  }
-
-                SOSStep.DISPLAYING_BREAKDOWNS -> {
-                    // Handle displaying breakdowns
-                }
-
-                SOSStep.ERROR -> {
-                    // Handle generic error
-                }
-
-                // Add an 'else' branch to ensure the 'when' expression is exhaustive
-                else -> {
-                    // Handle unexpected cases
-                    ErrorStep(
-                        icon = Icons.Default.Warning,
-                        title = "Étape inconnue",
-                        message = "Une erreur inattendue s'est produite. Veuillez réessayer.",
-                        actionLabel = "Retour",
-                        onAction = onBackClick,
-                        onCancel = onBackClick
+                        latitude = latitude,
+                        longitude = longitude,
+                        type = type,
+                        description = description,
+                        photoUri = photoUri,
+                        types = types,
+                        showTypeMenu = showTypeMenu,
+                        onTypeChange = { type = it },
+                        onTypeMenuChange = { showTypeMenu = it },
+                        onDescriptionChange = { description = it },
+                        onPhotoClick = { pickImageLauncher.launch("image/*") },
+                        onSendClick = { showConfirmDialog = true },
+                        sendEnabled = type.isNotBlank() && latitude != null && longitude != null,
+                        userId = TokenManager.getInstance(context).getUser()?.id,
+                        tokenPresent = !currentToken.isNullOrBlank(),
+                        tokenMasked = tokenMasked,
+                        lastRequestJson = lastRequestJson,
+                        lastError = lastError
                     )
                 }
-             }
+            }
 
-            // Afficher le loader pendant l'envoi
             if (uiState is com.example.karhebti_android.viewmodel.BreakdownUiState.Loading) {
                 Box(
                     modifier = Modifier
@@ -443,8 +430,7 @@ fun BreakdownSOSScreen(
             }
         }
     }
-    
-    // Gestion des erreurs
+
     LaunchedEffect(uiState) {
         when (uiState) {
             is com.example.karhebti_android.viewmodel.BreakdownUiState.Error -> {
@@ -457,23 +443,15 @@ fun BreakdownSOSScreen(
     }
 }
 
-/**
- * Enum représentant les différentes étapes du flux SOS
- */
 enum class SOSStep {
-    CHECKING_PERMISSION,    // Vérification de la permission GPS
-    PERMISSION_DENIED,      // Permission GPS refusée
-    GPS_DISABLED,           // GPS désactivé
-    FETCHING_LOCATION,      // Récupération de la position
-    GPS_ERROR,              // Erreur lors de la récupération
-    SHOWING_MAP,            // Affichage de la carte et du formulaire
-    DISPLAYING_BREAKDOWNS,  // Affichage des pannes (historique)
-    ERROR                    // Affichage d'une erreur générique
+    CHECKING_PERMISSION,
+    PERMISSION_DENIED,
+    GPS_DISABLED,
+    FETCHING_LOCATION,
+    GPS_ERROR,
+    SHOWING_MAP
 }
 
-/**
- * Composant d'étape de chargement
- */
 @Composable
 fun LoadingStep(message: String) {
     Box(
@@ -497,9 +475,6 @@ fun LoadingStep(message: String) {
     }
 }
 
-/**
- * Composant d'étape d'erreur
- */
 @Composable
 fun ErrorStep(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -525,23 +500,23 @@ fun ErrorStep(
                 tint = RedSOS,
                 modifier = Modifier.size(80.dp)
             )
-            
+
             Text(
                 title,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
-            
+
             Text(
                 message,
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
+
             Spacer(Modifier.height(16.dp))
-            
+
             Button(
                 onClick = onAction,
                 modifier = Modifier.fillMaxWidth(0.8f),
@@ -549,7 +524,7 @@ fun ErrorStep(
             ) {
                 Text(actionLabel, modifier = Modifier.padding(vertical = 4.dp))
             }
-            
+
             OutlinedButton(
                 onClick = onCancel,
                 modifier = Modifier.fillMaxWidth(0.8f),
@@ -561,34 +536,31 @@ fun ErrorStep(
     }
 }
 
-/**
- * Contenu principal du formulaire SOS avec carte
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SOSFormContent(
-     latitude: Double?,
-     longitude: Double?,
-     type: String,
-     description: String,
-     photoUri: String?,
-     types: List<String>,
-     showTypeMenu: Boolean,
-     onTypeMenuChange: (Boolean) -> Unit,
-     onTypeChange: (String) -> Unit,
-     onDescriptionChange: (String) -> Unit,
-     onPhotoClick: () -> Unit,
-     onSendClick: () -> Unit,
-     sendEnabled: Boolean,
-     userId: String?,
-     tokenPresent: Boolean,
-     tokenMasked: String?,
-     lastRequestJson: String?,
-     lastError: String?
- ) {
-     val scrollState = rememberScrollState()
-     var showValidation by remember { mutableStateOf(false) }
-     val coroutineScope = rememberCoroutineScope()
+    latitude: Double?,
+    longitude: Double?,
+    type: String,
+    description: String,
+    photoUri: String?,
+    types: List<String>,
+    showTypeMenu: Boolean,
+    onTypeChange: (String) -> Unit,
+    onTypeMenuChange: (Boolean) -> Unit,
+    onDescriptionChange: (String) -> Unit,
+    onPhotoClick: () -> Unit,
+    onSendClick: () -> Unit,
+    sendEnabled: Boolean,
+    userId: String?,
+    tokenPresent: Boolean,
+    tokenMasked: String?,
+    lastRequestJson: String?,
+    lastError: String?
+) {
+    val scrollState = rememberScrollState()
+    var showValidation by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -597,7 +569,6 @@ fun SOSFormContent(
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Bouton SOS principal
         Box(
             modifier = Modifier
                 .size(100.dp)
@@ -614,7 +585,6 @@ fun SOSFormContent(
 
         Spacer(Modifier.height(24.dp))
 
-        // Carte OpenStreetMap (osmdroid) - Gratuite et open source !
         if (latitude != null && longitude != null) {
             Card(
                 modifier = Modifier
@@ -630,9 +600,9 @@ fun SOSFormContent(
                     markerTitle = "Votre position"
                 )
             }
-            
+
             Spacer(Modifier.height(8.dp))
-            
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -653,9 +623,7 @@ fun SOSFormContent(
 
         Spacer(Modifier.height(24.dp))
 
-        // Type de problème (fallback dropdown: OutlinedTextField + DropdownMenu)
         Box(modifier = Modifier.fillMaxWidth()) {
-            // TextField visible
             OutlinedTextField(
                 value = type,
                 onValueChange = {},
@@ -670,22 +638,16 @@ fun SOSFormContent(
                         )
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 isError = showValidation && type.isBlank()
             )
 
-            // Transparent overlay to ensure taps are always received (fixes cases where TextField consumes clicks)
             Spacer(
                 modifier = Modifier
                     .matchParentSize()
-                    .clickable {
-                        Log.d("BreakdownSOS", "Type field tapped - opening menu")
-                        onTypeMenuChange(true)
-                    }
+                    .clickable { onTypeMenuChange(true) }
             )
 
-            // Use a modal AlertDialog for selection (reliable across devices/emulators)
             if (showTypeMenu) {
                 AlertDialog(
                     onDismissRequest = { onTypeMenuChange(false) },
@@ -695,7 +657,6 @@ fun SOSFormContent(
                             types.forEach { typeOption ->
                                 TextButton(
                                     onClick = {
-                                        Log.d("BreakdownSOS", "Type selected from dialog: $typeOption")
                                         onTypeChange(typeOption)
                                         onTypeMenuChange(false)
                                     },
@@ -712,21 +673,18 @@ fun SOSFormContent(
                 )
             }
 
-            // Inline validation message shown below field if needed
             if (showValidation && type.isBlank()) {
                 Text(
                     text = "⚠️ Veuillez sélectionner un type de panne",
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier
-                        .padding(top = 8.dp)
+                    modifier = Modifier.padding(top = 8.dp)
                 )
             }
-         }
+        }
 
         Spacer(Modifier.height(16.dp))
 
-        // Description
         OutlinedTextField(
             value = description,
             onValueChange = onDescriptionChange,
@@ -739,7 +697,6 @@ fun SOSFormContent(
 
         Spacer(Modifier.height(16.dp))
 
-        // Photo
         OutlinedButton(
             onClick = onPhotoClick,
             shape = RoundedCornerShape(12.dp),
@@ -769,13 +726,10 @@ fun SOSFormContent(
 
         Spacer(Modifier.height(24.dp))
 
-        // Bouton Envoyer avec validation locale
         Button(
             onClick = {
                 if (!sendEnabled) {
-                    // trigger validation messages
                     showValidation = true
-                    // scroll to top so user sees validation (use coroutine scope)
                     coroutineScope.launch { scrollState.animateScrollTo(0) }
                 } else {
                     onSendClick()
@@ -783,26 +737,23 @@ fun SOSFormContent(
             },
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth(),
-            // keep it clickable so user can ask for validation messages; visually show disabled style
             enabled = true,
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (sendEnabled) RedSOS else Color.Gray,
                 contentColor = Color.White
             )
         ) {
-             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
-             Spacer(Modifier.width(8.dp))
-             Text("Envoyer la demande SOS", modifier = Modifier.padding(vertical = 4.dp))
-         }
+            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("Envoyer la demande SOS", modifier = Modifier.padding(vertical = 4.dp))
+        }
 
-        // Message d'erreur (affiché uniquement après tentative d'envoi)
         if (showValidation && !sendEnabled) {
             val missingFields = buildList {
                 if (type.isBlank()) add("Type de panne")
                 if (latitude == null || longitude == null) add("Localisation GPS")
-                // DO NOT require userId here: backend extracts user from JWT
             }
-            
+
             Text(
                 text = "⚠️ Champs manquants : ${missingFields.joinToString(", ")}",
                 color = MaterialTheme.colorScheme.error,
@@ -812,32 +763,26 @@ fun SOSFormContent(
             )
         }
 
-        // Reset validation when fields become valid
         LaunchedEffect(type, latitude, longitude) {
             if (type.isNotBlank() && latitude != null && longitude != null) showValidation = false
         }
 
         Spacer(Modifier.height(32.dp))
 
-        // Debug panel (developer): show last request and last error to help diagnose 400 responses
         if (lastRequestJson != null || lastError != null) {
-             Card(
-                 modifier = Modifier
-                     .fillMaxWidth()
-                     .padding(top = 8.dp),
-                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-             ) {
-                 Column(modifier = Modifier.padding(12.dp)) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
                     lastRequestJson?.let { req ->
                         Text("Dernière requête:", style = MaterialTheme.typography.labelSmall)
                         Text(req, style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.height(8.dp))
                     }
-                    lastError?.let { err ->
-                        Text("Dernière erreur:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                        Text(err, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                    }
-                    // show token status and masked token
+
                     Text("État du token:", style = MaterialTheme.typography.labelSmall)
                     Text(
                         if (tokenPresent) "Présent" else "Absent",
@@ -848,16 +793,14 @@ fun SOSFormContent(
                         Text("Token masqué:", style = MaterialTheme.typography.labelSmall)
                         Text(it, style = MaterialTheme.typography.bodySmall)
                     }
-                 }
-             }
-         }
+                }
+            }
+        }
     }
 }
 
-// Helper: try to read token from EncryptedSharedPreferences, fallback to TokenManager
 private fun readAnyToken(context: Context): String? {
-    try {
-        // 1) Try EncryptedSharedPreferences (primary)
+    return try {
         try {
             val masterKey = MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -873,119 +816,45 @@ private fun readAnyToken(context: Context): String? {
 
             val tokenEnc = encryptedPrefs.getString("jwt_token", null)
             if (!tokenEnc.isNullOrBlank()) {
-                Log.d("BreakdownSOS", "readAnyToken: found token in EncryptedSharedPreferences")
                 return tokenEnc
-            } else {
-                Log.d("BreakdownSOS", "readAnyToken: no token in EncryptedSharedPreferences")
             }
         } catch (e: Exception) {
-            Log.w("BreakdownSOS", "readAnyToken: encrypted prefs read failed: ${e.message}")
+            Log.w("BreakdownSOS", "Encrypted prefs read failed: ${e.message}")
         }
 
-        // 2) Try plain SharedPreferences with same name (some environments may write unencrypted)
-        try {
-            val plainPrefs = context.getSharedPreferences("secret_shared_prefs", Context.MODE_PRIVATE)
-            val tokenPlain = plainPrefs.getString("jwt_token", null)
-            if (!tokenPlain.isNullOrBlank()) {
-                Log.d("BreakdownSOS", "readAnyToken: found token in plain SharedPreferences(secret_shared_prefs)")
-                return tokenPlain
-            }
-        } catch (e: Exception) {
-            Log.w("BreakdownSOS", "readAnyToken: plain prefs read failed: ${e.message}")
-        }
-
-        // 3) Fallback to TokenManager (app-level prefs)
-        val tmToken = TokenManager.getInstance(context).getToken()
-        if (!tmToken.isNullOrBlank()) {
-            Log.d("BreakdownSOS", "readAnyToken: found token in TokenManager prefs")
-            return tmToken
-        }
-
-        Log.d("BreakdownSOS", "readAnyToken: no token found in any store")
-        return null
+        TokenManager.getInstance(context).getToken()
     } catch (e: Exception) {
-        Log.e("BreakdownSOS", "readAnyToken: unexpected error: ${e.message}", e)
-        return TokenManager.getInstance(context).getToken()
+        Log.e("BreakdownSOS", "Error reading token: ${e.message}", e)
+        null
     }
 }
 
-/**
- * Fonction utilitaire pour obtenir la localisation rapidement
- */
 @SuppressLint("MissingPermission")
 private fun fetchLocation(
-    fusedLocationClient: com.google.android.gms.location.FusedLocationProviderClient,
+    fusedLocationClient: FusedLocationProviderClient,
     onLocation: (Double, Double) -> Unit,
     onError: (String) -> Unit
 ) {
-    fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-        if (loc != null) {
-            onLocation(loc.latitude, loc.longitude)
-        } else {
-            // Si lastLocation est null, demander une mise à jour active
-            val request = LocationRequest.Builder(1000L)
-                .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
-                .setMaxUpdates(1)
-                .build()
-            fusedLocationClient.requestLocationUpdates(
-                request,
-                object : LocationCallback() {
-                    override fun onLocationResult(result: LocationResult) {
-                        val l = result.lastLocation
-                        if (l != null) {
-                            onLocation(l.latitude, l.longitude)
-                        } else {
-                            onError("Impossible d'obtenir la position")
-                        }
-                        fusedLocationClient.removeLocationUpdates(this)
-                    }
-                },
-                Looper.getMainLooper()
-            )
+    val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000)
+        .setMinUpdateIntervalMillis(2000)
+        .setMaxUpdates(1)
+        .build()
+
+    val locationCallback = object : LocationCallback() {
+        override fun onLocationResult(result: LocationResult) {
+            result.lastLocation?.let { location ->
+                onLocation(location.latitude, location.longitude)
+            } ?: onError("Position introuvable")
         }
-    }.addOnFailureListener {
-        onError("Erreur d'accès à la localisation")
     }
+
+    fusedLocationClient.requestLocationUpdates(
+        locationRequest,
+        locationCallback,
+        Looper.getMainLooper()
+    )
 }
 
-// Extension pour formater les doubles
-private fun Double.format(digits: Int): String {
-    // Clamp digits to a safe range to avoid IllegalFormatPrecisionException
-    val d = digits.coerceIn(0, 8)
-    return String.format(java.util.Locale.US, "%.${d}f", this)
-}
-
-// Helper to decode JWT and extract the "sub" claim without external libs (best-effort)
-private fun jwtSubClaim(token: String): String? {
-    try {
-        var t = token
-        // remove Bearer prefix if present
-        if (t.startsWith("Bearer ", true)) t = t.substringAfter(" ")
-        val parts = t.split('.')
-        if (parts.size < 2) return null
-        var payload = parts[1]
-        // base64url -> base64
-        payload = payload.replace('-', '+').replace('_', '/')
-        // Pad base64 if necessary
-        val padLen = (4 - payload.length % 4) % 4
-        payload += "=".repeat(padLen)
-        val decoded = Base64.decode(payload, Base64.DEFAULT)
-        val json = String(decoded, Charsets.UTF_8)
-        val obj = JSONObject(json)
-        // common name for user id claim could be 'sub' or 'userId' depending on backend
-        if (obj.has("sub")) return obj.getString("sub")
-        if (obj.has("userId")) return obj.getString("userId")
-        if (obj.has("id")) return obj.getString("id")
-        // some tokens include a nested user object: { user: { id: '...' } }
-        if (obj.has("user")) {
-            try {
-                val u = obj.get("user")
-                if (u is JSONObject && u.has("id")) return u.getString("id")
-            } catch (_: Exception) { /* ignore */ }
-        }
-        return null
-    } catch (e: Exception) {
-        Log.w("BreakdownSOS", "jwtSubClaim parse failed: ${e.message}")
-        return null
-    }
+private fun Double.format(decimals: Int): String {
+    return "%.${decimals}f".format(this)
 }
