@@ -34,12 +34,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.karhebti_android.data.api.ServiceResponse
 import com.example.karhebti_android.data.repository.Resource
-import com.example.karhebti_android.viewmodel.GarageViewModel
-import com.example.karhebti_android.viewmodel.ReservationViewModel
-import com.example.karhebti_android.viewmodel.ServiceViewModel
-import com.example.karhebti_android.viewmodel.ViewModelFactory
+import com.example.karhebti_android.viewmodel.*
 import com.example.karhebti_android.ui.theme.*
-import com.example.karhebti_android.viewmodel.RepairBayViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -64,11 +60,21 @@ fun ReservationScreen(
     val repairBayViewModel: RepairBayViewModel = viewModel(
         factory = ViewModelFactory(context.applicationContext as android.app.Application)
     )
+    // ✅ Add CarViewModel to get user's cars
+    val carViewModel: CarViewModel = viewModel(
+        factory = ViewModelFactory(context.applicationContext as android.app.Application)
+    )
+    // ✅ Add MaintenanceViewModel to create maintenance when reservation is confirmed
+    val maintenanceViewModel: MaintenanceViewModel = viewModel(
+        factory = ViewModelFactory(context.applicationContext as android.app.Application)
+    )
 
     val servicesState by serviceViewModel.servicesState.observeAsState()
     val createState by reservationViewModel.createReservationState.observeAsState()
     val garagesState by garageViewModel.garagesState.observeAsState()
     val availableBaysState by repairBayViewModel.availableBaysState.observeAsState()
+    // ✅ Observe cars state
+    val carsState by carViewModel.carsState.observeAsState()
 
     // État pour la sélection de date et heure
     var selectedDate by remember { mutableStateOf<Calendar?>(null) }
@@ -76,11 +82,15 @@ fun ReservationScreen(
     var selectedEndTime by remember { mutableStateOf<String?>(null) }
     var selectedServiceTypes by remember { mutableStateOf<List<String>>(emptyList()) }
     var commentaires by remember { mutableStateOf("") }
+    // ✅ Add car selection state
+    var selectedCarId by remember { mutableStateOf<String?>(null) }
 
     var dateError by remember { mutableStateOf<String?>(null) }
     var timeError by remember { mutableStateOf<String?>(null) }
     var servicesError by remember { mutableStateOf<String?>(null) }
     var bayError by remember { mutableStateOf<String?>(null) }
+    // ✅ Add car selection error
+    var carError by remember { mutableStateOf<String?>(null) }
 
     // Format de date pour l'affichage
     val displayDateFormat = SimpleDateFormat("EEEE d MMMM", Locale.getDefault())
@@ -179,6 +189,7 @@ fun ReservationScreen(
     LaunchedEffect(garageId) {
         serviceViewModel.getServicesByGarage(garageId)
         garageViewModel.getGarages()
+        carViewModel.getMyCars() // ✅ Load user's cars
     }
 
     LaunchedEffect(createState) {
@@ -609,9 +620,215 @@ fun ReservationScreen(
                             }
                         }
 
-                        // Step 3: Services
+                        // Step 3: Car Selection
                         ModernFormSection(
                             stepNumber = "3",
+                            title = "Sélectionner votre voiture",
+                            isComplete = selectedCarId != null,
+                            isOptional = true
+                        ) {
+                            when (carsState) {
+                                is Resource.Loading -> {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(120.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(32.dp),
+                                                color = DeepPurple,
+                                                strokeWidth = 4.dp
+                                            )
+                                            Text(
+                                                "Chargement de vos voitures...",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = TextSecondary
+                                            )
+                                        }
+                                    }
+                                }
+                                is Resource.Success -> {
+                                    val cars = (carsState as Resource.Success).data ?: emptyList()
+                                    if (cars.isEmpty()) {
+                                        Surface(
+                                            shape = RoundedCornerShape(16.dp),
+                                            color = AccentYellow.copy(alpha = 0.1f),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.padding(24.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.DirectionsCar,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(48.dp),
+                                                    tint = AccentYellow
+                                                )
+                                                Spacer(Modifier.height(12.dp))
+                                                Text(
+                                                    "Aucune voiture enregistrée",
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    color = TextPrimary,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Spacer(Modifier.height(4.dp))
+                                                Text(
+                                                    "Ajoutez une voiture dans votre profil",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = TextSecondary,
+                                                    textAlign = TextAlign.Center
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        Column {
+                                            Text(
+                                                text = "Sélectionnez la voiture pour cet entretien",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = TextSecondary,
+                                                fontWeight = FontWeight.SemiBold,
+                                                modifier = Modifier.padding(bottom = 12.dp)
+                                            )
+
+                                            LazyRow(
+                                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                items(cars) { car ->
+                                                    CarSelectionCard(
+                                                        car = car,
+                                                        isSelected = selectedCarId == car.id,
+                                                        onClick = {
+                                                            selectedCarId = if (selectedCarId == car.id) null else car.id
+                                                            carError = null
+                                                        }
+                                                    )
+                                                }
+                                            }
+
+                                            // Show selected car details
+                                            AnimatedVisibility(visible = selectedCarId != null) {
+                                                selectedCarId?.let { carId ->
+                                                    cars.find { it.id == carId }?.let { car ->
+                                                        Spacer(Modifier.height(16.dp))
+                                                        Card(
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            shape = RoundedCornerShape(16.dp),
+                                                            colors = CardDefaults.cardColors(
+                                                                containerColor = DeepPurple.copy(alpha = 0.1f)
+                                                            )
+                                                        ) {
+                                                            Row(
+                                                                modifier = Modifier.padding(16.dp),
+                                                                verticalAlignment = Alignment.CenterVertically
+                                                            ) {
+                                                                Surface(
+                                                                    shape = CircleShape,
+                                                                    color = DeepPurple.copy(alpha = 0.15f),
+                                                                    modifier = Modifier.size(48.dp)
+                                                                ) {
+                                                                    Icon(
+                                                                        Icons.Default.CheckCircle,
+                                                                        contentDescription = null,
+                                                                        tint = DeepPurple,
+                                                                        modifier = Modifier
+                                                                            .size(48.dp)
+                                                                            .padding(12.dp)
+                                                                    )
+                                                                }
+                                                                Spacer(Modifier.width(16.dp))
+                                                                Column(modifier = Modifier.weight(1f)) {
+                                                                    Text(
+                                                                        "Voiture sélectionnée",
+                                                                        style = MaterialTheme.typography.labelMedium,
+                                                                        color = TextSecondary
+                                                                    )
+                                                                    Spacer(Modifier.height(4.dp))
+                                                                    Text(
+                                                                        "${car.marque} ${car.modele}",
+                                                                        style = MaterialTheme.typography.titleMedium,
+                                                                        color = DeepPurple,
+                                                                        fontWeight = FontWeight.Bold
+                                                                    )
+                                                                    Text(
+                                                                        "${car.annee} • ${car.immatriculation}",
+                                                                        style = MaterialTheme.typography.bodySmall,
+                                                                        color = TextSecondary
+                                                                    )
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                is Resource.Error -> {
+                                    Surface(
+                                        shape = RoundedCornerShape(16.dp),
+                                        color = AlertRed.copy(alpha = 0.1f),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(20.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Error,
+                                                "Erreur",
+                                                tint = AlertRed,
+                                                modifier = Modifier.size(40.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            Text(
+                                                "Erreur de chargement",
+                                                color = AlertRed,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                (carsState as Resource.Error).message ?: "Impossible de charger vos voitures",
+                                                color = AlertRed,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    }
+                                }
+                                else -> {}
+                            }
+
+                            AnimatedVisibility(visible = carError != null) {
+                                Row(
+                                    modifier = Modifier.padding(top = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Error,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = AlertRed
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = carError ?: "",
+                                        color = AlertRed,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                            }
+                        }
+
+                        // Step 4: Services
+                        ModernFormSection(
+                            stepNumber = "4",
                             title = "Services souhaités",
                             isComplete = selectedServiceTypes.isNotEmpty()
                         ) {
@@ -763,9 +980,9 @@ fun ReservationScreen(
                             }
                         }
 
-                        // Step 4: Comments
+                        // Step 5: Comments
                         ModernFormSection(
-                            stepNumber = "4",
+                            stepNumber = "5",
                             title = "Commentaires (optionnel)",
                             isComplete = false,
                             isOptional = true
@@ -959,7 +1176,8 @@ fun ReservationScreen(
                                 heureDebut = selectedStartTime ?: "",
                                 heureFin = selectedEndTime ?: "",
                                 services = selectedServiceTypes,
-                                commentaires = commentaires
+                                commentaires = commentaires,
+                                carId = selectedCarId // ✅ Include selected car
                             )
                         }
                     },
@@ -1727,6 +1945,174 @@ fun UltraModernServiceChip(
                         style = MaterialTheme.typography.labelSmall,
                         color = if (selected) Color.White.copy(alpha = 0.7f) else TextSecondary
                     )
+                }
+            }
+        }
+    }
+}
+
+// ✅ NEW: Car Selection Card Component
+@Composable
+fun CarSelectionCard(
+    car: com.example.karhebti_android.data.api.CarResponse,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.05f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        )
+    )
+
+    Card(
+        modifier = Modifier
+            .width(200.dp)
+            .scale(scale)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) DeepPurple else Color.White
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isSelected) 12.dp else 4.dp
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header with icon and selection indicator
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = if (isSelected) Color.White.copy(alpha = 0.2f) else DeepPurple.copy(alpha = 0.1f),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        Icons.Default.DirectionsCar,
+                        contentDescription = null,
+                        tint = if (isSelected) Color.White else DeepPurple,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .padding(10.dp)
+                    )
+                }
+
+                Surface(
+                    shape = CircleShape,
+                    color = if (isSelected) Color.White else DeepPurple.copy(alpha = 0.15f),
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        if (isSelected) Icons.Default.CheckCircle else Icons.Default.AddCircleOutline,
+                        contentDescription = if (isSelected) "Sélectionnée" else "Sélectionner",
+                        tint = if (isSelected) DeepPurple else DeepPurple,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .padding(4.dp)
+                    )
+                }
+            }
+
+            // Car brand and model
+            Text(
+                text = "${car.marque} ${car.modele}",
+                style = MaterialTheme.typography.titleMedium,
+                color = if (isSelected) Color.White else TextPrimary,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+
+            Divider(
+                color = if (isSelected) Color.White.copy(alpha = 0.3f) else LightGrey
+            )
+
+            // Year
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    Icons.Default.CalendarToday,
+                    contentDescription = "Année",
+                    modifier = Modifier.size(18.dp),
+                    tint = if (isSelected) Color.White.copy(alpha = 0.9f) else TextSecondary
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Column {
+                    Text(
+                        text = car.annee.toString(),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (isSelected) Color.White else TextPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Année",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isSelected) Color.White.copy(alpha = 0.7f) else TextSecondary
+                    )
+                }
+            }
+
+            // License plate
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    Icons.Default.CreditCard,
+                    contentDescription = "Immatriculation",
+                    modifier = Modifier.size(18.dp),
+                    tint = if (isSelected) Color.White.copy(alpha = 0.9f) else TextSecondary
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Column {
+                    Text(
+                        text = car.immatriculation,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (isSelected) Color.White else AccentGreen,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Immatriculation",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isSelected) Color.White.copy(alpha = 0.7f) else TextSecondary
+                    )
+                }
+            }
+
+            // Mileage if available
+            car.kilometrage?.let { km ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        Icons.Default.Speed,
+                        contentDescription = "Kilométrage",
+                        modifier = Modifier.size(18.dp),
+                        tint = if (isSelected) Color.White.copy(alpha = 0.9f) else TextSecondary
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Column {
+                        Text(
+                            text = "${String.format("%,d", km)} km",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (isSelected) Color.White else TextPrimary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Kilométrage",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isSelected) Color.White.copy(alpha = 0.7f) else TextSecondary
+                        )
+                    }
                 }
             }
         }

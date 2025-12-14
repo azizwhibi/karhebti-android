@@ -693,6 +693,7 @@ data class CreateReservationRequest(
     @SerializedName("userId") val userId: String? = null,
     val email: String? = null,
     @SerializedName("garageId") val garageId: String,
+    @SerializedName("carId") val carId: String? = null, // ✅ Added car selection
     val date: String,
     @SerializedName("heureDebut") val heureDebut: String,
     @SerializedName("heureFin") val heureFin: String,
@@ -850,7 +851,7 @@ data class PopulatedReservationResponse(
     val heureFin: String,
     val status: String,
     val createdAt: Date?,
-    val updatedAt: Date?
+    val updatedAt: Date? = null
 )
 
 // ==================== REPAIR BAY DTOs ====================
@@ -880,4 +881,3 @@ data class CreateGarageResponse(
     val garage: GarageResponse,
     val repairBays: List<RepairBayResponse>? = null
 )
-

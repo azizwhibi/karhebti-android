@@ -472,7 +472,8 @@ class ReservationRepository(private val apiService: KarhebtiApiService = Retrofi
         heureFin: String,
         status: String = "en_attente",
         services: List<String>? = null,
-        commentaires: String? = null
+        commentaires: String? = null,
+        carId: String? = null // ✅ Added car selection
     ): Resource<ReservationResponse> = withContext(Dispatchers.IO) {
         try {
             val request = CreateReservationRequest(
@@ -482,7 +483,8 @@ class ReservationRepository(private val apiService: KarhebtiApiService = Retrofi
                 heureFin = heureFin,
                 status = status,
                 services = services,
-                commentaires = commentaires
+                commentaires = commentaires,
+                carId = carId // ✅ Include carId
             )
             val response = apiService.createReservation(request)
             if (response.isSuccessful && response.body() != null) {

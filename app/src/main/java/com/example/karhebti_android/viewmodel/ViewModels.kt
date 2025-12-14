@@ -1085,7 +1085,8 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         heureFin: String,
         status: String = "en_attente",
         services: List<String>? = null,
-        commentaires: String? = null
+        commentaires: String? = null,
+        carId: String? = null // ✅ Added car selection
     ) {
         _createReservationState.value = Resource.Loading()
         viewModelScope.launch {
@@ -1096,7 +1097,8 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
                 heureFin = heureFin,
                 status = status,
                 services = services,
-                commentaires = commentaires
+                commentaires = commentaires,
+                carId = carId // ✅ Include carId
             )
             _createReservationState.value = result
             if (result is Resource.Success) {
