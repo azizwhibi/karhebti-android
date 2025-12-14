@@ -77,7 +77,7 @@ fun HomeScreen(
             .addInterceptor(logging)
             .build()
         retrofit2.Retrofit.Builder()
-            .baseUrl("http://192.168.1.190:3000/")
+            .baseUrl(com.example.karhebti_android.data.api.ApiConfig.BASE_URL)
             .client(client)
             .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
             .build()

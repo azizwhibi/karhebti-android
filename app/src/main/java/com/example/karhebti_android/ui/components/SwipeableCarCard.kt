@@ -22,20 +22,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import com.example.karhebti_android.data.api.MarketplaceCarResponse
+import com.example.karhebti_android.util.ImageUrlHelper
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
 // Helper function to build full image URL
 private fun getFullImageUrl(imageUrl: String?): String? {
-    if (imageUrl == null) return null
-    val fullUrl = if (imageUrl.startsWith("http")) {
-        imageUrl
-    } else {
-        "http://10.0.2.2:3000${if (imageUrl.startsWith("/")) imageUrl else "/$imageUrl"}"
-    }
-    android.util.Log.d("SwipeableCarCard", "Image URL: $imageUrl -> Full URL: $fullUrl")
-    return fullUrl
+    return ImageUrlHelper.getFullImageUrl(imageUrl)
 }
 
 @Composable
@@ -109,9 +103,7 @@ fun SwipeableCarCard(
             Box(modifier = Modifier.fillMaxSize()) {
                 // Car Image
                 val imageUrl = remember(car.imageUrl) {
-                    car.imageUrl?.let { url ->
-                        "http://192.168.1.190:3000${if (url.startsWith("/")) url else "/$url"}"
-                    }
+                    getFullImageUrl(car.imageUrl)
                 }
                 if (imageUrl != null) {
                     SubcomposeAsyncImage(

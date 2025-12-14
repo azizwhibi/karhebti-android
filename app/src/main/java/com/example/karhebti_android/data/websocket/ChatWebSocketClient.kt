@@ -26,7 +26,7 @@ class ChatWebSocketClient(
 
     companion object {
         private const val TAG = "ChatWebSocketClient"
-        private const val SERVER_URL = "http://192.168.1.190:3000"
+        private val SERVER_URL = com.example.karhebti_android.data.api.ApiConfig.BASE_URL.removeSuffix("/")
         private const val NAMESPACE = "/chat"
     }
 

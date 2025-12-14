@@ -30,12 +30,7 @@ import com.example.karhebti_android.viewmodel.ViewModelFactory
 
 // Helper function to build full image URL
 private fun getFullImageUrl(imageUrl: String?): String? {
-    if (imageUrl == null) return null
-    return if (imageUrl.startsWith("http")) {
-        imageUrl
-    } else {
-        "http://192.168.1.190:3000${if (imageUrl.startsWith("/")) imageUrl else "/$imageUrl"}"
-    }
+    return com.example.karhebti_android.util.ImageUrlHelper.getFullImageUrl(imageUrl)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

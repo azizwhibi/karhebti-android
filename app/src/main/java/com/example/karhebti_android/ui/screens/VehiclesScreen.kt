@@ -346,6 +346,7 @@ fun VehicleCardBackendIntegrated(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showImageUploadDialog by remember { mutableStateOf(false) }
+    var imageLoadFailed by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     ElevatedCard(
@@ -366,31 +367,79 @@ fun VehicleCardBackendIntegrated(
         ) {
             // Image section
             if (!car.imageUrl.isNullOrEmpty()) {
+                android.util.Log.d("VehicleCard", "Car imageUrl from API: ${car.imageUrl}")
                 val fullImageUrl = com.example.karhebti_android.util.ImageUrlHelper.getFullImageUrl(car.imageUrl)
+                android.util.Log.d("VehicleCard", "Full image URL: $fullImageUrl")
+
+                // Log diagnostic information
+                android.util.Log.d("VehicleCard", com.example.karhebti_android.util.ImageUrlHelper.getDiagnosticInfo(car.imageUrl))
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(140.dp)
                         .clip(MaterialTheme.shapes.small)
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                        .clickable { showImageUploadDialog = true }
+                        .clickable { showImageUploadDialog = true },
+                    contentAlignment = Alignment.Center
                 ) {
                     if (!fullImageUrl.isNullOrEmpty()) {
                         AsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data(fullImageUrl)
                                 .crossfade(true)
+                                .memoryCacheKey(car.id) // Cache by car ID
+                                .diskCacheKey(car.id) // Disk cache by car ID
                                 .build(),
                             contentDescription = "${car.marque} ${car.modele}",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                            onError = { _ ->
-                                android.util.Log.e("VehicleCard", "Failed to load image from URL: $fullImageUrl")
+                            onError = { error ->
+                                imageLoadFailed = true
+                                android.util.Log.e("VehicleCard", "❌ Failed to load image from URL: $fullImageUrl")
+                                android.util.Log.e("VehicleCard", "Error: ${error.result.throwable?.message}")
+                                android.util.Log.e("VehicleCard", "Error type: ${error.result.throwable?.javaClass?.simpleName}")
+                                android.util.Log.e("VehicleCard", "This usually means the image doesn't exist on the server (HTTP 404)")
+                                android.util.Log.e("VehicleCard", "⚠️ RENDER ISSUE: Uploaded files are lost when the service restarts")
+                                android.util.Log.e("VehicleCard", "💡 Solution: Re-upload the image or configure persistent storage on backend")
+                            },
+                            onSuccess = {
+                                imageLoadFailed = false
+                                android.util.Log.d("VehicleCard", "✅ Image loaded successfully and cached: $fullImageUrl")
                             }
                         )
                     }
+
+                    // Show placeholder icon if image failed to load
+                    if (imageLoadFailed) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = "Image not available",
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "Image not available",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "Tap to upload",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
                 Spacer(Modifier.height(4.dp))
+            } else {
+                android.util.Log.d("VehicleCard", "Car has no imageUrl: ${car.marque} ${car.modele}")
             }
 
             // Header Row with leading icon

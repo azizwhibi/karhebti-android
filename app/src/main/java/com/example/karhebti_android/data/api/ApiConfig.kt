@@ -10,14 +10,26 @@ import com.google.gson.GsonBuilder
 import com.example.karhebti_android.data.preferences.TokenManager
 import com.example.karhebti_android.network.BreakdownsApi
 import java.util.concurrent.TimeUnit
+import okhttp3.Dns
 
 object ApiConfig {
-    const val BASE_URL = "http://192.168.1.190:27017/" // Real device IP
+    // ⚙️ CONFIGURATION: Change this to switch between environments
+    private const val USE_LOCAL_SERVER = false // Set to false to use Render backend (production)
+
+    // Backend URLs
+    private const val PRODUCTION_URL = "https://karhebti-backend.onrender.com/"
+    private const val LOCAL_URL = "http://10.0.2.2:3000/" // For Android Emulator
+    // If using physical device, use your computer's IP: "http://192.168.1.x:3000/"
+
+    val BASE_URL: String
+        get() = if (USE_LOCAL_SERVER) LOCAL_URL else PRODUCTION_URL
+
     const val MONGODB_URL = "mongodb://192.168.1.190:27017/karhebti"
 }
 
 object RetrofitClient {
-    private const val BASE_URL = "http://192.168.1.190:3000/" // Real device IP
+    // Use the configured BASE_URL from ApiConfig
+    private val BASE_URL get() = ApiConfig.BASE_URL
 
     private var context: Context? = null
     private var tokenManager: TokenManager? = null
@@ -73,9 +85,11 @@ object RetrofitClient {
         val okHttpClient = OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(120, TimeUnit.SECONDS) // Increased to 120s for Render.com cold start
+            .readTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(120, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true) // Enable automatic retry
+            .dns(Dns.SYSTEM) // Use system DNS
             .build()
 
         val gson = GsonBuilder()

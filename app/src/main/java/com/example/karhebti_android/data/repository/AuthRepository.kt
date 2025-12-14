@@ -12,6 +12,9 @@ import com.example.karhebti_android.data.preferences.TokenManager
 import com.example.karhebti_android.data.preferences.UserData
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import java.net.UnknownHostException
+import java.net.SocketTimeoutException
+import java.io.IOException
 
 /**
  * AuthRepository: Centralizes authentication logic
@@ -22,6 +25,22 @@ class AuthRepository(
 ) {
     companion object {
         private const val TAG = "AuthRepository"
+
+        /**
+         * Convert technical exceptions to user-friendly error messages
+         */
+        private fun getNetworkErrorMessage(exception: Exception): String {
+            return when (exception) {
+                is UnknownHostException ->
+                    "Pas de connexion internet. Veuillez vérifier votre connexion et réessayer."
+                is SocketTimeoutException ->
+                    "Le serveur prend trop de temps à répondre (il se réveille peut-être). Veuillez patienter et réessayer dans quelques secondes."
+                is IOException ->
+                    "Erreur de connexion. Vérifiez votre connexion internet."
+                else ->
+                    "Erreur: ${exception.localizedMessage}"
+            }
+        }
     }
 
     // Get the main API service for signup and password reset endpoints
@@ -115,13 +134,22 @@ class AuthRepository(
                 Log.d(TAG, "✅ Signup initiated successfully")
                 Resource.Success(response.body()!!)
             } else {
-                val errorMsg = "Signup failed: ${response.code()}"
+                val errorMsg = when (response.code()) {
+                    500 -> "Erreur du serveur. Le service d'email pourrait être temporairement indisponible. Veuillez réessayer dans quelques instants."
+                    503 -> "Service temporairement indisponible. Veuillez réessayer."
+                    else -> "Inscription échouée: ${response.code()}"
+                }
                 Log.e(TAG, "❌ $errorMsg")
                 Resource.Error(errorMsg)
             }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Signup error: ${e.message}", e)
-            Resource.Error("Erreur d'inscription: ${e.localizedMessage}")
+            val errorMsg = when (e) {
+                is SocketTimeoutException ->
+                    "Le serveur prend trop de temps (problème d'envoi d'email possible). Veuillez réessayer ou contacter le support."
+                else -> getNetworkErrorMessage(e)
+            }
+            Resource.Error(errorMsg)
         }
     }
 
@@ -141,7 +169,7 @@ class AuthRepository(
             }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Verify signup OTP error: ${e.message}", e)
-            Resource.Error("Erreur de vérification: ${e.localizedMessage}")
+            Resource.Error(getNetworkErrorMessage(e))
         }
     }
 
@@ -164,7 +192,7 @@ class AuthRepository(
             }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Forgot password error: ${e.message}", e)
-            Resource.Error("Erreur: ${e.localizedMessage}")
+            Resource.Error(getNetworkErrorMessage(e))
         }
     }
 
@@ -184,7 +212,7 @@ class AuthRepository(
             }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Verify OTP error: ${e.message}", e)
-            Resource.Error("Erreur de vérification: ${e.localizedMessage}")
+            Resource.Error(getNetworkErrorMessage(e))
         }
     }
 
@@ -204,7 +232,7 @@ class AuthRepository(
             }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Reset password error: ${e.message}", e)
-            Resource.Error("Erreur de réinitialisation: ${e.localizedMessage}")
+            Resource.Error(getNetworkErrorMessage(e))
         }
     }
 
@@ -227,7 +255,7 @@ class AuthRepository(
             }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Change password error: ${e.message}", e)
-            Resource.Error("Erreur de changement de mot de passe: ${e.localizedMessage}")
+            Resource.Error(getNetworkErrorMessage(e))
         }
     }
 

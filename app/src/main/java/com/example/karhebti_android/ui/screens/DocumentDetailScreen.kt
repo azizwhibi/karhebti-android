@@ -20,15 +20,10 @@ import com.example.karhebti_android.data.repository.Resource
 import com.example.karhebti_android.viewmodel.DocumentViewModel
 import com.example.karhebti_android.viewmodel.CarViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
+import com.example.karhebti_android.data.api.ApiConfig
+import com.example.karhebti_android.util.ImageUrlHelper
 import java.text.SimpleDateFormat
 import java.util.*
-
-fun fixEmulatorImageUrl(url: String?): String? {
-    if (url == null) return null
-    return url
-        .replace("http://localhost", "http://10.0.2.2")
-        .replace("http://127.0.0.1", "http://10.0.2.2")
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -102,17 +97,17 @@ fun DocumentDetailScreen(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        val baseUrl = "http://10.0.2.2:3000"
                         val imageUrl = when {
                             document.fichier.isBlank() -> null
                             document.fichier.startsWith("http://") || document.fichier.startsWith("https://") -> document.fichier
-                            document.fichier.startsWith("/") -> baseUrl + document.fichier
-                            else -> "$baseUrl/uploads/documents/${document.fichier}"
+                            document.fichier.startsWith("/") -> ApiConfig.BASE_URL + document.fichier
+                            else -> "${ApiConfig.BASE_URL}/uploads/documents/${document.fichier}"
                         }
 
-                        val fixedImageUrl = fixEmulatorImageUrl(imageUrl)
+                        // Use ImageUrlHelper to get the full image URL
+                        val fullImageUrl = ImageUrlHelper.getFullImageUrl(imageUrl)
 
-                        if (fixedImageUrl != null) {
+                        if (fullImageUrl != null) {
                             Card(modifier = Modifier.fillMaxWidth()) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
@@ -121,14 +116,14 @@ fun DocumentDetailScreen(
                                         modifier = Modifier.padding(16.dp)
                                     )
                                     AsyncImage(
-                                        model = fixedImageUrl,
+                                        model = fullImageUrl,
                                         contentDescription = "Image du document",
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(250.dp)
                                     )
                                     Text(
-                                        fixedImageUrl,
+                                        fullImageUrl,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.padding(8.dp)

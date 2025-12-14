@@ -93,7 +93,7 @@ fun BreakdownSOSScreen(
                 .build()
 
             val retrofit = Retrofit.Builder()
-                .baseUrl("http://10.0.2.2:3000/")
+                .baseUrl(com.example.karhebti_android.data.api.ApiConfig.BASE_URL)
                 .client(client)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
