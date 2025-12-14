@@ -127,7 +127,7 @@ class BreakdownsRepository(private val api: BreakdownsApi) {
     /**
      * Récupérer une panne spécifique par ID
      */
-    fun getBreakdown(id: Int): Flow<Result<BreakdownResponse>> = flow {
+    fun getBreakdown(id: String): Flow<Result<BreakdownResponse>> = flow {
         try {
             emit(Result.success(api.getBreakdown(id)))
         } catch (e: Exception) {
@@ -138,12 +138,12 @@ class BreakdownsRepository(private val api: BreakdownsApi) {
     /**
      * Alias for getBreakdown for consistency
      */
-    fun getBreakdownById(id: Int): Flow<Result<BreakdownResponse>> = getBreakdown(id)
+    fun getBreakdownById(id: String): Flow<Result<BreakdownResponse>> = getBreakdown(id)
 
     /**
      * Update breakdown status (ACCEPTED, REFUSED, IN_PROGRESS, COMPLETED)
      */
-    fun updateBreakdownStatus(id: Int, status: String): Flow<Result<BreakdownResponse>> = flow {
+    fun updateBreakdownStatus(id: String, status: String): Flow<Result<BreakdownResponse>> = flow {
         try {
             val statusMap = mapOf("status" to status)
             emit(Result.success(api.updateStatus(id, statusMap)))

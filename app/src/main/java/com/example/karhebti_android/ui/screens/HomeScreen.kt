@@ -46,7 +46,8 @@ fun HomeScreen(
     onMarketplaceClick: () -> Unit = {},
     onMyListingsClick: () -> Unit = {},
     onConversationsClick: () -> Unit = {},
-    onPendingSwipesClick: () -> Unit = {}
+    onPendingSwipesClick: () -> Unit = {},
+    onSOSClick: () -> Unit = {}  // ✅ Navigation vers BreakdownsListScreen
 ) {
     val context = LocalContext.current
     val authViewModel: AuthViewModel = viewModel(
@@ -77,7 +78,7 @@ fun HomeScreen(
             .addInterceptor(logging)
             .build()
         retrofit2.Retrofit.Builder()
-            .baseUrl("http://192.168.1.190:3000/")
+            .baseUrl("http://172.18.1.246:3000/")  // ✅ IP du serveur backend
             .client(client)
             .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
             .build()
@@ -155,27 +156,9 @@ fun HomeScreen(
     val userRole = currentUser?.role ?: ""
     val isGarageOwner = userRole == "propGarage"
 
-    // Load breakdown requests for garage owners
-    LaunchedEffect(isGarageOwner) {
-        if (isGarageOwner) {
-            android.util.Log.d("HomeScreen", "Loading SOS requests for garage owner")
-            android.util.Log.d("HomeScreen", "Current user: ${currentUser?.email}, Role: $userRole")
-            android.util.Log.d("HomeScreen", "Token available: ${com.example.karhebti_android.data.preferences.TokenManager.getInstance(context).getToken() != null}")
-            breakdownViewModel.fetchAllBreakdowns(status = "pending")
-        }
-    }
-
-    // Breakdown UI state for garage owners
-    val breakdownUiState by breakdownViewModel.uiState.collectAsState()
-    val pendingSOSRequests = remember(breakdownUiState) {
-        if (breakdownUiState is com.example.karhebti_android.viewmodel.BreakdownUiState.Success) {
-            val data = (breakdownUiState as com.example.karhebti_android.viewmodel.BreakdownUiState.Success).data
-            if (data is List<*>) {
-                data.filterIsInstance<com.example.karhebti_android.data.BreakdownResponse>()
-                    .filter { it.status == "pending" || it.assignedTo == null }
-            } else emptyList()
-        } else emptyList()
-    }
+    // ✅ Demandes SOS supprimées du HomeScreen
+    // Les demandes SOS sont maintenant uniquement visibles dans BreakdownsListScreen
+    // accessible via Settings → Demandes SOS
 
     Scaffold(
         topBar = {
@@ -376,232 +359,68 @@ fun HomeScreen(
                 )
             }
 
-            // SOS Requests Section for Garage Owners
+            // ✅ Section SOS simplifié - Juste un bouton pour les garagistes
+            // Les demandes SOS complètes sont dans BreakdownsListScreen
+
             if (isGarageOwner) {
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "🆘 Demandes SOS",
+                    text = "🆘 Assistance routière",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                     fontWeight = FontWeight.SemiBold
                 )
 
-                when (breakdownUiState) {
-                    is com.example.karhebti_android.viewmodel.BreakdownUiState.Loading -> {
-                        CircularProgressIndicator(modifier = Modifier.padding(16.dp))
-                    }
-                    is com.example.karhebti_android.viewmodel.BreakdownUiState.Error -> {
-                        Text(
-                            text = "Erreur de chargement: ${(breakdownUiState as com.example.karhebti_android.viewmodel.BreakdownUiState.Error).message}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = AlertRed
-                        )
-                    }
-                    else -> {
-                        if (pendingSOSRequests.isNotEmpty()) {
-                            pendingSOSRequests.forEach { request ->
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.errorContainer
-                                    ),
-                                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                                ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(16.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = "🆘 Demande SOS",
-                                                style = MaterialTheme.typography.titleMedium,
-                                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                            Surface(
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = AlertRed.copy(alpha = 0.2f)
-                                            ) {
-                                                Text(
-                                                    text = request.status.uppercase(),
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = AlertRed,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                                )
-                                            }
-                                        }
-
-                                        HorizontalDivider(color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.3f))
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Info,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onErrorContainer,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = "Type: ${request.type.ifEmpty { "Non spécifié" }}",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onErrorContainer
-                                            )
-                                        }
-
-                                        request.description?.let { desc ->
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                verticalAlignment = Alignment.Top
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Description,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text(
-                                                    text = desc,
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                                )
-                                            }
-                                        }
-
-                                        if (request.latitude != null && request.longitude != null) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.LocationOn,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text(
-                                                    text = "Position: ${request.latitude}, ${request.longitude}",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                                )
-                                            }
-                                        }
-
-                                        request.createdAt?.let { date ->
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Schedule,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text(
-                                                    text = "Reçu: $date",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                                )
-                                            }
-                                        }
-
-                                        Spacer(modifier = Modifier.height(8.dp))
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Button(
-                                                onClick = {
-                                                    // TODO: Implement accept SOS request
-                                                    android.widget.Toast.makeText(
-                                                        context,
-                                                        "Accepter la demande SOS ${request.id}",
-                                                        android.widget.Toast.LENGTH_SHORT
-                                                    ).show()
-                                                },
-                                                modifier = Modifier.weight(1f),
-                                                colors = ButtonDefaults.buttonColors(
-                                                    containerColor = AccentGreen
-                                                )
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = "Accepter",
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Accepter")
-                                            }
-
-                                            OutlinedButton(
-                                                onClick = {
-                                                    // TODO: Implement view details
-                                                    android.widget.Toast.makeText(
-                                                        context,
-                                                        "Voir détails de ${request.id}",
-                                                        android.widget.Toast.LENGTH_SHORT
-                                                    ).show()
-                                                },
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Visibility,
-                                                    contentDescription = "Détails",
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Détails")
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                // Bouton pour accéder à la liste complète des demandes SOS
+                ElevatedCard(
+                    onClick = onSOSClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = AlertRed.copy(alpha = 0.1f)
+                    ),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = AlertRed,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text(
+                                    text = "Demandes SOS",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = AlertRed,
+                                    fontWeight = FontWeight.Bold
                                 )
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = AccentGreen,
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
-                                        text = "Aucune demande SOS en attente",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                                Text(
+                                    text = "Voir toutes les demandes d'assistance",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = AlertRed,
+                            modifier = Modifier.size(32.dp)
+                        )
                     }
                 }
             }

@@ -38,8 +38,10 @@ class KarhebtiMessagingService : FirebaseMessagingService() {
         Log.d(TAG, "Affichage: $title - $body")
 
         when (notificationType) {
-            "new_breakdown", "sos_request" -> showSOSNotification(title, body, remoteMessage.data)
-            "breakdown_status_update" -> showStatusUpdateNotification(title, body, remoteMessage.data)
+            // Backend envoie "sos_created" quand une nouvelle panne est créée
+            "sos_created", "new_breakdown", "sos_request" -> showSOSNotification(title, body, remoteMessage.data)
+            // Backend envoie "sos_status_updated" quand le statut change
+            "sos_status_updated", "breakdown_status_update" -> showStatusUpdateNotification(title, body, remoteMessage.data)
             "new_message" -> showMessageNotification(title, body, remoteMessage.data)
             else -> showNotification(title, body, remoteMessage.data)
         }

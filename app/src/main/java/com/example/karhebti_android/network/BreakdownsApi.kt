@@ -37,14 +37,15 @@ interface BreakdownsApi {
      * GET /breakdowns/{id}
      */
     @GET("breakdowns/{id}")
-    suspend fun getBreakdown(@Path("id") id: Int): BreakdownResponse
+    suspend fun getBreakdown(@Path("id") id: String): BreakdownResponse
 
     /**
      * Mettre à jour le statut d'une panne
-     * PATCH /breakdowns/{id}
+     * PUT /breakdowns/{id}/status
+     * Backend attend: { "status": "ACCEPTED" | "REFUSED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" }
      */
-    @PATCH("breakdowns/{id}")
-    suspend fun updateStatus(@Path("id") id: Int, @Body status: Map<String, String>): BreakdownResponse
+    @PUT("breakdowns/{id}/status")
+    suspend fun updateStatus(@Path("id") id: String, @Body statusDto: Map<String, String>): BreakdownResponse
 
     /**
      * Assigner un agent/garage à une panne

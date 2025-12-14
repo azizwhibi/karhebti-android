@@ -20,9 +20,23 @@ data class BreakdownResponse(
 
     val assignedTo: String?,
 
+    // Informations du garage assigné (si populé par le backend)
+    val assignedToDetails: AssignedGarageDetails? = null,
+
     val createdAt: String?,
 
     val updatedAt: String?
+)
+
+// Détails du garage/utilisateur assigné
+data class AssignedGarageDetails(
+    @SerializedName("_id")
+    val id: String?,
+    val nom: String?,
+    val prenom: String?,
+    val telephone: String?,
+    val latitude: Double?,
+    val longitude: Double?
 )
 
 // Wrapper for breakdowns list response

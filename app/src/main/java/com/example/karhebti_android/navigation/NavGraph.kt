@@ -21,6 +21,7 @@ import com.example.karhebti_android.data.preferences.TokenManager
 import com.example.karhebti_android.data.repository.Resource
 import com.example.karhebti_android.ui.screens.*
 import com.example.karhebti_android.ui.screens.BreakdownSOSScreen
+import com.example.karhebti_android.ui.screens.BreakdownTrackingScreenWrapper
 import com.example.karhebti_android.viewmodel.AuthViewModel
 import com.example.karhebti_android.viewmodel.GarageViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
@@ -81,6 +82,13 @@ sealed class Screen(val route: String) {
             "sos_status/${breakdownId ?: "null"}/$type/$latitude/$longitude"
     }
     object SOSHistory : Screen("sos_history")
+    object BreakdownDetail : Screen("breakdown_detail/{breakdownId}") {
+        fun createRoute(breakdownId: String) = "breakdown_detail/$breakdownId"
+    }
+    object BreakdownsList : Screen("breakdowns_list")
+    object BreakdownTracking : Screen("breakdown_tracking/{breakdownId}") {
+        fun createRoute(breakdownId: String) = "breakdown_tracking/$breakdownId"
+    }
 
     // Reservation screens
     object Reservation : Screen("reservation/{garageId}") {
@@ -260,7 +268,8 @@ fun NavGraph(
                 onMarketplaceClick = { navController.navigate(Screen.MarketplaceBrowse.route) },
                 onMyListingsClick = { navController.navigate(Screen.MyListings.route) },
                 onConversationsClick = { navController.navigate(Screen.Conversations.route) },
-                onPendingSwipesClick = { navController.navigate(Screen.PendingSwipes.route) }
+                onPendingSwipesClick = { navController.navigate(Screen.PendingSwipes.route) },
+                onSOSClick = { navController.navigate(Screen.BreakdownsList.route) }
             )
         }
 
@@ -473,7 +482,7 @@ fun NavGraph(
                     .addInterceptor(logging)
                     .build()
                 retrofit2.Retrofit.Builder()
-                    .baseUrl("http://192.168.1.190:3000/")
+                    .baseUrl("http://172.18.1.246:3000/")  // ✅ IP du serveur backend
                     .client(client)
                     .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
                     .build()
@@ -537,7 +546,50 @@ fun NavGraph(
                     navController.navigate(Screen.Home.route) {
                         popUpTo(0) { inclusive = true }
                     }
+                },
+                onNavigateToTracking = { bId ->
+                    navController.navigate(Screen.BreakdownTracking.createRoute(bId)) {
+                        popUpTo(Screen.SOSStatus.route) { inclusive = true }
+                    }
                 }
+            )
+        }
+
+        composable(Screen.BreakdownsList.route) {
+            BreakdownsListScreen(
+                onBackClick = { navController.popBackStack() },
+                onBreakdownClick = { breakdown ->
+                    navController.navigate(Screen.BreakdownDetail.createRoute(breakdown.id))
+                }
+            )
+        }
+
+        composable(Screen.BreakdownDetail.route) { backStackEntry ->
+            val breakdownId = backStackEntry.arguments?.getString("breakdownId")
+            requireNotNull(breakdownId) { "breakdownId parameter wasn't found!" }
+
+            BreakdownDetailScreen(
+                breakdownId = breakdownId,
+                onBackClick = { navController.popBackStack() },
+                onAccepted = {
+                    navController.navigate(Screen.BreakdownTracking.createRoute(breakdownId)) {
+                        popUpTo(Screen.BreakdownDetail.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(Screen.BreakdownTracking.route) { backStackEntry ->
+            val context = LocalContext.current
+            val breakdownId = backStackEntry.arguments?.getString("breakdownId")
+            requireNotNull(breakdownId) { "breakdownId parameter wasn't found!" }
+            
+            val userRole = TokenManager.getInstance(context).getUser()?.role ?: "user"
+
+            BreakdownTrackingScreenWrapper(
+                breakdownId = breakdownId,
+                userRole = userRole,
+                onBackClick = { navController.popBackStack() }
             )
         }
 

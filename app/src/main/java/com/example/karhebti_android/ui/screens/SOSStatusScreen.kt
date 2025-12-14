@@ -60,7 +60,7 @@ fun SOSStatusScreen(
     LaunchedEffect(breakdownId) {
         if (breakdownId != null) {
             while (true) {
-                viewModel.fetchBreakdownById(breakdownId.toInt())
+                viewModel.fetchBreakdownById(breakdownId)  // ✅ Utiliser String directement
                 delay(5000) // Poll every 5 seconds
             }
         }

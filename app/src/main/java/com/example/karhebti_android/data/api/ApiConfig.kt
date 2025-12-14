@@ -12,12 +12,14 @@ import com.example.karhebti_android.network.BreakdownsApi
 import java.util.concurrent.TimeUnit
 
 object ApiConfig {
-    const val BASE_URL = "http://192.168.1.190:27017/" // Real device IP
+    // MongoDB URL - utilisé uniquement pour la configuration MongoDB si nécessaire
     const val MONGODB_URL = "mongodb://192.168.1.190:27017/karhebti"
 }
 
 object RetrofitClient {
-    private const val BASE_URL = "http://10.0.2.2:3000/" // Real device IP
+    // ✅ URL correcte du backend Node.js (port 3000)
+    // Utilisation de l'IP du serveur backend: 172.18.1.246
+    private const val BASE_URL = "http://172.18.1.246:3000/"
 
     private var context: Context? = null
     private var tokenManager: TokenManager? = null

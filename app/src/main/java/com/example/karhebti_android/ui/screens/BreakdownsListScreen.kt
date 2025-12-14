@@ -203,7 +203,7 @@ fun BreakdownCard(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "ID: ${breakdown.id?.take(8)}...",
+                            "En attente d'assistance",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -224,13 +224,22 @@ fun BreakdownCard(
 
             Spacer(Modifier.height(12.dp))
 
+            // Affichage simplifié sans coordonnées GPS exactes
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                LocationChip(
-                    icon = Icons.Default.LocationOn,
-                    text = "${breakdown.latitude?.format(4) ?: "0.0000"}, ${breakdown.longitude?.format(4) ?: "0.0000"}"
+                Icon(
+                    Icons.Default.LocationOn,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "Localisation disponible sur la carte",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 

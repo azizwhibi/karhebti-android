@@ -1,6 +1,9 @@
 package com.example.karhebti_android.ui.screens
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -18,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.karhebti_android.data.BreakdownResponse
 import com.example.karhebti_android.data.api.RetrofitClient
@@ -27,7 +31,10 @@ import com.example.karhebti_android.ui.theme.RedSOS
 import com.example.karhebti_android.viewmodel.BreakdownViewModel
 import com.example.karhebti_android.viewmodel.BreakdownViewModelFactory
 import com.example.karhebti_android.viewmodel.BreakdownUiState
+import com.google.android.gms.location.LocationServices
+import com.example.karhebti_android.utils.DistanceUtils
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 /**
  * Detailed view for garage owners to accept or reject an SOS request
@@ -55,7 +62,7 @@ fun BreakdownDetailScreen(
 
     // Fetch breakdown details
     LaunchedEffect(breakdownId) {
-        viewModel.fetchBreakdownById(breakdownId.toInt())
+        viewModel.fetchBreakdownById(breakdownId)  // ✅ String directement
     }
 
     // Handle state changes
@@ -81,7 +88,7 @@ fun BreakdownDetailScreen(
             onConfirm = {
                 showAcceptDialog = false
                 scope.launch {
-                    viewModel.updateBreakdownStatus(breakdownId.toInt(), "ACCEPTED")
+                    viewModel.updateBreakdownStatus(breakdownId, "ACCEPTED")  // ✅ String directement
                     snackbarHostState.showSnackbar("Demande acceptée ✓")
                     onAccepted()
                 }
@@ -95,7 +102,7 @@ fun BreakdownDetailScreen(
             onConfirm = {
                 showRejectDialog = false
                 scope.launch {
-                    viewModel.updateBreakdownStatus(breakdownId.toInt(), "REFUSED")
+                    viewModel.updateBreakdownStatus(breakdownId, "REFUSED")  // ✅ String directement
                     snackbarHostState.showSnackbar("Demande refusée")
                     onBackClick()
                 }
@@ -159,6 +166,48 @@ fun BreakdownDetailContent(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
+    // Obtenir la position actuelle du garage pour calculer la distance
+    var garageLatitude by remember { mutableStateOf<Double?>(null) }
+    var garageLongitude by remember { mutableStateOf<Double?>(null) }
+
+    // Récupérer la position GPS du garage
+    LaunchedEffect(Unit) {
+        if (ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                location?.let {
+                    garageLatitude = it.latitude
+                    garageLongitude = it.longitude
+                }
+            }
+        }
+    }
+
+    // Calculer la distance si les deux positions sont disponibles
+    val distance = remember(breakdown.latitude, breakdown.longitude, garageLatitude, garageLongitude) {
+        val clientLat = breakdown.latitude
+        val clientLon = breakdown.longitude
+        val garageLat = garageLatitude
+        val garageLon = garageLongitude
+
+        // Valider que toutes les coordonnées sont présentes et valides
+        if (clientLat != null && clientLon != null && garageLat != null && garageLon != null) {
+            // Valider que les coordonnées sont dans des limites raisonnables
+            val isClientValid = clientLat in -90.0..90.0 && clientLon in -180.0..180.0
+            val isGarageValid = garageLat in -90.0..90.0 && garageLon in -180.0..180.0
+
+            if (isClientValid && isGarageValid) {
+                DistanceUtils.calculateDistance(garageLat, garageLon, clientLat, clientLon)
+            } else {
+                null
+            }
+        } else null
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -208,8 +257,8 @@ fun BreakdownDetailContent(
                 .height(300.dp)
         ) {
             OpenStreetMapView(
-                latitude = breakdown.latitude ?: 0.0,
-                longitude = breakdown.longitude ?: 0.0,
+                latitude = breakdown.latitude ?: 36.80278,
+                longitude = breakdown.longitude ?: 10.17972,
                 zoom = 15.0,
                 markerTitle = "Position du client"
             )
@@ -228,14 +277,122 @@ fun BreakdownDetailContent(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                Text("Latitude: ${breakdown.latitude}")
-                Text("Longitude: ${breakdown.longitude}")
-                // TODO: Add distance calculation
-                Text(
-                    "Distance: Calcul en cours...",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            "Latitude: ${String.format(Locale.US, "%.6f", breakdown.latitude)}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            "Longitude: ${String.format(Locale.US, "%.6f", breakdown.longitude)}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // Afficher la distance calculée
+                when {
+                    distance != null && distance < 500 -> {
+                        // Distance valide (moins de 500 km)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    MaterialTheme.colorScheme.primaryContainer,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.DirectionsCar,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        "Distance depuis votre position",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Text(
+                                        DistanceUtils.formatDistance(distance),
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            Text(
+                                "≈ ${DistanceUtils.estimateETA(distance)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                    distance != null && distance >= 500 -> {
+                        // Distance invalide (trop grande)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    MaterialTheme.colorScheme.errorContainer,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Position GPS non disponible. Veuillez activer votre localisation.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                    else -> {
+                        // En attente
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Calcul de la distance...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -290,7 +447,11 @@ fun BreakdownDetailContent(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                Text("User ID: ${breakdown.userId ?: "N/A"}")
+                Text(
+                    "Client en attente d'assistance",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 // TODO: Add phone number if available
             }
         }
@@ -439,3 +600,4 @@ fun RejectConfirmationDialog(
         }
     )
 }
+

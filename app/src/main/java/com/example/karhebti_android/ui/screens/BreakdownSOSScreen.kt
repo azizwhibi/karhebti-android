@@ -43,6 +43,7 @@ import com.example.karhebti_android.data.preferences.TokenManager
 import com.example.karhebti_android.network.BreakdownsApi
 import com.example.karhebti_android.repository.BreakdownsRepository
 import com.example.karhebti_android.ui.components.OpenStreetMapView
+import com.example.karhebti_android.ui.components.InteractiveMapView
 import com.example.karhebti_android.ui.theme.RedSOS
 import com.example.karhebti_android.utils.LocationSettingsHelper
 import com.example.karhebti_android.viewmodel.BreakdownViewModel
@@ -93,7 +94,7 @@ fun BreakdownSOSScreen(
                 .build()
 
             val retrofit = Retrofit.Builder()
-                .baseUrl("http://10.0.2.2:3000/")
+                .baseUrl("http://172.18.1.246:3000/")
                 .client(client)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
@@ -208,9 +209,31 @@ fun BreakdownSOSScreen(
     }
 
     LaunchedEffect(uiState) {
-        if (uiState is com.example.karhebti_android.viewmodel.BreakdownUiState.Success) {
-            val response = (uiState as com.example.karhebti_android.viewmodel.BreakdownUiState.Success).data as com.example.karhebti_android.data.BreakdownResponse
-            onSOSSuccess(response.id, type, latitude ?: 0.0, longitude ?: 0.0)
+        when (val state = uiState) {
+            is com.example.karhebti_android.viewmodel.BreakdownUiState.Success -> {
+                try {
+                    val data = state.data
+                    if (data is com.example.karhebti_android.data.BreakdownResponse) {
+                        Log.d("BreakdownSOSScreen", "✅ SOS sent successfully! ID: ${data.id}")
+                        onSOSSuccess(
+                            data.id,
+                            type,
+                            latitude ?: 0.0,
+                            longitude ?: 0.0
+                        )
+                    }
+                } catch (e: Exception) {
+                    Log.e("BreakdownSOSScreen", "Error handling success: ${e.message}", e)
+                    snackbarHostState.showSnackbar("SOS envoyé mais erreur de navigation: ${e.message}")
+                }
+            }
+            is com.example.karhebti_android.viewmodel.BreakdownUiState.Error -> {
+                val msg = state.message
+                lastError = msg
+                Log.e("BreakdownSOSScreen", "❌ SOS error: $msg")
+                snackbarHostState.showSnackbar("Erreur: $msg")
+            }
+            else -> {}
         }
     }
 
@@ -256,23 +279,50 @@ fun BreakdownSOSScreen(
                             return@TextButton
                         }
 
+                        // Vérifier que latitude et longitude sont disponibles
+                        val currentLat = latitude
+                        val currentLon = longitude
+
+                        if (currentLat == null || currentLon == null) {
+                            topCoroutineScope.launch {
+                                snackbarHostState.showSnackbar("Erreur : position GPS non disponible.")
+                            }
+                            return@TextButton
+                        }
+
+                        // Vérifier que le type est sélectionné
+                        if (type.isBlank()) {
+                            topCoroutineScope.launch {
+                                snackbarHostState.showSnackbar("Erreur : veuillez sélectionner un type de panne.")
+                            }
+                            return@TextButton
+                        }
+
                         val normalizedPhoto = if (photoUri != null && (photoUri!!.startsWith("http") || photoUri!!.startsWith("/uploads"))) {
                             photoUri
                         } else {
                             null
                         }
 
-                        val request = com.example.karhebti_android.data.CreateBreakdownRequest(
-                            vehicleId = null,
-                            type = type,
-                            description = description.takeIf { it.isNotBlank() },
-                            latitude = latitude!!,
-                            longitude = longitude!!,
-                            photo = normalizedPhoto
-                        )
+                        try {
+                            val request = com.example.karhebti_android.data.CreateBreakdownRequest(
+                                vehicleId = null,
+                                type = type,
+                                description = description.takeIf { it.isNotBlank() },
+                                latitude = currentLat,
+                                longitude = currentLon,
+                                photo = normalizedPhoto
+                            )
 
-                        lastRequestJson = try { Gson().toJson(request) } catch (_: Exception) { null }
-                        viewModel.declareBreakdown(request)
+                            lastRequestJson = try { Gson().toJson(request) } catch (_: Exception) { null }
+                            Log.d("BreakdownSOSScreen", "Sending SOS: $lastRequestJson")
+                            viewModel.declareBreakdown(request)
+                        } catch (e: Exception) {
+                            Log.e("BreakdownSOSScreen", "Error creating SOS request: ${e.message}", e)
+                            topCoroutineScope.launch {
+                                snackbarHostState.showSnackbar("Erreur lors de l'envoi: ${e.message}")
+                            }
+                        }
                     }
                 ) {
                     Text("Confirmer et envoyer")
@@ -399,7 +449,37 @@ fun BreakdownSOSScreen(
                         tokenPresent = !currentToken.isNullOrBlank(),
                         tokenMasked = tokenMasked,
                         lastRequestJson = lastRequestJson,
-                        lastError = lastError
+                        lastError = lastError,
+                        onRefreshLocation = {
+                            // Rafraîchir la position GPS
+                            Log.d("BreakdownSOSScreen", "🔄 Rafraîchissement de la position GPS...")
+                            currentStep = SOSStep.FETCHING_LOCATION
+                            fetchLocation(
+                                fusedLocationClient = fusedLocationClient,
+                                onLocation = { lat, lon ->
+                                    latitude = lat
+                                    longitude = lon
+                                    locationError = null
+                                    currentStep = SOSStep.SHOWING_MAP
+                                    topCoroutineScope.launch {
+                                        snackbarHostState.showSnackbar("Position mise à jour ✓")
+                                    }
+                                },
+                                onError = { err ->
+                                    locationError = err
+                                    currentStep = SOSStep.GPS_ERROR
+                                }
+                            )
+                        },
+                        onLocationSelected = { lat, lon ->
+                            // L'utilisateur a cliqué/déplacé le marqueur sur la carte
+                            Log.d("BreakdownSOSScreen", "📍 Position sélectionnée sur la carte: $lat, $lon")
+                            latitude = lat
+                            longitude = lon
+                            topCoroutineScope.launch {
+                                snackbarHostState.showSnackbar("Position mise à jour ✓")
+                            }
+                        }
                     )
                 }
             }
@@ -428,17 +508,6 @@ fun BreakdownSOSScreen(
                     }
                 }
             }
-        }
-    }
-
-    LaunchedEffect(uiState) {
-        when (uiState) {
-            is com.example.karhebti_android.viewmodel.BreakdownUiState.Error -> {
-                val msg = (uiState as com.example.karhebti_android.viewmodel.BreakdownUiState.Error).message
-                lastError = msg
-                snackbarHostState.showSnackbar("Erreur : $msg")
-            }
-            else -> {}
         }
     }
 }
@@ -556,7 +625,9 @@ fun SOSFormContent(
     tokenPresent: Boolean,
     tokenMasked: String?,
     lastRequestJson: String?,
-    lastError: String?
+    lastError: String?,
+    onRefreshLocation: () -> Unit = {},  // ← Pour le bouton rafraîchir
+    onLocationSelected: (Double, Double) -> Unit = { _, _ -> }  // ← Pour la carte interactive
 ) {
     val scrollState = rememberScrollState()
     var showValidation by remember { mutableStateOf(false) }
@@ -586,6 +657,36 @@ fun SOSFormContent(
         Spacer(Modifier.height(24.dp))
 
         if (latitude != null && longitude != null) {
+            // Instruction pour l'utilisateur
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.TouchApp,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "Cliquez sur la carte ou déplacez le marqueur pour ajuster votre position",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -593,30 +694,11 @@ fun SOSFormContent(
                 shape = RoundedCornerShape(16.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-                OpenStreetMapView(
+                InteractiveMapView(
                     latitude = latitude,
                     longitude = longitude,
                     zoom = 15.0,
-                    markerTitle = "Votre position"
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    Icons.Default.LocationOn,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    "Lat: ${latitude.format(4)}, Lon: ${longitude.format(4)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    onLocationSelected = onLocationSelected
                 )
             }
         }
@@ -835,24 +917,62 @@ private fun fetchLocation(
     onLocation: (Double, Double) -> Unit,
     onError: (String) -> Unit
 ) {
-    val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000)
-        .setMinUpdateIntervalMillis(2000)
+    // D'abord, essayer d'obtenir la dernière position connue (plus rapide)
+    fusedLocationClient.lastLocation
+        .addOnSuccessListener { location ->
+            if (location != null) {
+                // On a une position récente, l'utiliser
+                Log.d("BreakdownSOSScreen", "✅ Position obtenue (lastLocation): ${location.latitude}, ${location.longitude}")
+                onLocation(location.latitude, location.longitude)
+            } else {
+                // Pas de position récente, demander une mise à jour
+                Log.d("BreakdownSOSScreen", "⚠️ Pas de lastLocation, demande de mise à jour GPS...")
+                requestCurrentLocation(fusedLocationClient, onLocation, onError)
+            }
+        }
+        .addOnFailureListener { exception ->
+            Log.e("BreakdownSOSScreen", "❌ Erreur lastLocation: ${exception.message}")
+            // En cas d'échec, essayer quand même de demander une mise à jour
+            requestCurrentLocation(fusedLocationClient, onLocation, onError)
+        }
+}
+
+@SuppressLint("MissingPermission")
+private fun requestCurrentLocation(
+    fusedLocationClient: FusedLocationProviderClient,
+    onLocation: (Double, Double) -> Unit,
+    onError: (String) -> Unit
+) {
+    val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000)
+        .setMinUpdateIntervalMillis(500)
         .setMaxUpdates(1)
         .build()
 
     val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
             result.lastLocation?.let { location ->
+                Log.d("BreakdownSOSScreen", "✅ Position obtenue (nouvelle): ${location.latitude}, ${location.longitude}")
                 onLocation(location.latitude, location.longitude)
-            } ?: onError("Position introuvable")
+            } ?: run {
+                Log.e("BreakdownSOSScreen", "❌ Aucune position dans le résultat")
+                onError("Position introuvable. Veuillez activer le GPS et réessayer.")
+            }
         }
     }
 
-    fusedLocationClient.requestLocationUpdates(
-        locationRequest,
-        locationCallback,
-        Looper.getMainLooper()
-    )
+    try {
+        fusedLocationClient.requestLocationUpdates(
+            locationRequest,
+            locationCallback,
+            Looper.getMainLooper()
+        )
+    } catch (e: SecurityException) {
+        Log.e("BreakdownSOSScreen", "❌ Erreur permission: ${e.message}")
+        onError("Permission de localisation refusée")
+    } catch (e: Exception) {
+        Log.e("BreakdownSOSScreen", "❌ Erreur requestLocationUpdates: ${e.message}")
+        onError("Erreur lors de la récupération de la position: ${e.message}")
+    }
 }
 
 private fun Double.format(decimals: Int): String {

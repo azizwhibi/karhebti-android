@@ -77,7 +77,7 @@ class BreakdownViewModel(private val repo: BreakdownsRepository) : ViewModel() {
     /**
      * Fetch a single breakdown by ID
      */
-    fun fetchBreakdownById(id: Int) {
+    fun fetchBreakdownById(id: String) {
         _uiState.value = BreakdownUiState.Loading
         viewModelScope.launch {
             repo.getBreakdownById(id).collect { result ->
@@ -92,7 +92,7 @@ class BreakdownViewModel(private val repo: BreakdownsRepository) : ViewModel() {
     /**
      * Update breakdown status (ACCEPTED, REFUSED, IN_PROGRESS, COMPLETED)
      */
-    fun updateBreakdownStatus(id: Int, status: String) {
+    fun updateBreakdownStatus(id: String, status: String) {
         _uiState.value = BreakdownUiState.Loading
         viewModelScope.launch {
             repo.updateBreakdownStatus(id, status).collect { result ->
