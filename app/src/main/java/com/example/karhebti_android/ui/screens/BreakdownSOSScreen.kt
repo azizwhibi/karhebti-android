@@ -94,7 +94,7 @@ fun BreakdownSOSScreen(
                 .build()
 
             val retrofit = Retrofit.Builder()
-                .baseUrl("http://172.18.1.246:3000/")
+                .baseUrl("https://karhebti-backend-supa.onrender.com/")
                 .client(client)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()

@@ -17,9 +17,8 @@ object ApiConfig {
 }
 
 object RetrofitClient {
-    // ✅ URL correcte du backend Node.js (port 3000)
-    // Utilisation de l'IP du serveur backend: 172.18.1.246
-    private const val BASE_URL = "http://172.18.1.246:3000/"
+    // ✅ URL correcte du backend Node.js sur Render
+    private const val BASE_URL = "https://karhebti-backend-supa.onrender.com/"
 
     private var context: Context? = null
     private var tokenManager: TokenManager? = null

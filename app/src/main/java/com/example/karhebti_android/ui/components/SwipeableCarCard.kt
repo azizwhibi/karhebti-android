@@ -32,7 +32,7 @@ private fun getFullImageUrl(imageUrl: String?): String? {
     val fullUrl = if (imageUrl.startsWith("http")) {
         imageUrl
     } else {
-        "http://172.18.1.246:3000${if (imageUrl.startsWith("/")) imageUrl else "/$imageUrl"}"
+        "https://karhebti-backend-supa.onrender.com${if (imageUrl.startsWith("/")) imageUrl else "/$imageUrl"}"
     }
     android.util.Log.d("SwipeableCarCard", "Image URL: $imageUrl -> Full URL: $fullUrl")
     return fullUrl
@@ -107,12 +107,11 @@ fun SwipeableCarCard(
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Car Image
+                // Car Image - Use the helper function to get full URL
                 val imageUrl = remember(car.imageUrl) {
-                    car.imageUrl?.let { url ->
-                        "http://172.18.1.246:3000${if (url.startsWith("/")) url else "/$url"}"
-                    }
+                    getFullImageUrl(car.imageUrl)
                 }
+
                 if (imageUrl != null) {
                     SubcomposeAsyncImage(
                         model = imageUrl,

@@ -26,7 +26,7 @@ class ChatWebSocketClient(
 
     companion object {
         private const val TAG = "ChatWebSocketClient"
-        private const val SERVER_URL = "http://172.18.1.246:3000"  // ✅ IP du serveur backend
+        private const val SERVER_URL = "https://karhebti-backend-supa.onrender.com"  // ✅ URL du serveur backend sur Render
         private const val NAMESPACE = "/chat"
     }
 

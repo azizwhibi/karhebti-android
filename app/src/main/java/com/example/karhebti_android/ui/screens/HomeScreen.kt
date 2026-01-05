@@ -78,7 +78,7 @@ fun HomeScreen(
             .addInterceptor(logging)
             .build()
         retrofit2.Retrofit.Builder()
-            .baseUrl("http://172.18.1.246:3000/")  // ✅ IP du serveur backend
+            .baseUrl("https://karhebti-backend-supa.onrender.com/")  // ✅ URL du serveur backend sur Render
             .client(client)
             .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
             .build()

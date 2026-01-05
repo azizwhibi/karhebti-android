@@ -24,7 +24,6 @@ import com.example.karhebti_android.data.BreakdownResponse
 import com.example.karhebti_android.data.api.RetrofitClient
 import com.example.karhebti_android.repository.BreakdownsRepository
 import com.example.karhebti_android.ui.components.OpenStreetMapView
-import com.example.karhebti_android.ui.components.OpenStreetMapViewMultiple
 import com.example.karhebti_android.ui.theme.*
 import com.example.karhebti_android.viewmodel.BreakdownViewModel
 import com.example.karhebti_android.viewmodel.BreakdownViewModelFactory
@@ -138,29 +137,16 @@ fun BreakdownTrackingScreen(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
-    // Position du garage assigné
-    // Si assignedToDetails existe, utiliser les vraies coordonnées
-    // Sinon, utiliser une position simulée pour la démonstration
-    val garageLatitude = breakdown.assignedToDetails?.latitude ?: run {
-        // Position simulée si le backend ne retourne pas assignedToDetails
-        if (breakdown.assignedTo != null && breakdown.latitude != null) {
-            breakdown.latitude + 0.045 // ~5 km au nord (simulation)
-        } else null
-    }
-
-    val garageLongitude = breakdown.assignedToDetails?.longitude ?: run {
-        if (breakdown.assignedTo != null && breakdown.longitude != null) {
-            breakdown.longitude + 0.020 // légèrement à l'est (simulation)
-        } else null
-    }
+    // Position réelle du garage assigné
+    val garageLatitude = breakdown.assignedToDetails?.latitude
+    val garageLongitude = breakdown.assignedToDetails?.longitude
 
     // Log pour débogage
     LaunchedEffect(breakdown.assignedTo, garageLatitude, garageLongitude) {
         if (breakdown.assignedTo != null) {
             if (garageLatitude != null && garageLongitude != null) {
-                val source = if (breakdown.assignedToDetails != null) "réelles" else "simulées"
                 android.util.Log.d("BreakdownTracking", "Client: ${breakdown.latitude}, ${breakdown.longitude}")
-                android.util.Log.d("BreakdownTracking", "Garage ($source): $garageLatitude, $garageLongitude")
+                android.util.Log.d("BreakdownTracking", "Garage réel: $garageLatitude, $garageLongitude")
             } else {
                 android.util.Log.w("BreakdownTracking", "Position du garage non disponible pour assignedTo=${breakdown.assignedTo}")
             }
@@ -214,23 +200,11 @@ fun BreakdownTrackingScreen(
                 contentAlignment = Alignment.Center
             ) {
                 if (breakdown.latitude != null && breakdown.longitude != null) {
-                    // Utiliser la carte multiple si garage disponible
-                    if (garageLatitude != null && garageLongitude != null) {
-                        OpenStreetMapViewMultiple(
-                            clientLatitude = breakdown.latitude,
-                            clientLongitude = breakdown.longitude,
-                            garageLatitude = garageLatitude,
-                            garageLongitude = garageLongitude,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        // Sinon, afficher seulement la position du client
-                        OpenStreetMapView(
-                            latitude = breakdown.latitude,
-                            longitude = breakdown.longitude,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
+                    OpenStreetMapView(
+                        latitude = breakdown.latitude,
+                        longitude = breakdown.longitude,
+                        modifier = Modifier.fillMaxSize()
+                    )
                 } else {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,

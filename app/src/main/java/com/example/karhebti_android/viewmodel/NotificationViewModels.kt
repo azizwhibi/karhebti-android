@@ -152,29 +152,41 @@ class NotificationViewModel(
     private fun loadNotifications() {
         viewModelScope.launch {
             try {
+                Log.d(TAG, "🔍 START loadNotifications()")
                 _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+                Log.d(TAG, "📊 Current state: isLoading=true, notifications=${_uiState.value.notifications.size}")
 
                 repository.getNotifications().collect { result ->
+                    Log.d(TAG, "📦 Repository result received")
                     result.onSuccess { response ->
+                        Log.d(TAG, "✅ SUCCESS - Received ${response.data.size} notifications")
+                        Log.d(TAG, "📄 Notifications details:")
+                        response.data.forEachIndexed { index, notif ->
+                            Log.d(TAG, "  [$index] ID: ${notif.id}, Title: ${notif.title}, Read: ${notif.isRead}")
+                        }
+
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             notifications = response.data,
                             isEmpty = response.data.isEmpty(),
-                            lastRefresh = System.currentTimeMillis()
+                            lastRefresh = System.currentTimeMillis(),
+                            error = null
                         )
-                        Log.d(TAG, "✅ Notifications loaded: ${response.data.size} items")
+                        Log.d(TAG, "📊 Updated state: isLoading=false, notifications=${response.data.size}, isEmpty=${response.data.isEmpty()}")
                     }
                     result.onFailure { exception ->
+                        Log.e(TAG, "❌ FAILURE - Error: ${exception.message}", exception)
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             error = exception.message ?: "Erreur inconnue",
                             isEmpty = _uiState.value.notifications.isEmpty()
                         )
-                        Log.e(TAG, "❌ Error loading notifications: ${exception.message}", exception)
+                        Log.d(TAG, "📊 Error state: isLoading=false, error=${exception.message}")
                     }
                 }
+                Log.d(TAG, "🔍 END loadNotifications()")
             } catch (e: Exception) {
-                Log.e(TAG, "Exception in loadNotifications: ${e.message}", e)
+                Log.e(TAG, "💥 EXCEPTION in loadNotifications: ${e.message}", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = e.message ?: "Erreur inconnue",

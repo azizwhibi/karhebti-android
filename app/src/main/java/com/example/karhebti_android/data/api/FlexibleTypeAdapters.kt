@@ -1,7 +1,9 @@
 package com.example.karhebti_android.data.api
 
+import android.util.Log
 import com.google.gson.*
 import java.lang.reflect.Type
+import java.util.Date
 
 /**
  * Custom deserializer for user field that can be either a String (ID) or an object
@@ -125,6 +127,60 @@ class FlexibleCarDeserializer : JsonDeserializer<String?> {
 }
 
 /**
+ * Custom deserializer for voiture/car field in DocumentResponse that preserves the full CarResponse object
+ */
+class FlexibleCarResponseDeserializer : JsonDeserializer<CarResponse?> {
+    override fun deserialize(
+        json: JsonElement?,
+        typeOfT: Type?,
+        context: JsonDeserializationContext?
+    ): CarResponse? {
+        if (json == null || json.isJsonNull) {
+            return null
+        }
+
+        return when {
+            json.isJsonPrimitive && json.asJsonPrimitive.isString -> {
+                // If it's just an ID string, we can't create a full CarResponse
+                // Return null - the app should handle this gracefully
+                null
+            }
+            json.isJsonObject -> {
+                // Parse the full car object
+                try {
+                    val obj = json.asJsonObject
+                    val now = Date()
+                    CarResponse(
+                        id = obj.get("_id")?.asString ?: "",
+                        marque = obj.get("marque")?.asString ?: "",
+                        modele = obj.get("modele")?.asString ?: "",
+                        annee = obj.get("annee")?.asInt ?: 0,
+                        immatriculation = obj.get("immatriculation")?.asString ?: "",
+                        typeCarburant = obj.get("typeCarburant")?.asString ?: "",
+                        kilometrage = obj.get("kilometrage")?.asInt,
+                        statut = obj.get("statut")?.asString,
+                        prochainEntretien = obj.get("prochainEntretien")?.asString,
+                        joursProchainEntretien = obj.get("joursProchainEntretien")?.asInt,
+                        imageUrl = obj.get("imageUrl")?.asString,
+                        price = obj.get("price")?.asDouble,
+                        description = obj.get("description")?.asString,
+                        isForSale = obj.get("forSale")?.asBoolean ?: false,
+                        saleStatus = obj.get("saleStatus")?.asString,
+                        user = obj.get("user")?.asString,
+                        createdAt = now,
+                        updatedAt = now
+                    )
+                } catch (e: Exception) {
+                    Log.e("FlexibleCarResponse", "Error parsing CarResponse: ${e.message}")
+                    null
+                }
+            }
+            else -> null
+        }
+    }
+}
+
+/**
  * Custom deserializer for car field that preserves the full MarketplaceCarResponse object
  * Used in ConversationResponse to get full car details
  */
@@ -205,5 +261,37 @@ class FlexibleServiceDeserializer : JsonDeserializer<String?> {
             }
             else -> null
         }
+    }
+}
+
+/**
+ * Custom deserializer for UnreadCountResponse that handles cases where count is an object or int
+ */
+class UnreadCountDeserializer : JsonDeserializer<UnreadCountResponse> {
+    override fun deserialize(
+        json: JsonElement?,
+        typeOfT: Type?,
+        context: JsonDeserializationContext?
+    ): UnreadCountResponse {
+        if (json == null || json.isJsonNull || !json.isJsonObject) {
+            return UnreadCountResponse(0)
+        }
+
+        val obj = json.asJsonObject
+        val countElement = obj.get("count")
+
+        val count = when {
+            countElement == null || countElement.isJsonNull -> 0
+            countElement.isJsonPrimitive && countElement.asJsonPrimitive.isNumber -> {
+                countElement.asInt
+            }
+            countElement.isJsonObject -> {
+                // If count is an object, try to extract a numeric field or return 0
+                0
+            }
+            else -> 0
+        }
+
+        return UnreadCountResponse(count)
     }
 }

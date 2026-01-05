@@ -67,7 +67,9 @@ class NotificationRepository(
 
     fun getNotifications(): Flow<Result<NotificationsResponse>> = flow {
         try {
+            Log.d(TAG, "🔍 START getNotifications()")
             val jwtToken = TokenManager.getInstance(context).getToken()
+            Log.d(TAG, "🔑 JWT Token: ${if (jwtToken.isNullOrEmpty()) "EMPTY/NULL" else "Present (${jwtToken.length} chars)"}")
 
             if (jwtToken.isNullOrEmpty()) {
                 Log.w(TAG, "⚠️ JWT token is empty - user may need to login")
@@ -75,19 +77,26 @@ class NotificationRepository(
                 return@flow
             }
 
-            Log.d(TAG, "Fetching notifications (AuthInterceptor will attach token)")
+            Log.d(TAG, "📡 Calling API: notificationApiService.getNotifications()")
+            Log.d(TAG, "🌐 AuthInterceptor will attach token automatically")
 
             val response = notificationApiService.getNotifications()
+            Log.d(TAG, "📥 API Response received: code=${response.code()}, isSuccessful=${response.isSuccessful}")
 
             when {
                 response.isSuccessful -> {
                     response.body()?.let { body ->
-                        Log.d(
-                            TAG,
-                            "✅ Notifications chargées: ${body.data.size} items, unread: ${body.metadata?.unreadCount ?: 0}"
-                        )
+                        Log.d(TAG, "✅ SUCCESS: ${body.data.size} notifications")
+                        Log.d(TAG, "📊 Unread count: ${body.metadata?.unreadCount ?: 0}")
+                        Log.d(TAG, "📄 Notifications:")
+                        body.data.forEachIndexed { index, notif ->
+                            Log.d(TAG, "  [$index] ${notif.title} - ${notif.body}")
+                        }
                         emit(Result.success(body))
-                    } ?: emit(Result.failure(Exception("Empty response body")))
+                    } ?: run {
+                        Log.e(TAG, "❌ Response body is NULL!")
+                        emit(Result.failure(Exception("Empty response body")))
+                    }
                 }
                 response.code() == 401 -> {
                     Log.e(TAG, "❌ 401 Unauthorized - JWT may be expired")
@@ -106,11 +115,13 @@ class NotificationRepository(
                 else -> {
                     val errorMessage = response.errorBody()?.string() ?: "Unknown error"
                     Log.e(TAG, "❌ API Error ${response.code()}: $errorMessage")
-                    emit(Result.failure(Exception("API Error: ${response.code()}")))
+                    emit(Result.failure(Exception("API Error: ${response.code()} - $errorMessage")))
                 }
             }
+            Log.d(TAG, "🔍 END getNotifications()")
         } catch (e: Exception) {
-            Log.e(TAG, "Exception fetching notifications: ${e.message}", e)
+            Log.e(TAG, "💥 EXCEPTION in getNotifications: ${e.message}", e)
+            e.printStackTrace()
             emit(Result.failure(e))
         }
     }

@@ -127,9 +127,11 @@ class OCRApiService {
 
         // Dates : 
         // 1. Standard : JJ/MM/AAAA (avec divers séparateurs)
-        // 2. Compact YYYYMMDD : 20120222
-        // 3. Compact DDMMYYYY : 22022012
+        // 2. Inversé : AAAA/MM/JJ ou AAAA-MM-JJ (format ISO ou format tunisien carte grise)
+        // 3. Compact YYYYMMDD : 20120222
+        // 4. Compact DDMMYYYY : 22022012
         val datePatternStandard = Regex("""\b(\d{1,2})[-/. ](\d{1,2})[-/. ](\d{2,4})\b""")
+        val datePatternYearFirst = Regex("""\b(19|20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b""") // AAAA/MM/JJ
         val datePatternCompactYearFirst = Regex("""\b(19|20)(\d{2})(\d{2})(\d{2})\b""") // YYYYMMDD
         val datePatternCompactDayFirst = Regex("""\b(\d{2})(\d{2})(19|20)(\d{2})\b""") // DDMMYYYY
 
@@ -186,13 +188,19 @@ class OCRApiService {
         // 4. Extraction Dates
         val extractedDates = mutableListOf<String>()
         
-        // Standard
-        datePatternStandard.findAll(text).forEach { 
+        // Standard JJ/MM/AAAA
+        datePatternStandard.findAll(text).forEach {
             val (day, month, year) = it.destructured
             val fullYear = if (year.length == 2) "20$year" else year
             extractedDates.add("$day/$month/$fullYear")
         }
         
+        // Format AAAA/MM/JJ (ex: 2009/07/24)
+        datePatternYearFirst.findAll(text).forEach {
+            val (year, month, day) = it.destructured
+            extractedDates.add("$day/$month/$year")
+        }
+
         // Compact YYYYMMDD (ex: 20120222)
         datePatternCompactYearFirst.findAll(text).forEach {
             val (century, year, month, day) = it.destructured

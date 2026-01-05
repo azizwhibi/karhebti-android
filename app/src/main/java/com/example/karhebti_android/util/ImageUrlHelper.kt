@@ -5,7 +5,7 @@ package com.example.karhebti_android.util
  */
 object ImageUrlHelper {
     // Base URL should match your backend
-    private const val BASE_URL = "http://172.18.1.246:3000"
+    private const val BASE_URL = "https://karhebti-backend-supa.onrender.com"
 
     /**
      * Convert relative image path to absolute URL

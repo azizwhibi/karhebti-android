@@ -984,13 +984,47 @@ class DocumentRepository(private val apiService: KarhebtiApiService = RetrofitCl
 
     suspend fun getDocumentById(id: String): Resource<DocumentResponse> = withContext(Dispatchers.IO) {
         try {
+            android.util.Log.d("DocumentRepository", "Fetching document with ID: $id")
             val response = apiService.getDocument(id)
+            android.util.Log.d("DocumentRepository", "Response code: ${response.code()}")
+
             if (response.isSuccessful && response.body() != null) {
+                android.util.Log.d("DocumentRepository", "Document retrieved successfully")
                 Resource.Success(response.body()!!)
             } else {
-                Resource.Error("Erreur lors de la récupération du document")
+                val errorBody = response.errorBody()?.string()
+                android.util.Log.e("DocumentRepository", "Error body: $errorBody")
+                android.util.Log.e("DocumentRepository", "⚠️ ERREUR 500 DÉTECTÉE - Probablement un document corrompu!")
+
+                // Pour les erreurs 500, on assume que c'est un problème de données corrompues
+                // car c'est le cas le plus fréquent dans cette application
+                val errorMessage = when {
+                    response.code() == 500 -> {
+                        """
+                        ⚠️ Ce document contient probablement des données corrompues.
+                        
+                        Le backend ne peut pas charger ce document. Cela arrive généralement quand le champ "voiture" contient une structure invalide au lieu d'un simple ID.
+                        
+                        Solutions possibles :
+                        • Supprimer ce document (recommandé)
+                        • Contacter l'administrateur pour réparer la base de données
+                        • Vérifier les logs du backend pour plus de détails
+                        
+                        ID du document : $id
+                        Erreur technique : ${errorBody ?: "Internal Server Error"}
+                        """.trimIndent()
+                    }
+                    response.code() == 404 -> "Document introuvable. L'ID '$id' n'existe pas dans la base de données."
+                    response.code() == 401 -> "Session expirée. Veuillez vous reconnecter."
+                    response.code() == 403 -> "Accès refusé. Vous n'avez pas les permissions nécessaires."
+                    response.code() == 503 -> "Service temporairement indisponible. Le serveur est peut-être en maintenance."
+                    else -> "Erreur ${response.code()}: ${errorBody ?: "Erreur lors de la récupération du document"}"
+                }
+
+                Resource.Error(errorMessage)
             }
         } catch (e: Exception) {
+            android.util.Log.e("DocumentRepository", "Exception: ${e.message}", e)
             Resource.Error("Erreur réseau: ${e.message}")
         }
     }

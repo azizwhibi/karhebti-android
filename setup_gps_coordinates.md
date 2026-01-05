@@ -294,4 +294,3 @@ Si les coordonnées ne s'affichent pas :
 2. Vérifiez le type : doit être `Number`, pas `String`
 3. Re-exécutez la commande update
 4. Redémarrez le backend pour rafraîchir le cache
-

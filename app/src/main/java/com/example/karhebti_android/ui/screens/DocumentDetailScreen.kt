@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -24,10 +25,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 fun fixEmulatorImageUrl(url: String?): String? {
-    if (url == null) return null
+    // Pas besoin de remplacer localhost pour Render
     return url
-        .replace("http://localhost", "http://10.0.2.2")
-        .replace("http://127.0.0.1", "http://10.0.2.2")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -102,7 +101,7 @@ fun DocumentDetailScreen(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        val baseUrl = "http://10.0.2.2:3000"
+                        val baseUrl = "https://karhebti-backend-supa.onrender.com"
                         val imageUrl = when {
                             document.fichier.isBlank() -> null
                             document.fichier.startsWith("http://") || document.fichier.startsWith("https://") -> document.fichier
@@ -346,22 +345,138 @@ fun DocumentDetailScreen(
                 }
             }
             is Resource.Error -> {
+                val errorMessage = resource.message ?: "Une erreur est survenue"
+                // Détecter si c'est une erreur liée à des données corrompues
+                val isCorruptedData = errorMessage.contains("données corrompues", ignoreCase = true) ||
+                                     errorMessage.contains("structure invalide", ignoreCase = true) ||
+                                     errorMessage.contains("champ \"voiture\"", ignoreCase = true) ||
+                                     errorMessage.contains("Erreur 500", ignoreCase = true) ||
+                                     errorMessage.contains("Internal server error", ignoreCase = true)
+
                 Box(
                     modifier = Modifier.fillMaxSize().padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .padding(24.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
                         Icon(
-                            Icons.Default.Error,
+                            if (isCorruptedData) Icons.Default.WarningAmber else Icons.Default.Error,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(48.dp)
+                            tint = if (isCorruptedData) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(64.dp)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            resource.message ?: "Erreur lors du chargement",
-                            color = MaterialTheme.colorScheme.error
+                            if (isCorruptedData) "Document Corrompu" else "Erreur lors du chargement",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isCorruptedData) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
                         )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isCorruptedData)
+                                    MaterialTheme.colorScheme.tertiaryContainer
+                                else
+                                    MaterialTheme.colorScheme.errorContainer
+                            )
+                        ) {
+                            Text(
+                                errorMessage,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Document ID: $documentId",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        if (isCorruptedData) {
+                            // Bouton de suppression pour les documents corrompus
+                            var showDeleteConfirm by remember { mutableStateOf(false) }
+
+                            Button(
+                                onClick = { showDeleteConfirm = true },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Supprimer ce document")
+                            }
+
+                            if (showDeleteConfirm) {
+                                AlertDialog(
+                                    onDismissRequest = { showDeleteConfirm = false },
+                                    icon = {
+                                        Icon(Icons.Default.Warning, contentDescription = null)
+                                    },
+                                    title = {
+                                        Text("Confirmer la suppression")
+                                    },
+                                    text = {
+                                        Text("Êtes-vous sûr de vouloir supprimer ce document corrompu ? Cette action est irréversible.")
+                                    },
+                                    confirmButton = {
+                                        Button(
+                                            onClick = {
+                                                documentViewModel.deleteDocument(documentId)
+                                                showDeleteConfirm = false
+                                                onBackClick()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.error
+                                            )
+                                        ) {
+                                            Text("Supprimer")
+                                        }
+                                    },
+                                    dismissButton = {
+                                        OutlinedButton(onClick = { showDeleteConfirm = false }) {
+                                            Text("Annuler")
+                                        }
+                                    }
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                        } else {
+                            Button(
+                                onClick = {
+                                    documentViewModel.getDocumentById(documentId)
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Réessayer")
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
+                        OutlinedButton(
+                            onClick = onBackClick,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Retour à la liste")
+                        }
                     }
                 }
             }

@@ -34,7 +34,7 @@ private fun getFullImageUrl(imageUrl: String?): String? {
     return if (imageUrl.startsWith("http")) {
         imageUrl
     } else {
-        "http://172.18.1.246:3000${if (imageUrl.startsWith("/")) imageUrl else "/$imageUrl"}"
+        "https://karhebti-backend-supa.onrender.com${if (imageUrl.startsWith("/")) imageUrl else "/$imageUrl"}"
     }
 }
 

@@ -448,12 +448,20 @@ fun OCRDocumentScanScreen(
                                     Toast.makeText(context, "Veuillez sélectionner la date d'expiration", Toast.LENGTH_SHORT).show()
                                 }
                                 else -> {
-                                    // Si c'est une carte grise, on met une date d'expiration lointaine ou vide selon le backend
-                                    // Ici on met null ou une date par défaut si le backend l'exige
+                                    // Mapper les types vers les valeurs acceptées par le backend
+                                    val backendType = when (extractedType) {
+                                        "Carte Grise" -> "carte grise"
+                                        "Assurance" -> "assurance"
+                                        "Contrôle Technique" -> "contrôle technique"
+                                        "Permis de Conduire" -> "permis de conduire"
+                                        "Vignette" -> "vignette"
+                                        else -> extractedType.lowercase()
+                                    }
+
+                                    // Si c'est une carte grise, on met une date d'expiration lointaine
+                                    // car le backend requiert ce champ même si la carte grise n'expire pas
                                     val expirationDateStr = if (extractedType == "Carte Grise") {
-                                        // 50 ans plus tard par défaut ou vide ? 
-                                        // Le backend attend probablement une date valide si le champ est requis.
-                                        // Mettons une date lointaine pour éviter les erreurs 400
+                                        // 50 ans plus tard par défaut
                                         val cal = Calendar.getInstance()
                                         cal.add(Calendar.YEAR, 50)
                                         sdfIso.format(cal.time)
@@ -462,7 +470,7 @@ fun OCRDocumentScanScreen(
                                     }
 
                                     val request = CreateDocumentRequest(
-                                        type = extractedType.lowercase().replace(" ", "_"), // Normaliser pour le backend
+                                        type = backendType,
                                         dateEmission = sdfIso.format(extractedDateEmission!!.time),
                                         dateExpiration = expirationDateStr,
                                         fichier = selectedFilePaths.joinToString(","),

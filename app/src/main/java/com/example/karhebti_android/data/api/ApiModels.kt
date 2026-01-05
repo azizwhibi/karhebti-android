@@ -630,6 +630,7 @@ data class SendMessageRequest(
 )
 
 // Unread count
+@JsonAdapter(UnreadCountDeserializer::class)
 data class UnreadCountResponse(
     val count: Int
 )
