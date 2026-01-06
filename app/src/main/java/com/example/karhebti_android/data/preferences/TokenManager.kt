@@ -2,12 +2,17 @@ package com.example.karhebti_android.data.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Base64
 import com.example.karhebti_android.data.api.RetrofitClient
 import com.google.gson.Gson
+import org.json.JSONObject
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 
 class TokenManager(context: Context) {
+    private val appContext: Context = context.applicationContext
     private val prefs: SharedPreferences =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private val gson = Gson()
 
@@ -27,12 +32,35 @@ class TokenManager(context: Context) {
     }
 
     fun saveToken(token: String) {
+        android.util.Log.d("TokenManager", "Saving token: $token")
         prefs.edit().putString(KEY_TOKEN, token).apply()
+        android.util.Log.d("TokenManager", "Token saved. Verifying: ${getToken()}")
         RetrofitClient.setAuthToken(token)
+        // Also attempt to save into EncryptedSharedPreferences under "jwt_token" so
+        // other readers (AuthInterceptor / readAnyToken) can find it.
+        try {
+            val masterKey = MasterKey.Builder(appContext)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+
+            val encryptedPrefs = EncryptedSharedPreferences.create(
+                appContext,
+                "secret_shared_prefs",
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+            encryptedPrefs.edit().putString("jwt_token", token).apply()
+        } catch (e: Exception) {
+            // Not fatal: some devices/emulator configs might not support encrypted prefs at runtime
+            android.util.Log.w("TokenManager", "Could not write to EncryptedSharedPreferences: ${e.message}")
+        }
     }
 
     fun getToken(): String? {
-        return prefs.getString(KEY_TOKEN, null)
+        val token = prefs.getString(KEY_TOKEN, null)
+        android.util.Log.d("TokenManager", "Getting token: ${if (token != null) "Found (length: ${token.length})" else "NULL"}")
+        return token
     }
 
     fun saveUser(user: UserData) {
@@ -69,14 +97,34 @@ class TokenManager(context: Context) {
             RetrofitClient.setAuthToken(token)
         }
     }
+
+    // Extract user ID from JWT token
+    fun getUserIdFromToken(token: String): String? {
+        return try {
+            val splitToken = token.split(".")
+            if (splitToken.size > 1) {
+                val payload = String(Base64.decode(splitToken[1], Base64.DEFAULT))
+                val jsonObject = JSONObject(payload)
+                jsonObject.getString("sub")
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    // Get current user ID
+    fun getUserId(): String? {
+        return getUser()?.id ?: (getToken()?.let { getUserIdFromToken(it) })
+    }
 }
 
 data class UserData(
-    val id: String,
+    val id: String?, // Changed to nullable to match backend response
     val email: String,
     val nom: String,
     val prenom: String,
     val role: String,
     val telephone: String? = null
 )
-

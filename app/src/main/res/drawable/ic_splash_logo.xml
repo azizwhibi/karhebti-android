@@ -1,0 +1,24 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+
+    <!-- Letter K - Centered and Larger -->
+    <!-- Vertical bar of K -->
+    <path android:fillColor="#FFE0E0E0"
+        android:pathData="M35,20 h15 v80 h-15 Z" />
+
+    <!-- Upper diagonal of K -->
+    <path android:fillColor="#FFE0E0E0"
+        android:pathData="M50,60 L85,20 L100,20 L100,30 L65,60 Z" />
+
+    <!-- Lower diagonal of K -->
+    <path android:fillColor="#FFE0E0E0"
+        android:pathData="M50,60 L65,60 L100,90 L100,100 L85,100 Z" />
+</vector>
+
+
+
+
+

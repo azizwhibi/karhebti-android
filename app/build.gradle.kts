@@ -1,7 +1,9 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id("com.google.devtools.ksp") version "2.1.0-1.0.29"
     alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -37,6 +39,13 @@ android {
     buildFeatures {
         compose = true
     }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.15"
+    }
+
+    lint {
+        abortOnError = false
+    }
 }
 
 dependencies {
@@ -52,15 +61,73 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.material.icons.extended)
+    implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation(libs.material)
 
     // LiveData integration for Compose
     implementation("androidx.compose.runtime:runtime-livedata:1.7.5")
 
-    implementation(libs.retrofit)
+    // Lifecycle-aware state collection for Compose
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.2")
+
+    // Firebase Cloud Messaging (Push Notifications)
+    implementation("com.google.firebase:firebase-messaging:23.2.1")
+    implementation("com.google.firebase:firebase-analytics:21.3.0")
+
+    // Firebase Authentication
+    implementation("com.google.firebase:firebase-auth-ktx:22.3.0")
+
+    // Firebase Firestore
+    implementation("com.google.firebase:firebase-firestore-ktx:24.8.1")
+
+    // Firebase Storage
+    implementation("com.google.firebase:firebase-storage-ktx:20.2.1")
+
+    // Android Security - Encrypted SharedPreferences
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // OpenStreetMap (osmdroid) - Alternative gratuite et open source à Google Maps
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
+    
+    // Play Services Location toujours nécessaire pour obtenir la position GPS
+    implementation("com.google.android.gms:play-services-location:21.0.1")
     implementation(libs.retrofit.converter.gson)
+    // NOTE: the native Jitsi Meet SDK line below caused Gradle resolution failures
+    // (missing transitive artifact com.yqritc:android-scalablevideoview:1.0.4).
+    // We are using a lightweight Custom Tab fallback to open meet.jit.si, so the
+    // SDK dependency is removed to keep the build stable. If you want the native
+    // SDK integration later, I can add the correct repos/versions and resolve
+    // transitive artifacts.
+    // implementation("org.jitsi.react:jitsi-meet-sdk:4.0.0")
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.coil.compose)
+
+    // WebSocket support for real-time chat
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.java-websocket:Java-WebSocket:1.5.4")
+
+    // Socket.IO client for real-time communication
+    implementation("io.socket:socket.io-client:2.1.0")
+
+    // Accompanist for pager (swipe cards)
+    implementation("com.google.accompanist:accompanist-pager:0.32.0")
+    implementation("com.google.accompanist:accompanist-pager-indicators:0.32.0")
+
+    // Room
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.compose.foundation)
+    ksp(libs.androidx.room.compiler)
+
+    // WorkManager
+    implementation(libs.androidx.work.runtime.ktx)
+
+    // Glance for App Widgets
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
+
+    // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -2,8 +2,8 @@ package com.example.karhebti_android.data.model
 
 data class Garage(
     val id: String,
-    val name: String,
-    val address: String,
+    val nom: String,
+    val adresse: String,
     val latitude: Double,
     val longitude: Double,
     val distance: Double, // in km
@@ -26,4 +26,3 @@ enum class GarageService {
     CLIMATISATION,
     CARROSSERIE
 }
-

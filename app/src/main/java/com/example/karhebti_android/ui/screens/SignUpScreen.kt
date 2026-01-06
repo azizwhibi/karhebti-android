@@ -16,65 +16,66 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.karhebti_android.data.repository.Resource
-import com.example.karhebti_android.ui.theme.*
+import com.example.karhebti_android.data.api.SignupData
+import com.example.karhebti_android.viewmodel.AuthUiState
 import com.example.karhebti_android.viewmodel.AuthViewModel
 import com.example.karhebti_android.viewmodel.ViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignUpScreen(
+    onSignupInitiated: (SignupData) -> Unit = {},
     onSignUpSuccess: () -> Unit = {},
-    onLoginClick: () -> Unit = {}
+    onLoginClick: () -> Unit = {},
+    onBackClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val authViewModel: AuthViewModel = viewModel(
         factory = ViewModelFactory(context.applicationContext as android.app.Application)
     )
 
-    var name by remember { mutableStateOf("") }
+    var nom by remember { mutableStateOf("") }
+    var prenom by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
+    var telephone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
-    var telephone by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
 
-    // Validation states
-    var nameError by remember { mutableStateOf<String?>(null) }
+    var nomError by remember { mutableStateOf<String?>(null) }
+    var prenomError by remember { mutableStateOf<String?>(null) }
     var emailError by remember { mutableStateOf<String?>(null) }
+    var telephoneError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
     var confirmPasswordError by remember { mutableStateOf<String?>(null) }
 
-    // Observe auth state
-    val authState by authViewModel.authState.observeAsState()
+    val authState by authViewModel.authState.observeAsState(AuthUiState.Idle)
 
-    // Handle auth response
     LaunchedEffect(authState) {
         when (authState) {
-            is Resource.Success -> {
-                onSignUpSuccess()
-            }
+            is AuthUiState.Success -> onSignUpSuccess()
             else -> {}
         }
     }
 
-    // Validation functions
-    fun validateName(): Boolean {
-        nameError = when {
-            name.isBlank() -> "Le nom est requis"
-            name.length < 2 -> "Le nom doit contenir au moins 2 caractères"
-            else -> null
-        }
-        return nameError == null
+    // When signup is initiated we simply emit the pending signup data to the caller
+    // The caller will start the email verification flow before creating the account.
+    fun validateNom(): Boolean {
+        nomError = if (nom.isBlank()) "Le nom est requis" else null
+        return nomError == null
+    }
+
+    fun validatePrenom(): Boolean {
+        prenomError = if (prenom.isBlank()) "Le prénom est requis" else null
+        return prenomError == null
     }
 
     fun validateEmail(): Boolean {
@@ -86,10 +87,19 @@ fun SignUpScreen(
         return emailError == null
     }
 
+    fun validateTelephone(): Boolean {
+        telephoneError = when {
+            telephone.isBlank() -> "Le téléphone est requis"
+            telephone.length < 8 -> "Numéro invalide"
+            else -> null
+        }
+        return telephoneError == null
+    }
+
     fun validatePassword(): Boolean {
         passwordError = when {
             password.isBlank() -> "Le mot de passe est requis"
-            password.length < 6 -> "Le mot de passe doit contenir au moins 6 caractères"
+            password.length < 6 -> "Au moins 6 caractères"
             else -> null
         }
         return passwordError == null
@@ -97,7 +107,7 @@ fun SignUpScreen(
 
     fun validateConfirmPassword(): Boolean {
         confirmPasswordError = when {
-            confirmPassword.isBlank() -> "Veuillez confirmer le mot de passe"
+            confirmPassword.isBlank() -> "Confirmez le mot de passe"
             confirmPassword != password -> "Les mots de passe ne correspondent pas"
             else -> null
         }
@@ -105,280 +115,284 @@ fun SignUpScreen(
     }
 
     fun validateAll(): Boolean {
-        val isNameValid = validateName()
-        val isEmailValid = validateEmail()
-        val isPasswordValid = validatePassword()
-        val isConfirmPasswordValid = validateConfirmPassword()
-        return isNameValid && isEmailValid && isPasswordValid && isConfirmPasswordValid
+        val validations = listOf(
+            validateNom(),
+            validatePrenom(),
+            validateEmail(),
+            validateTelephone(),
+            validatePassword(),
+            validateConfirmPassword()
+        )
+        return validations.all { it }
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
-
-    // Show error message
     LaunchedEffect(authState) {
-        if (authState is Resource.Error) {
+        if (authState is AuthUiState.Error) {
             snackbarHostState.showSnackbar(
-                message = (authState as Resource.Error).message ?: "Erreur d'inscription",
+                message = (authState as AuthUiState.Error).message ?: "Erreur d'inscription",
                 duration = SnackbarDuration.Short
             )
         }
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Créer un compte") },
+                title = { Text("Inscription") },
                 navigationIcon = {
-                    IconButton(onClick = onLoginClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour")
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Retour",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SoftWhite
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(SoftWhite)
+                .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Name TextField
-            OutlinedTextField(
-                value = name,
-                onValueChange = {
-                    name = it
-                    if (nameError != null) validateName()
-                },
-                label = { Text("Nom complet") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = InputBackground,
-                    focusedContainerColor = Color.White,
-                    unfocusedBorderColor = if (nameError != null) AlertRed else InputBorder,
-                    focusedBorderColor = if (nameError != null) AlertRed else InputBorderFocused,
-                    unfocusedTextColor = InputText,
-                    focusedTextColor = InputText,
-                    cursorColor = DeepPurple,
-                    unfocusedLabelColor = if (nameError != null) AlertRed else TextSecondary,
-                    focusedLabelColor = if (nameError != null) AlertRed else DeepPurple,
-                    errorBorderColor = AlertRed,
-                    errorLabelColor = AlertRed
-                ),
-                isError = nameError != null,
-                supportingText = nameError?.let { { Text(it, color = AlertRed) } },
-                singleLine = true,
-                enabled = authState !is Resource.Loading
-            )
-
-            // Email TextField
-            OutlinedTextField(
-                value = email,
-                onValueChange = {
-                    email = it.trim()
-                    if (emailError != null) validateEmail()
-                },
-                label = { Text("Email") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = InputBackground,
-                    focusedContainerColor = Color.White,
-                    unfocusedBorderColor = if (emailError != null) AlertRed else InputBorder,
-                    focusedBorderColor = if (emailError != null) AlertRed else InputBorderFocused,
-                    unfocusedTextColor = InputText,
-                    focusedTextColor = InputText,
-                    cursorColor = DeepPurple,
-                    unfocusedLabelColor = if (emailError != null) AlertRed else TextSecondary,
-                    focusedLabelColor = if (emailError != null) AlertRed else DeepPurple,
-                    errorBorderColor = AlertRed,
-                    errorLabelColor = AlertRed
-                ),
-                isError = emailError != null,
-                supportingText = emailError?.let { { Text(it, color = AlertRed) } },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                singleLine = true,
-                enabled = authState !is Resource.Loading
-            )
-
-            // Telephone TextField (Optional)
-            OutlinedTextField(
-                value = telephone,
-                onValueChange = { telephone = it },
-                label = { Text("Téléphone (optionnel)") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = InputBackground,
-                    focusedContainerColor = Color.White,
-                    unfocusedBorderColor = InputBorder,
-                    focusedBorderColor = InputBorderFocused,
-                    unfocusedTextColor = InputText,
-                    focusedTextColor = InputText,
-                    cursorColor = DeepPurple,
-                    unfocusedLabelColor = TextSecondary,
-                    focusedLabelColor = DeepPurple
-                ),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                singleLine = true,
-                enabled = authState !is Resource.Loading
-            )
-
-            // Password TextField
-            OutlinedTextField(
-                value = password,
-                onValueChange = {
-                    password = it
-                    if (passwordError != null) validatePassword()
-                    if (confirmPassword.isNotEmpty()) validateConfirmPassword()
-                },
-                label = { Text("Mot de passe") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = InputBackground,
-                    focusedContainerColor = Color.White,
-                    unfocusedBorderColor = if (passwordError != null) AlertRed else InputBorder,
-                    focusedBorderColor = if (passwordError != null) AlertRed else InputBorderFocused,
-                    unfocusedTextColor = InputText,
-                    focusedTextColor = InputText,
-                    cursorColor = DeepPurple,
-                    unfocusedLabelColor = if (passwordError != null) AlertRed else TextSecondary,
-                    focusedLabelColor = if (passwordError != null) AlertRed else DeepPurple,
-                    errorBorderColor = AlertRed,
-                    errorLabelColor = AlertRed
-                ),
-                isError = passwordError != null,
-                supportingText = passwordError?.let { { Text(it, color = AlertRed) } }
-                    ?: { Text("Au moins 6 caractères", color = TextSecondary) },
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                            contentDescription = if (passwordVisible) "Cacher" else "Afficher",
-                            tint = TextSecondary
-                        )
-                    }
-                },
-                singleLine = true,
-                enabled = authState !is Resource.Loading
-            )
-
-            // Confirm Password TextField
-            OutlinedTextField(
-                value = confirmPassword,
-                onValueChange = {
-                    confirmPassword = it
-                    if (confirmPasswordError != null) validateConfirmPassword()
-                },
-                label = { Text("Confirmer mot de passe") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = InputBackground,
-                    focusedContainerColor = Color.White,
-                    unfocusedBorderColor = if (confirmPasswordError != null) AlertRed else InputBorder,
-                    focusedBorderColor = if (confirmPasswordError != null) AlertRed else InputBorderFocused,
-                    unfocusedTextColor = InputText,
-                    focusedTextColor = InputText,
-                    cursorColor = DeepPurple,
-                    unfocusedLabelColor = if (confirmPasswordError != null) AlertRed else TextSecondary,
-                    focusedLabelColor = if (confirmPasswordError != null) AlertRed else DeepPurple,
-                    errorBorderColor = AlertRed,
-                    errorLabelColor = AlertRed
-                ),
-                isError = confirmPasswordError != null,
-                supportingText = confirmPasswordError?.let { { Text(it, color = AlertRed) } },
-                visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                trailingIcon = {
-                    IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
-                        Icon(
-                            imageVector = if (confirmPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                            contentDescription = if (confirmPasswordVisible) "Cacher" else "Afficher",
-                            tint = TextSecondary
-                        )
-                    }
-                },
-                singleLine = true,
-                enabled = authState !is Resource.Loading
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Sign Up Button
-            Button(
-                onClick = {
-                    if (validateAll()) {
-                        // Split name into nom and prenom (simple split by space)
-                        val nameParts = name.trim().split(" ", limit = 2)
-                        val nom = nameParts.getOrNull(0) ?: ""
-                        val prenom = nameParts.getOrNull(1) ?: nameParts.getOrNull(0) ?: ""
-
-                        authViewModel.signup(nom, prenom, email, password, telephone)
-                    }
-                },
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(24.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = DeepPurple
-                ),
-                enabled = authState !is Resource.Loading
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                if (authState is Resource.Loading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                } else {
+                Text(
+                    text = "Créer un compte",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    textAlign = TextAlign.Center
+                )
+
+                OutlinedTextField(
+                    value = nom,
+                    onValueChange = {
+                        nom = it
+                        if (nomError != null) validateNom()
+                    },
+                    label = { Text("Nom") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedBorderColor = if (nomError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                        focusedBorderColor = if (nomError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        cursorColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = if (nomError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedLabelColor = if (nomError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    ),
+                    isError = nomError != null,
+                    supportingText = nomError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                    singleLine = true,
+                    enabled = authState !is AuthUiState.Loading
+                )
+
+                OutlinedTextField(
+                    value = prenom,
+                    onValueChange = {
+                        prenom = it
+                        if (prenomError != null) validatePrenom()
+                    },
+                    label = { Text("Prénom") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedBorderColor = if (prenomError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                        focusedBorderColor = if (prenomError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        cursorColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = if (prenomError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedLabelColor = if (prenomError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    ),
+                    isError = prenomError != null,
+                    supportingText = prenomError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                    singleLine = true,
+                    enabled = authState !is AuthUiState.Loading
+                )
+
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = {
+                        email = it.trim()
+                        if (emailError != null) validateEmail()
+                    },
+                    label = { Text("Email") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedBorderColor = if (emailError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                        focusedBorderColor = if (emailError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        cursorColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = if (emailError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedLabelColor = if (emailError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    ),
+                    isError = emailError != null,
+                    supportingText = emailError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    singleLine = true,
+                    enabled = authState !is AuthUiState.Loading
+                )
+
+                OutlinedTextField(
+                    value = telephone,
+                    onValueChange = {
+                        telephone = it.filter { c -> c.isDigit() }
+                        if (telephoneError != null) validateTelephone()
+                    },
+                    label = { Text("Téléphone") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedBorderColor = if (telephoneError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                        focusedBorderColor = if (telephoneError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        cursorColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = if (telephoneError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedLabelColor = if (telephoneError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    ),
+                    isError = telephoneError != null,
+                    supportingText = telephoneError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    singleLine = true,
+                    enabled = authState !is AuthUiState.Loading
+                )
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = {
+                        password = it
+                        if (passwordError != null) validatePassword()
+                    },
+                    label = { Text("Mot de passe") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedBorderColor = if (passwordError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                        focusedBorderColor = if (passwordError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        cursorColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = if (passwordError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedLabelColor = if (passwordError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    ),
+                    isError = passwordError != null,
+                    supportingText = passwordError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                contentDescription = if (passwordVisible) "Cacher" else "Afficher",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    singleLine = true,
+                    enabled = authState !is AuthUiState.Loading
+                )
+
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = {
+                        confirmPassword = it
+                        if (confirmPasswordError != null) validateConfirmPassword()
+                    },
+                    label = { Text("Confirmer le mot de passe") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedBorderColor = if (confirmPasswordError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                        focusedBorderColor = if (confirmPasswordError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        cursorColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = if (confirmPasswordError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedLabelColor = if (confirmPasswordError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    ),
+                    isError = confirmPasswordError != null,
+                    supportingText = confirmPasswordError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                    visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    trailingIcon = {
+                        IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                            Icon(
+                                imageVector = if (confirmPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                contentDescription = if (confirmPasswordVisible) "Cacher" else "Afficher",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    singleLine = true,
+                    enabled = authState !is AuthUiState.Loading
+                )
+
+                Button(
+                    onClick = {
+                        if (validateAll()) {
+                            onSignupInitiated(SignupData(nom = nom, prenom = prenom, email = email, telephone = telephone, password = password))
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    enabled = authState !is AuthUiState.Loading
+                ) {
+                    if (authState is AuthUiState.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = "S'inscrire",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
                     Text(
-                        text = "S'inscrire",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White
+                        text = "Déjà membre ? ",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Connexion",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable { onLoginClick() }
                     )
                 }
             }
-
-            // Login Link
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(top = 8.dp)
-            ) {
-                Text(
-                    text = "Déjà membre ? ",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
-                )
-                Text(
-                    text = "Connexion",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = DeepPurple,
-                    modifier = Modifier.clickable { onLoginClick() }
-                )
-            }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun SignUpScreenPreview() {
-    KarhebtiandroidTheme {
-        SignUpScreen()
     }
 }
